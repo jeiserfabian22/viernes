@@ -1,199 +1,1004 @@
 {% extends 'plantilla/base.html' %}
 {% block main %}
 <main id="main" class="main">
-  
-  <div class="pagetitle">
-    <h1>Compras</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-        <li class="breadcrumb-item active">Compras</li>
-      </ol>
-    </nav>
-  </div><!-- End Page Title -->
-  
-  <section class="section dashboard">
-    <div class="row">
-      <div class="col-lg-12"> 
-          <div class="card">
-              <div class="card-body">
-                  <h5 class="card-title">Compras</h5> 
-                  <a type="submit" id="btnEditar" class="btn btn-success" href="{% url 'agregarCompras' %}">
-                  Agregar compra
-                  </a> 
-                  <a type="submit" id="btnEditar" class="btn btn-primary" href="{% url 'export_compras_to_excel' %}">
-                    Exportar todo los datos a excel 
-                  </a> 
-                   
-                  <h3><strong>Buscar entre fechas: </strong></h3>
-                  <div class="d-flex align-items-center">
-                    <div class="me-2">
-                      <input type="date" id="fechaInicio" class="form-control">
-                    </div>
-                    <div class="me-2">
-                      <input type="date" id="fechaFin" class="form-control">
-                    </div>
-                    <button class="btn btn-dark" id="filtrar">Filtrar</button>
-                  </div>
-                  
 
-                  <!-- Table with stripped rows -->
-                  <table class="table datatable">
-                      <thead>
-                          <tr>
-                              <th scope="col">#</th>
-                              <th scope="col">Documento</th>
-                              <th scope="col">Proveedor</th>
-                              <th scope="col">Total</th>
-                              <th scope="col">Fecha</th>
-                              <th scope="col">Acciones</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                            {% for resultado in resultados %}
-                              
-                              <tr class="registro">
-                                <td>{{ forloop.counter }}</td>
-                                <td>{{ resultado.numcorrelativo }}</td>
-                                <td>{{ resultado.idproveedor__razonsocial }}</td>
-                                <td> {{ resultado.total }} </td>
-                                <td class="fechaCompra">{{  resultado.fechacompra}}</td>
-                                <td>
-                                  <a type="submit" href="{% url 'editarCompras' id=resultado.idcompra %}" class="btn " >
-                                    
-                                     <i class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;">
-                                     </i>
-                                  </a>
-                                  
-                                  <a href="{% url 'eliminarCompras' id=resultado.idcompra%}" class="eliminar" onclick="return confirmarEliminar('{{ resultado.idcompra }}', this)">
-                                    <i class="fa-solid fa-trash fa-2xl" style="color: #f71b02;"></i>
-                                  </a>
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">Compras</h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarCompra">
+      <i class="fa-solid fa-circle-plus me-2"></i>Registrar Compra
+    </button>
+  </div>
 
-                                </td> 
-                              </tr>
-                            {% endfor %}
-                         
-                        
-                      </tbody>
-                  </table>
-                  <!-- End Table with stripped rows -->
-                  
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Compras</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de compras</h5>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Correlativo</th>
+                <th scope="col">Proveedor</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Total</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in compras_registros %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td>{{ c.numcorrelativo }}</td>
+                <td>{{ c.idproveedor.razonsocial }}</td>
+                <td>{{ c.fechacompra|date:"d/m/Y" }}</td>
+                <td><span class="badge bg-success">S/. {{ c.total_compra }}</span></td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-light border shadow-sm"
+                          data-bs-toggle="modal" data-bs-target="#detalleModal{{ c.idcompra }}">
+                    <i class="fa-solid fa-eye text-info"></i>
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Modales de detalle -->
+        {% for c in compras_registros %} 
+        <div class="modal fade" id="detalleModal{{ c.idcompra }}" tabindex="-1">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-3 shadow-lg">
+              <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">Detalles de Compra {{ c.numcorrelativo }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
               </div>
+              <div class="modal-body">
+                <p><b>Proveedor:</b> {{ c.idproveedor.razonsocial }}</p>
+                <p><b>Fecha:</b> {{ c.fechacompra|date:"d/m/Y" }}</p>
+                <table class="table table-bordered table-sm">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Detalle</th>
+                      <th>Cantidad</th>
+                      <th>Compra</th>
+                      <th>Venta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for d in c.compradetalle_set.all %}
+                    <tr>
+                      {% if d.id_vehiculo %}
+                        <td>Vehículo</td>
+                        <td>{{ d.id_vehiculo.idproducto.nomproducto }} - Motor: {{ d.id_vehiculo.serie_motor }}</td>
+                      {% elif d.id_repuesto_comprado %}
+                        <td>Repuesto</td>
+                        <td>{{ d.id_repuesto_comprado.descripcion }} ({{ d.id_repuesto_comprado.codigo_barras }})</td>
+                      {% endif %}
+                      <td>{{ d.cantidad }}</td>
+                      <td>S/. {{ d.precio_compra|floatformat:2 }}</td>
+                      <td>S/. {{ d.precio_venta|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+              </div>
+            </div>
           </div>
-          
+        </div>
+        {% endfor %}
       </div>
     </div>
   </section>
-  
-</main><!-- End #main -->
 
+  <!-- Modal Agregar Compra -->
+  <div class="modal fade" id="modalAgregarCompra" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Nueva Compra</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          
+          <!-- FORMULARIO -->
+          <form id="formCompra" method="POST" action="{% url 'agregarCompras' %}">
+            {% csrf_token %}
+
+            <!-- CABECERA -->
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Proveedor</label>
+                <select name="proveedor" class="form-select" required>
+                  <option value="">-- Seleccione --</option>
+                  {% for p in proveedor %}
+                    <option value="{{ p.idproveedor }}">{{ p.razonsocial }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Forma de Pago</label>
+                <select name="forma_pago" id="forma_pago" class="form-select" required>
+                  <option value="">-- Seleccione --</option>
+                  {% for forma in forma_pago %}
+                    <option value="{{ forma.id_forma_pago }}">{{ forma.nombre }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              
+              <!-- Tipo de Pago (se oculta cuando es Crédito) -->
+              <div class="col-md-4" id="tipo_pago_container">
+                <label class="form-label">Tipo de Pago</label>
+                <select name="tipo_pago" id="tipo_pago" class="form-select">
+                  <option value="">-- Seleccione --</option>
+                  {% for tipo in tipo_pago %}
+                    <option value="{{ tipo.id_tipo_pago }}">{{ tipo.nombre }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <!-- Botón Configurar Cuotas (aparece cuando es Crédito) -->
+              <div class="col-md-4 d-none" id="btn_cuotas_container">
+                <label class="form-label">Plan de Pago</label><br>
+                <button type="button" class="btn btn-warning w-100" data-bs-toggle="modal" data-bs-target="#modalCuotas">
+                  <i class="fa-solid fa-calendar-days me-2"></i>Configurar Cuotas
+                </button>
+              </div>
+            </div>
+
+            <!-- Campo oculto para indicar si tiene cuotas configuradas -->
+            <input type="hidden" id="tiene_cuotas" name="tiene_cuotas" value="0">
+
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Tipo comprobante</label>
+                <select name="tipo_cliente" class="form-select" required>
+                  <option value="">-- Seleccione --</option>
+                  {% for tipo in tipo_cliente %}
+                    <option value="{{ tipo.idtipocliente }}">{{ tipo.nomtipocliente }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">N° Correlativo</label>
+                <input type="text" name="numcorrelativo" class="form-control" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Fecha</label>
+                <input type="date" name="fechacompra" class="form-control" required>
+              </div>
+            </div>
+
+            <hr>
+            <h5 class="fw-bold">Detalle de Compra</h5>
+
+            <!-- Tipo de ítem -->
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label">Tipo de ítem:</label>
+                <select id="tipo_item" class="form-select">
+                  <option value="">-- Selecciona --</option>
+                  <option value="vehiculo">Vehículo</option>
+                  <option value="repuesto">Repuesto</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Vehículo -->
+            <div id="formVehiculo" class="mt-3" style="display:none;">
+              <div class="row mb-2">
+                <div class="col-md-4">
+                  <label class="form-label">Nombre</label>
+                  <select id="veh_nombre" class="form-select">
+                    <option value="">-- Seleccione --</option>
+                    {% for produc in producto %}
+                      <option value="{{ produc.idproducto }}">{{ produc.nomproducto }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label>Serie Motor</label>
+                  <input type="text" id="veh_motor" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label>Serie Chasis</label>
+                  <input type="text" id="veh_chasis" class="form-control">
+                </div>
+              </div>
+              <div class="row mb-2">
+                <div class="col-md-4">
+                  <label class="form-label">Estado</label>
+                  <select id="veh_estado" class="form-select">
+                    <option value="">-- Seleccione --</option>
+                    {% for estad in estado_producto %}
+                      <option value="{{ estad.idestadoproducto }}">{{ estad.nombreestadoproducto }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-8" id="veh_imperfecciones_container" style="display:none;">
+                  <label>Imperfecciones</label>
+                  <textarea id="veh_imperfecciones" class="form-control"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Repuesto -->
+            <div id="formRepuesto" class="mt-3" style="display:none;">
+              <div class="row mb-2">
+                <div class="col-md-4">
+                  <label class="form-label">Nombre</label>
+                  <select id="rep_nombre" class="form-select">
+                    <option value="">-- Seleccione --</option>
+                    {% for repues in catalogo_repuestos %}
+                      <option value="{{ repues.id_repuesto }}">{{ repues.nombre }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label>Código de Barras</label>
+                  <input type="text" id="rep_codigo" class="form-control">
+                </div>
+                <div class="col-md-4">
+                  <label>Descripción (opcional)</label>
+                  <input type="text" id="rep_descripcion" class="form-control" placeholder="Ej: Observaciones...">
+                </div>
+              </div>
+            </div>
+
+            <!-- Comunes -->
+            <div class="row mt-3">
+              <div class="col-md-3">
+                <label>Cantidad</label>
+                <input type="number" id="cantidad" class="form-control" value="1" min="1">
+              </div>
+              <div class="col-md-3">
+                <label>Precio Compra</label>
+                <input type="number" id="precio_compra" class="form-control" step="0.01">
+              </div>
+              <div class="col-md-3">
+                <label>Precio Venta</label>
+                <input type="number" id="precio_venta" class="form-control" step="0.01">
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <button type="button" class="btn btn-success w-100" onclick="agregarDetalle()">+ Agregar al detalle</button>
+              </div>
+            </div>
+
+            <!-- TABLA DETALLES -->
+            <div class="mt-4">
+              <h5 class="fw-bold">Detalles Agregados</h5>
+
+              <!-- Campo oculto para contar filas -->
+              <input type="hidden" id="items_count" name="items_count" value="0">
+              <table class="table table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Nombre</th>
+                    <th>Cantidad</th>
+                    <th>Precio Compra</th>
+                    <th>Precio Venta</th>
+                    <th>Subtotal</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaDetalles"></tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="5" class="text-end fw-bold">TOTAL COMPRA S/</td>
+                    <td colspan="2" id="totalGeneral">0.00</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div class="mt-3 text-end">
+              <button type="button" id="guardarCompra" class="btn btn-primary">Guardar Compra</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para configurar las cuotas -->
+  <div class="modal fade" id="modalCuotas" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title"><i class="fa-solid fa-calendar-days me-2"></i>Configurar Cuotas</h5>
+          <button type="button" class="btn-close" onclick="cerrarModalCuotas()"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Formulario para configurar cuotas -->
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Cantidad de Cuotas</label>
+              <input type="number" id="credito_cuotas" name="credito_cuotas" class="form-control" value="4" min="1" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tasa de Interés (%)</label>
+              <input type="number" id="credito_tasa" name="credito_tasa" class="form-control" value="0" step="0.1" min="0" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Monto Adelanto (S/.)</label>
+              <input type="number" id="monto_adelanto" name="monto_adelanto" class="form-control" value="0" step="0.01" min="0" placeholder="0.00">
+              <small class="text-muted">Se resta del total antes de dividir</small>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tipo de Periodo</label>
+              <select id="tipo_periodo" class="form-select">
+                <option value="dias">Días</option>
+                <option value="meses">Meses</option>
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3" id="container_dias">
+              <label class="form-label">Días entre cuotas</label>
+              <input type="number" id="credito_dias" name="credito_dias" class="form-control" value="30" min="1" required>
+            </div>
+            <div class="col-md-6 d-none" id="container_meses">
+              <label class="form-label">Fecha de primera cuota</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <select id="credito_mes" class="form-select">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10" selected>Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <input type="number" id="credito_dia_mes" class="form-control" value="15" min="1" max="31" placeholder="Día (1-31)">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-end mb-3">
+            <button type="button" class="btn btn-success" onclick="generarCuotas()">
+              <i class="fa-solid fa-calculator me-2"></i>Generar Cuotas
+            </button>
+          </div>
+
+          <!-- Tabla para mostrar las cuotas generadas -->
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Cuota</th>
+                  <th>Fecha Vencimiento</th>
+                  <th>Monto</th>
+                  <th>Interés</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="tablaCuotas"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="cerrarModalCuotas()">
+            <i class="fa-solid fa-xmark me-2"></i>Cancelar
+          </button>
+          <button type="button" class="btn btn-success" onclick="guardarYCerrarCuotas()">
+            <i class="fa-solid fa-check me-2"></i>Guardar Configuración
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
- <script>
+
+<!-- DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+let itemIndex = 0;
+let total = 0;
+
+document.getElementById("tipo_item").addEventListener("change", function() {
+  const tipo = this.value;
+  if (tipo === "vehiculo") {
+    document.getElementById("formVehiculo").style.display = "block";
+    document.getElementById("formRepuesto").style.display = "none";
+  } else if (tipo === "repuesto") {
+    document.getElementById("formVehiculo").style.display = "none";
+    document.getElementById("formRepuesto").style.display = "block";
+  } else {
+    document.getElementById("formVehiculo").style.display = "none";
+    document.getElementById("formRepuesto").style.display = "none";
+  }
+});
+
+function agregarDetalle() {
+  const tipo = document.getElementById("tipo_item").value;
+  const cantidad = parseInt(document.getElementById("cantidad").value) || 0;
+  const precioCompra = parseFloat(document.getElementById("precio_compra").value) || 0;
+  const precioVenta = parseFloat(document.getElementById("precio_venta").value) || 0;
+
+  if (!tipo || cantidad <= 0 || precioCompra <= 0 || precioVenta <= 0) {
+    Swal.fire("Campos incompletos", "Debes llenar todos los campos del detalle.", "warning");
+    return;
+  }
+
+  itemIndex++;
+  document.getElementById("items_count").value = itemIndex;
+
+  let nombre = "";
+  let extraInputs = "";
+
+  if (tipo === "vehiculo") {
+    const vehiculoSelect = document.getElementById("veh_nombre");
+    const idProducto = vehiculoSelect.value;
     
-    function confirmarEliminar0(idCompra, enlace) {
-      let urlEliminar = $(enlace).attr("href");
-      Swal.fire({
-        title: '¿Seguro que quieres eliminar esta compra?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-      }).then((result) => {
-        if (result.isConfirmed) {
-
-          // Redirige a la URL para eliminar la compra si el usuario confirma
-          $.ajax({
-            type: "GET",
-            url: urlEliminar,
-            data: {csrfmiddlewaretoken: '{{ csrf_token }}'}, // Incluye el token CSRF en la solicitud
-            success: function(response) {
-              console.log(response); // Maneja la respuesta si es necesario
-              window.location.href='compras'
-            },
-
-          });
-
-        }
-      });
-      return false; // Detiene la acción predeterminada del enlace
+    if (!idProducto) {
+      Swal.fire("Error", "Debe seleccionar un producto", "warning");
+      itemIndex--;
+      document.getElementById("items_count").value = itemIndex;
+      return;
+    }
     
+    nombre = vehiculoSelect.options[vehiculoSelect.selectedIndex].text;
+    const serieMotor = document.getElementById("veh_motor").value.trim();
+    const serieChasis = document.getElementById("veh_chasis").value.trim();
+    const estadoProd = document.getElementById("veh_estado").value;
+    const imperfecciones = document.getElementById("veh_imperfecciones").value.trim();
+
+    if (!estadoProd) {
+      Swal.fire("Error", "Debe seleccionar el estado del producto", "warning");
+      itemIndex--;
+      document.getElementById("items_count").value = itemIndex;
+      return;
     }
 
+    extraInputs = `
+      <input type="hidden" name="idproducto_${itemIndex}" value="${idProducto}">
+      <input type="hidden" name="serie_motor_${itemIndex}" value="${serieMotor}">
+      <input type="hidden" name="serie_chasis_${itemIndex}" value="${serieChasis}">
+      <input type="hidden" name="idestadoproducto_${itemIndex}" value="${estadoProd}">
+      <input type="hidden" name="imperfecciones_${itemIndex}" value="${imperfecciones}">
+    `;
     
+    vehiculoSelect.value = "";
+    document.getElementById("veh_motor").value = "";
+    document.getElementById("veh_chasis").value = "";
+    document.getElementById("veh_estado").value = "";
+    document.getElementById("veh_imperfecciones").value = "";
     
-  //Buscar entre fechas
-  $(function() {
+  } else if (tipo === "repuesto") {
+    const repuestoSelect = document.getElementById("rep_nombre");
+    const idRepuesto = repuestoSelect.value;
+    
+    if (!idRepuesto) {
+      Swal.fire("Error", "Debe seleccionar un repuesto", "warning");
+      itemIndex--;
+      document.getElementById("items_count").value = itemIndex;
+      return;
+    }
+    
+    nombre = repuestoSelect.options[repuestoSelect.selectedIndex].text;
+    const codigoRep = document.getElementById("rep_codigo").value.trim();
+    const descripcionLibre = document.getElementById("rep_descripcion").value.trim();
 
-    $('#filtrar').click(function(){
+    extraInputs = `
+      <input type="hidden" name="id_repuesto_${itemIndex}" value="${idRepuesto}">
+      <input type="hidden" name="descripcion_${itemIndex}" value="${descripcionLibre}">
+      <input type="hidden" name="codigo_barras_${itemIndex}" value="${codigoRep}">
+    `;
+    
+    repuestoSelect.value = "";
+    document.getElementById("rep_codigo").value = "";
+    document.getElementById("rep_descripcion").value = "";
+  }
 
-      $.ajax({
-          type: "POST",
-          url: "{% url 'buscarFecha' %}",
-          data: {
-              fechaInicio: $('#fechaInicio').val(),
-              fechaFin: $('#fechaFin').val(),
-              csrfmiddlewaretoken: '{{ csrf_token }}' 
-          },
-          success: function (response) {
-              console.log(response);
-              $('tbody').empty(); // Vacía el contenido de la tabla antes de agregar los nuevos resultados
+  const subtotal = cantidad * precioCompra;
+  total += subtotal;
+
+  const fila = `
+    <tr id="fila_${itemIndex}">
+      <td>${tipo}</td>
+      <td>${nombre}</td>
+      <td>${cantidad}</td>
+      <td>${precioCompra.toFixed(2)}</td>
+      <td>${precioVenta.toFixed(2)}</td>
+      <td>${subtotal.toFixed(2)}</td>
+      <td>
+        <button type="button" class="btn btn-danger btn-sm" onclick="eliminarDetalle(${itemIndex}, ${subtotal})">Eliminar</button>
+      </td>
+      <td style="display:none">
+        <input type="hidden" name="tipo_item_${itemIndex}" value="${tipo}">
+        <input type="hidden" name="cantidad_${itemIndex}" value="${cantidad}">
+        <input type="hidden" name="precio_compra_${itemIndex}" value="${precioCompra}">
+        <input type="hidden" name="precio_venta_${itemIndex}" value="${precioVenta}">
+        ${extraInputs}
+      </td>
+    </tr>
+  `;
+
+  document.querySelector("#tablaDetalles").insertAdjacentHTML("beforeend", fila);
+  document.getElementById("totalGeneral").innerText = total.toFixed(2);
   
-              $.each(response, function(index, resultado) {
-                  var row = $('<tr>').addClass('registro');
-                  row.append($('<td>').text(index + 1)); // Agrega el número de fila
-                  row.append($('<td>').text(resultado.numcorrelativo));
-                  row.append($('<td>').text(resultado['idproveedor__razonsocial']));
-                  row.append($('<td>').text(resultado.total));
+  document.getElementById("cantidad").value = "1";
+  document.getElementById("precio_compra").value = "";
+  document.getElementById("precio_venta").value = "";
+  document.getElementById("tipo_item").value = "";
   
-                  // Ajusta la fecha para mostrarla en la zona horaria local del navegador
-                  var fechaCompra = new Date(resultado.fechacompra + 'T00:00:00Z'); // Ajusta a UTC
-                  fechaCompra = new Date(fechaCompra.getTime() + fechaCompra.getTimezoneOffset() * 60000); // Ajusta a la zona horaria local
-                  var options = { day: 'numeric', month: 'long', year: 'numeric' };
-                  var fechaFormateada = fechaCompra.toLocaleDateString('es-PE', options); // Usar 'es-PE' para Perú
-                  
-                  row.append($('<td>').addClass('fechaCompra').text(fechaFormateada));
+  document.getElementById("formVehiculo").style.display = "none";
+  document.getElementById("formRepuesto").style.display = "none";
+}
+
+function eliminarDetalle(index, subtotal) {
+  document.getElementById(`fila_${index}`).remove();
+  total -= subtotal;
+  document.getElementById("totalGeneral").innerText = total.toFixed(2);
+}
+
+// ⭐ NUEVO: Guardar compra con verificación de caja
+$("#guardarCompra").click(function (e) {
+  e.preventDefault();
   
-                  // Crea el botón de editar
-                  var editButton = $('<a>').addClass('btn');
-                  editButton.attr('href', '/compras/editar/' + resultado.idcompra);
-                  editButton.append($('<i>').addClass('fa-solid fa-pen-to-square fa-2xl').css('color', '#005eff'));
-                  
-                  // Crea el botón de eliminar
-                  var deleteButton = $('<a>').attr('href', '/compras/eliminar/' + resultado.idcompra).addClass('eliminar').click(function(){
-                      return confirmarEliminar(resultado.idcompra, this);
-                  });
-                  deleteButton.append($('<i>').addClass('fa-solid fa-trash fa-2xl').css('color', '#f71b02'));
-       
-                  // Crea la columna de acciones y agrega los botones
-                  var actionColumn = $('<td>').append(editButton).append(deleteButton);
+  // ⭐ VERIFICAR CAJA ANTES DE TODO
+  const tieneCajaAbierta = {{ tiene_caja_abierta|yesno:"true,false" }};
   
-                  // Agrega la columna de acciones a la fila
-                  row.append(actionColumn);
+  if (!tieneCajaAbierta) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Caja Requerida',
+      html: `<p>Debe aperturar una caja antes de realizar compras.</p>
+             <p class="text-muted mt-2"><small>Haga clic en "Aperturar Caja" para abrir el formulario de apertura.</small></p>`,
+      showCancelButton: true,
+      confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#0d9488',
+      cancelButtonColor: '#6c757d'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Cerrar modal de compra
+        const modalCompra = bootstrap.Modal.getInstance(document.getElementById('modalAgregarCompra'));
+        if (modalCompra) {
+          modalCompra.hide();
+        }
+        
+        // Abrir modal de gestión de caja
+        setTimeout(() => {
+          const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+          modalCaja.show();
+        }, 300);
+      }
+    });
+    return;
+  }
   
-                  // Agrega la fila a la tabla
-                  $('tbody').append(row);
-              });
-              
-          }
-      });
+  // Continuar con validaciones normales
+  const formaPago = document.getElementById("forma_pago").value;
+  const tieneCuotas = document.getElementById("tiene_cuotas").value;
   
+  if (formaPago === "2" && tieneCuotas === "0") {
+    Swal.fire({
+      title: "Cuotas no configuradas",
+      text: "Debe configurar las cuotas para compras a crédito antes de guardar",
+      icon: "warning",
+      confirmButtonColor: "#f0ad4e"
+    });
+    return;
+  }
+  
+  const itemsCount = parseInt(document.getElementById("items_count").value) || 0;
+  if (itemsCount === 0) {
+    Swal.fire({
+      title: "Sin productos",
+      text: "Debe agregar al menos un producto a la compra",
+      icon: "warning",
+      confirmButtonColor: "#f0ad4e"
+    });
+    return;
+  }
+  
+  // Mostrar loading
+  Swal.fire({
+    text: 'Por favor espere',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    willOpen: () => {
+      Swal.showLoading();
+    }
   });
   
+  let form = $("#formCompra");
+  let formData = new FormData(form[0]);
 
-  })
+  $.ajax({
+    type: "POST",
+    url: form.attr("action"),
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function (res) {
+      if (res.ok) {
+        Swal.fire({
+          title: "Compra registrada",
+          text: res.message,
+          icon: "success",
+          confirmButtonColor: "#198754"
+        }).then(() => {
+          window.location.href = "{% url 'compras' %}";
+        });
+      } else {
+        // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+        if (res.necesita_aperturar || res.codigo === 'CAJA_REQUERIDA') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Caja Requerida',
+            text: res.error || 'Debe aperturar una caja antes de realizar compras',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#0d9488',
+            cancelButtonColor: '#6c757d'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Cerrar modal de compra
+              const modalCompra = bootstrap.Modal.getInstance(document.getElementById('modalAgregarCompra'));
+              if (modalCompra) {
+                modalCompra.hide();
+              }
+              
+              // Abrir modal de gestión de caja
+              setTimeout(() => {
+                const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+                modalCaja.show();
+              }, 300);
+            }
+          });
+        } else {
+          Swal.fire("Error", res.error || "Error desconocido", "error");
+        }
+      }
+    },
+    error: function (xhr) {
+      console.log("Error AJAX:", xhr);
+      
+      let errorMessage = "Ocurrió un problema al guardar la compra.";
+      let necesitaAperturar = false;
+      
+      // Intentar extraer mensaje de error del servidor
+      try {
+        const response = JSON.parse(xhr.responseText);
+        errorMessage = response.error || errorMessage;
+        necesitaAperturar = response.necesita_aperturar || false;
+      } catch (e) {
+        if (xhr.responseText) {
+          errorMessage = xhr.responseText;
+        }
+      }
+      
+      // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+      if (necesitaAperturar) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Caja Requerida',
+          text: errorMessage,
+          showCancelButton: true,
+          confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#0d9488',
+          cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const modalCompra = bootstrap.Modal.getInstance(document.getElementById('modalAgregarCompra'));
+            if (modalCompra) {
+              modalCompra.hide();
+            }
+            
+            setTimeout(() => {
+              const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+              modalCaja.show();
+            }, 300);
+          }
+        });
+      } else {
+        Swal.fire("Error", errorMessage, "error");
+      }
+    }
+  });
+});
 
+// Resto de eventos DOM
+document.addEventListener("DOMContentLoaded", function () {
+  const estadoSelect = document.getElementById("veh_estado");
+  const imperfeccionesContainer = document.getElementById("veh_imperfecciones_container");
+  const imperfeccionesField = document.getElementById("veh_imperfecciones");
 
+  function toggleImperfecciones() {
+    const selectedValue = estadoSelect.value;
+    if (selectedValue === "2") {
+      imperfeccionesContainer.style.display = "block";
+      imperfeccionesField.required = true;
+    } else {
+      imperfeccionesContainer.style.display = "none";
+      imperfeccionesField.required = false;
+      imperfeccionesField.value = "";
+    }
+  }
 
+  toggleImperfecciones();
+  estadoSelect.addEventListener("change", toggleImperfecciones);
+});
+
+document.addEventListener("DOMContentLoaded", function () {
+  const formaPago = document.getElementById("forma_pago");
+  const btnCuotasContainer = document.getElementById("btn_cuotas_container");
+  const tipoPagoContainer = document.getElementById("tipo_pago_container");
+  const tipoPagoSelect = document.getElementById("tipo_pago");
+
+  formaPago.addEventListener("change", function () {
+    if (this.value === "2") {
+      tipoPagoContainer.classList.add("d-none");
+      tipoPagoSelect.required = false;
+      tipoPagoSelect.value = "";
+      btnCuotasContainer.classList.remove("d-none");
+    } else {
+      tipoPagoContainer.classList.remove("d-none");
+      tipoPagoSelect.required = true;
+      btnCuotasContainer.classList.add("d-none");
+      document.getElementById("tiene_cuotas").value = "0";
+      document.querySelectorAll(".cuota-hidden").forEach(e => e.remove());
+    }
+  });
+
+  const tipoPeriodo = document.getElementById("tipo_periodo");
+  const containerDias = document.getElementById("container_dias");
+  const containerMeses = document.getElementById("container_meses");
+
+  tipoPeriodo.addEventListener("change", function() {
+    if (this.value === "meses") {
+      containerDias.classList.add("d-none");
+      containerMeses.classList.remove("d-none");
+    } else {
+      containerDias.classList.remove("d-none");
+      containerMeses.classList.add("d-none");
+    }
+  });
+});
+
+// Función para generar las cuotas - CON FECHAS EDITABLES
+function generarCuotas() {
+  let cuotas = parseInt(document.getElementById("credito_cuotas").value) || 1;
+  let tasa = parseFloat(document.getElementById("credito_tasa").value) || 0;
+  let totalCompra = parseFloat(document.getElementById("totalGeneral").innerText) || 0;
+  let tipoPeriodo = document.getElementById("tipo_periodo").value;
+  let montoAdelanto = parseFloat(document.getElementById("monto_adelanto").value) || 0;
+
+  if (totalCompra <= 0) {
+    Swal.fire("Error", "Debes agregar productos antes de configurar las cuotas", "warning");
+    return;
+  }
+
+  if (montoAdelanto >= totalCompra) {
+    Swal.fire("Error", "El monto de adelanto no puede ser mayor o igual al total de la compra", "warning");
+    return;
+  }
+
+  let totalAFinanciar = totalCompra - montoAdelanto;
+  let importe = totalAFinanciar / cuotas;
+  let interes = importe * (tasa / 100);
+  let totalCuota = importe + interes;
+
+  let tbody = document.getElementById("tablaCuotas");
+  tbody.innerHTML = "";
+  document.querySelectorAll(".cuota-hidden").forEach(e => e.remove());
+
+  if (tipoPeriodo === "meses") {
+    let mes = parseInt(document.getElementById("credito_mes").value);
+    let diaMes = parseInt(document.getElementById("credito_dia_mes").value) || 15;
+    
+    if (diaMes < 1 || diaMes > 31) {
+      Swal.fire("Error", "El día debe estar entre 1 y 31", "warning");
+      return;
+    }
+
+    let hoy = new Date();
+    let anioInicio = hoy.getFullYear();
+    let mesActual = hoy.getMonth() + 1;
+    let diaActual = hoy.getDate();
+    
+    if (mes < mesActual || (mes === mesActual && diaMes <= diaActual)) {
+      anioInicio++;
+    }
+
+    for (let i = 0; i < cuotas; i++) {
+      let mesActualCuota = mes + i;
+      let anioCuota = anioInicio;
+      
+      while (mesActualCuota > 12) {
+        mesActualCuota -= 12;
+        anioCuota++;
+      }
+      
+      let fechaVencimiento = `${anioCuota}-${String(mesActualCuota).padStart(2, '0')}-${String(diaMes).padStart(2, '0')}`;
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>
+            <input type="date" name="fecha_vencimiento_${i + 1}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
+          </td>
+          <td>${importe.toFixed(2)}</td>
+          <td>${interes.toFixed(2)}</td>
+          <td>${totalCuota.toFixed(2)}</td>
+        </tr>
+      `;
+
+      let adelantoRegistro = (i === 0) ? montoAdelanto : 0;
+
+      document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
+        <input type="hidden" class="cuota-hidden" name="numero_cuota_${i + 1}" value="${i + 1}">
+        <input type="hidden" class="cuota-hidden" name="monto_${i + 1}" value="${importe.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="tasa_${i + 1}" value="${tasa.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="interes_${i + 1}" value="${interes.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="total_${i + 1}" value="${totalCuota.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i + 1}" value="${adelantoRegistro.toFixed(2)}">
+      `);
+    }
+  } else {
+    let dias = parseInt(document.getElementById("credito_dias").value) || 30;
+    let fecha = new Date();
+
+    for (let i = 1; i <= cuotas; i++) {
+      fecha.setDate(fecha.getDate() + dias);
+      let fechaVencimiento = fecha.toISOString().slice(0, 10);
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${i}</td>
+          <td>
+            <input type="date" name="fecha_vencimiento_${i}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
+          </td>
+          <td>${importe.toFixed(2)}</td>
+          <td>${interes.toFixed(2)}</td>
+          <td>${totalCuota.toFixed(2)}</td>
+        </tr>
+      `;
+
+      let adelantoRegistro = (i === 1) ? montoAdelanto : 0;
+
+      document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
+        <input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${i}">
+        <input type="hidden" class="cuota-hidden" name="monto_${i}" value="${importe.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="tasa_${i}" value="${tasa.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="interes_${i}" value="${interes.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="total_${i}" value="${totalCuota.toFixed(2)}">
+        <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i}" value="${adelantoRegistro.toFixed(2)}">
+      `);
+    }
+  }
+
+  const adelantoExistente = document.getElementById("formCompra").querySelector('[name="monto_adelanto_general"]');
+  if (adelantoExistente) {
+    adelantoExistente.remove();
+  }
+  document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
+    <input type="hidden" class="cuota-hidden" name="monto_adelanto_general" value="${montoAdelanto.toFixed(2)}">
+  `);
+
+  const cuotasInput = document.getElementById("formCompra").querySelector('[name="credito_cuotas"]');
+  if (!cuotasInput) {
+    document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
+      <input type="hidden" class="cuota-hidden" name="credito_cuotas" value="${cuotas}">
+    `);
+  }
+  
+  Swal.fire({
+    icon: "success",
+    title: "Cuotas generadas",
+    text: `Se generaron ${cuotas} cuotas correctamente`,
+    timer: 1500,
+    showConfirmButton: false
+  });
+}
+
+function guardarYCerrarCuotas() {
+  const tbody = document.getElementById("tablaCuotas");
+  if (tbody.children.length === 0) {
+    Swal.fire("Atención", "Debes generar las cuotas primero", "warning");
+    return;
+  }
+
+  document.getElementById("tiene_cuotas").value = "1";
+  
+  Swal.fire({
+    icon: "success",
+    title: "Cuotas configuradas",
+    text: "Las cuotas han sido guardadas correctamente",
+    timer: 1500,
+    showConfirmButton: false
+  });
+
+  cerrarModalCuotas();
+}
+
+function cerrarModalCuotas() {
+  const modalCuotas = bootstrap.Modal.getInstance(document.getElementById('modalCuotas'));
+  if (modalCuotas) {
+    modalCuotas.hide();
+  }
+  const modalCompra = document.getElementById('modalAgregarCompra');
+  if (!modalCompra.classList.contains('show')) {
+    const modalInstance = new bootstrap.Modal(modalCompra);
+    modalInstance.show();
+  }
+}
 </script>
+
+<style>
+  .form-control-sm, .form-select-sm {
+    font-size: 0.875rem;
+  }
   
+  .table td {
+    vertical-align: middle;
+  }
   
+  .modal-xl {
+    max-width: 95%;
+  }
   
-  {% endblock %}
-
-
-
-
-
-
+  .card {
+    border-radius: 10px;
+  }
+  
+  .card-header {
+    border-radius: 10px 10px 0 0 !important;
+  }
+  
+  .badge {
+    padding: 0.4em 0.8em;
+  }
+  
+  /* Scroll para tablas largas */
+  .table-responsive {
+    max-height: 700px;
+    overflow-y: auto;
+  } 
+  
+  /* Estilos para inputs readonly */
+  input[readonly] {
+    background-color: #e9ecef;
+  }
+</style>
+{% endblock %}

@@ -5,6 +5,7 @@ class TipoIgv(models.Model):
     codigo = models.CharField(max_length=10)
     tipo_igv = models.CharField(max_length=60)
     codigo_de_tributo = models.IntegerField()
+    estado = models.IntegerField(default=1)
 
     class Meta:
         managed = False

@@ -1,62 +1,67 @@
-from datetime import datetime, date
-from decimal import Decimal
-from django.db import connection
-from software.views.apiBusquedaRUcDni import ApisNetPe
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
-import templates
-from software.models.comprasModel import Compras
 from collections import defaultdict
-from software.models.ProveedoresModel import Proveedores
-from software.models.TipoclienteModel import Tipocliente
-from software.models.compradetalleModel import CompraDetalle
-from software.models.ProductoModel import Producto
-from software.models.categoriaModel import Categoria
-from software.models.compradetalleModel import CompraDetalle
-from software.models.VentaModel import Venta
-from software.models.VentaDetalleModel import VentaDetalle
-from software.models.UsuarioModel import Usuario
-from software.models.UnidadesModel import Unidades
-from software.models.TipousuarioModel import Tipousuario
-from software.models.TipodocumentoModel import Tipodocumento
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProvinciasModel import Provincias
-from software.models.ProveedoresModel import Proveedores
-from software.models.NumserieModel import Numserie
-from software.models.ModulosModel import Modulos
-from software.models.empresaModel import Empresa
-from software.models.empleadoModel import Empleado
-from software.models.distritosModel import Distritos
+from django.shortcuts import render, redirect
+from django.http import HttpResponse
 from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
-from software.models.detallecategoriaxunidadesModel import Detallecategoriaxunidades
-from software.models.departamentosModel import Departamentos
-from software.models.codigocorreoModel import CodigoCorreo
-from software.models.TipoIgvModel import TipoIgv
-from software.models.clientesModel import Clientes
-# Create your views here.
+from software.models.ModulosModel import Modulos
+from software.models.TipousuarioModel import Tipousuario
 
 def permisos(request):
-    
     id2 = request.session.get('idtipousuario')
     if id2:
-
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
+        # Obtener permisos del usuario
+        permisos = Detalletipousuarioxmodulos.objects.filter(
+            idtipousuario=id2
+        ).select_related('idmodulo', 'idmodulo__idmodulo_padre')
+        
+        # Organizar módulos en estructura jerárquica
+        modulos_organizados = {}
+        
+        for permiso in permisos:
+            modulo = permiso.idmodulo
+            
+            # Si el módulo tiene padre
+            if modulo.idmodulo_padre:
+                padre = modulo.idmodulo_padre
+                padre_nombre = padre.nombremodulo
+                
+                # Crear entrada del padre si no existe
+                if padre_nombre not in modulos_organizados:
+                    modulos_organizados[padre_nombre] = {
+                        'padre': padre,
+                        'hijos': []
+                    }
+                # Agregar el hijo
+                modulos_organizados[padre_nombre]['hijos'].append(modulo)
+            else:
+                # Es módulo padre o independiente
+                if modulo.nombremodulo not in modulos_organizados:
+                    modulos_organizados[modulo.nombremodulo] = {
+                        'padre': modulo,
+                        'hijos': []
+                    }
+        
+        # Ordenar hijos por orden
+        for nombre, grupo in modulos_organizados.items():
+            grupo['hijos'].sort(key=lambda x: x.orden)
+        
+        # Datos para gestión de permisos
         permisos2 = Detalletipousuarioxmodulos.objects.all()
         modulos = Modulos.objects.filter(estado=1)
         tipoUsuarios = Tipousuario.objects.filter(estado=1)
-        permisos_por_tipo_usuario = defaultdict(list)
         
+        permisos_por_tipo_usuario = defaultdict(list)
         for permiso in permisos2:
             permisos_por_tipo_usuario[permiso.idtipousuario.nombretipousuario].append(permiso)
             
         data = {
             'permisos_por_tipo_usuario': permisos_por_tipo_usuario.items(),
-            'permisos':permisos,
-            "modulos":modulos,
-            "tipoUsuarios":tipoUsuarios
+            'permisos': permisos,
+            'modulos_organizados': modulos_organizados,
+            'modulos': modulos,
+            'tipoUsuarios': tipoUsuarios
         }
         
-        return render(request, 'permisos/permisos.html',data)
+        return render(request, 'permisos/permisos.html', data)
     else:
         return HttpResponse("<h1>No tiene acceso señor</h1>")
 

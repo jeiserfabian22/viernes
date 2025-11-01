@@ -1,352 +1,220 @@
-from datetime import datetime
-from decimal import Decimal
+from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
 from software.models.comprasModel import Compras
 from software.models.ProveedoresModel import Proveedores
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProductoModel import Producto
-from software.models.categoriaModel import Categoria
+from software.models.FormaPagoModel import FormaPago
+from software.models.TipoPagoModel import TipoPago
 from software.models.compradetalleModel import CompraDetalle
-from software.models.VentaModel import Venta
-from software.models.VentaDetalleModel import VentaDetalle
-from software.models.UsuarioModel import Usuario
-from software.models.UnidadesModel import Unidades
-from software.models.TipousuarioModel import Tipousuario
-from software.models.TipodocumentoModel import Tipodocumento
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProvinciasModel import Provincias
-from software.models.ProveedoresModel import Proveedores
-from software.models.NumserieModel import Numserie
-from software.models.ModulosModel import Modulos
-from software.models.empresaModel import Empresa
-from software.models.LotesModel import Lotes
-from software.models.empleadoModel import Empleado
-from software.models.distritosModel import Distritos
+from software.models.RespuestoCompModel import RepuestoComp
+from software.models.VehiculosModel import Vehiculo
+from software.models.ProductoModel import Producto
+from software.models.RepuestoModel import Repuesto
 from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
-from software.models.detallecategoriaxunidadesModel import Detallecategoriaxunidades
-from software.models.departamentosModel import Departamentos
-from software.models.codigocorreoModel import CodigoCorreo
-from software.models.clientesModel import Clientes
-from django.db import connection
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
+from software.models.estadoproductoModel import EstadoProducto
+from django.db import transaction
+from software.models.cuotaModel import Cuota
+from software.models.TipoclienteModel import Tipocliente
+from software.models.AperturaCierreCajaModel import AperturaCierreCaja
+from software.decorators import requiere_caja_aperturada
 
 
-import templates
-# Create your views here.
-from django.db.models import Sum
-
-
-def compra(request):
-
+# Listado de compras optimizado
+def compras(request):
+    # Obtención del id del tipo de usuario desde la sesión
     id2 = request.session.get('idtipousuario')
-    if id2:
-
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-        resultados = Compras.objects.filter(estado=1).annotate(total=Sum('compradetalle__subtotal')).values(
-            'idcompra', 'idproveedor', 'fechacompra', 'numcorrelativo', 'idproveedor__razonsocial', 'total'
-        ).order_by(
-            'idcompra', 'idproveedor', 'fechacompra'
-        )
-
-        # with connection.cursor() as cursor:
-        #     cursor.execute("""
-        #         SELECT `compras`.`idcompra`, `compras`.`idproveedor`, `compras`.`fechacompra`, `compras`.`numcorrelativo`, `proveedores`.`razonsocial`,
-        #         SUM(`compra_detalle`.`subtotal`) AS `total`
-        #         FROM `compras`
-        #         LEFT OUTER JOIN `compra_detalle` ON (`compras`.`idcompra` = `compra_detalle`.`idcompra`)
-        #         INNER JOIN `proveedores` ON (`compras`.`idproveedor` = `proveedores`.`idproveedor`)
-        #         WHERE `compras`.`estado` = 1
-        #         GROUP BY `compras`.`idcompra`, `compras`.`idproveedor`, `compras`.`numcorrelativo`, `compras`.`fechacompra`, `compras`.`estado`,
-        #         `proveedores`.`razonsocial`
-        #         ORDER BY `compras`.`idcompra` ASC, `compras`.`idproveedor` ASC, `compras`.`fechacompra` ASC;
-        #     """)
-        #     rows = cursor.fetchall()
-
-        data = {
-            'resultados': resultados,
-            'permisos': permisos
-        }
-
-        return render(request, 'compras/compras.html', data)
-    else:
+    
+    if not id2:
         return HttpResponse("<h1>No tiene acceso señor</h1>")
+    
+    # Verificar si tiene caja abierta
+    idusuario = request.session.get('idusuario')
+    apertura_actual = AperturaCierreCaja.objects.filter(
+        idusuario_id=idusuario,
+        estado='abierta'
+    ).first()
+    
+    # Validación de permisos
+    permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
+    
+    # Compras activas, ordenadas de más recientes a más antiguas
+    Compras_registros = Compras.objects.filter(estado=1).order_by('-fechacompra')
+    
+    # Catálogos relacionados
+    proveedor = Proveedores.objects.filter(estado=1)
+    tipocliente = Tipocliente.objects.filter(estado=1)
+    formapago = FormaPago.objects.filter(estado=1)
+    tipopago = TipoPago.objects.filter(estado=1)
+    repuestocomprado = RepuestoComp.objects.filter(estado=1)
+    vehiculo = Vehiculo.objects.filter(estado=1)
+    producto = Producto.objects.filter(estado=1)
+    repuesto = Repuesto.objects.filter(estado=1)
+    estadoproducto = EstadoProducto.objects.filter(estado=1)
 
-
-def eliminar(request, id):
-
-    Compras.objects.filter(idcompra=id).update(estado=0)
-
-    # Devuelve los datos JSON directamente sin redirigir
-    return redirect('compras')
-
-
-def agregar(request):
-    id2 = request.session.get('idtipousuario')
-    if id2:
-
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-        proveedores = Proveedores.objects.all()
-        categorias = Categoria.objects.all()
-        data = {
-            'proveedores': proveedores,
-            'categorias': categorias,
-            'permisos': permisos
-        }
-        return render(request, 'compras/agregarCompras.html', data)
-    else:
-        return HttpResponse("<h1>No tiene acceso señor</h1>")
-
-
-def buscar(request):
-
-    busqueda = request.POST['busqueda']
-
-    productos = Producto.objects.all().filter(nomproducto__icontains=busqueda)
-    # productos_list = [{'nomproducto': producto.nomproducto, 'preciounitario': producto.preciounitario} for producto in productos]
-    productos_list = list(productos.values())
-    return JsonResponse(productos_list, safe=False)
-
-
-def guardar(request):
-    if request.method == 'POST':
-        # Obtener los datos de la compra
-        numcorrelativo = request.POST.get('numcorrelativo')
-        # Obtener el ID del proveedor desde el formulario
-        proveedor_id = request.POST.get('proveedor')
-
-        proveedor = Proveedores.objects.get(pk=proveedor_id)
-
-        # get_object_or_404(Proveedores, pk=proveedor_id)  # Obtener la instancia del proveedor
-        fechacompra = request.POST.get('fechDocumento')
-
-        # Crear una instancia de CompraModel y guardar la compra
-        compra = Compras.objects.create(
-            numcorrelativo=numcorrelativo, idproveedor=proveedor, fechacompra=fechacompra, estado=1)
-
-        # Obtener el ID de la compra recién creada
-        id_insertado = compra.pk
-
-        # Obtener los datos de los productos
-        productos = request.POST.getlist('producto[nombre][]')
-        identificadores = request.POST.getlist('producto[identificador][]')
-        fecha_produccion = request.POST.getlist('producto[fecha_produccion][]')
-        fecha_vencimiento = request.POST.getlist(
-            'producto[fecha_vencimiento][]')
-        stocks = request.POST.getlist('producto[stock][]')
-
-        for nombre, identificadorPrimario, produccion, vencimiento, stock in zip(productos, identificadores, fecha_produccion, fecha_vencimiento, stocks):
-            # Obtengo el producto
-            producto_existente = Producto.objects.filter(
-                nomproducto=nombre).first()
-
-            if producto_existente:
-                # Agregar stock
-                nuevo_stock = producto_existente.stockactual + float(stock)
-                producto_existente.stockactual = nuevo_stock
-                producto_existente.save()
-
-                compraDetalleId = CompraDetalle.objects.create(idcompra_id=id_insertado, idproducto=producto_existente, cantidad=float(
-                    stock), subtotal=producto_existente.preciounitario * float(stock))
-
-                # Agregar datos del lote
-                Lotes.objects.create(
-                    idcompradetalle=compraDetalleId,
-                    idproducto=producto_existente,
-                    identificador=identificadorPrimario,
-                    fecha_produccion=produccion,
-                    fecha_vencimiento=vencimiento,
-                    cantidad=float(stock))
-
-        return redirect('/compras')
-    else:
-        return JsonResponse({'message': 'Método no permitido'}, status=405)
-
-
-def editar(request, id):
-    compras = Compras.objects.get(pk=id)
-    compras_fechacompra = compras.fechacompra.strftime('%Y-%m-%d')
-    proveedores = Proveedores.objects.all()
-    compra_detalle = CompraDetalle.objects.filter(idcompra=id)
-
-    lotes = []
-    for detalle in compra_detalle:
-        # Filtrar los lotes para cada detalle de compra
-        lotes_detalle = Lotes.objects.filter(
-            idcompradetalle=detalle.idcompradetalle)
-        # Agregar los lotes al listado general de lotes
-        lotes.extend(lotes_detalle)
-
+    # Contexto para el template
     data = {
-        'compras': compras,
-        'compras_fechacompra': compras_fechacompra,
-        'proveedores': proveedores,
-        'lotes': lotes
+        'compras_registros': Compras_registros,
+        'proveedor': proveedor,
+        'tipo_cliente': tipocliente,
+        'forma_pago': formapago,
+        'tipo_pago': tipopago,
+        'repuestos_comprados': repuestocomprado,
+        'vehiculo': vehiculo,
+        'producto': producto,
+        'catalogo_repuestos': repuesto,
+        'estado_producto': estadoproducto,
+        'permisos': permisos,
+        'apertura_actual': apertura_actual,
+        'tiene_caja_abierta': bool(apertura_actual)
     }
-    return render(request, 'compras/editarCompra.html', data)
+    
+    return render(request, 'compras/compras.html', data)
 
 
-def editado(request):
-    if request.method == 'POST':
-        # Obtener los datos de la compra
-        numcorrelativo = request.POST['numcorrelativo']
-        fechacompra = request.POST['fechDocumento']
-        id_compra = request.POST['idCompra']
+# Nueva compra
+@requiere_caja_aperturada
+def nueva_compra(request):
+    if request.method == "POST":
+        try:
+            print("======= DEBUG POST COMPRA =======")
+            for k, v in request.POST.items():
+                print(f"{k}: {v}")
+            print("=================================")
 
-        # Actualizar los datos de la compra
-        Compras.objects.filter(idcompra=id_compra).update(
-            numcorrelativo=numcorrelativo,  fechacompra=fechacompra)
+            with transaction.atomic():
+                # ⭐ NUEVO: Validar caja aperturada
+                idusuario_session = request.session.get('idusuario')
+                apertura = AperturaCierreCaja.objects.filter(
+                    idusuario_id=idusuario_session,
+                    estado='abierta'
+                ).first()
+                
+                if not apertura:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'No tiene una caja aperturada. Por favor, aperture una caja antes de realizar compras.',
+                        'necesita_aperturar': True
+                    }, status=400)
+                
+                # Manejar tipo_pago cuando es crédito
+                tipo_pago = request.POST.get("tipo_pago")
+                tipo_pago_id = int(tipo_pago) if tipo_pago else None
+                
+                compra = Compras.objects.create(
+                    idproveedor_id=int(request.POST.get("proveedor")),
+                    idtipocliente_id=int(request.POST.get("tipo_cliente")),
+                    id_forma_pago_id=int(request.POST.get("forma_pago")),
+                    id_tipo_pago_id=tipo_pago_id,
+                    numcorrelativo=request.POST.get("numcorrelativo"),
+                    fechacompra=request.POST.get("fechacompra"),
+                    estado=1,
+                )
 
-        # Obtener los datos de los productos
-        productos = request.POST.getlist('producto[nombre][]')
-        identificadores = request.POST.getlist('producto[identificador][]')
-        fecha_produccion = request.POST.getlist('producto[fecha_produccion][]')
-        fecha_vencimiento = request.POST.getlist(
-            'producto[fecha_vencimiento][]')
-        stocks = request.POST.getlist('producto[stock][]')
-        idProductos = request.POST.getlist('producto[idproducto][]')
+                total = 0
+                items = int(request.POST.get("items_count") or 0)
+                print(f"DEBUG items_count: {items}")
 
-        for i, (nombre, identificadorPrimario, produccion, vencimiento, stock, idProducto) in enumerate(zip(productos, identificadores, fecha_produccion, fecha_vencimiento, stocks, idProductos)):
-            # Si modifico un registro de la compra existente
-            if idProducto:
+                for i in range(1, items + 1):
+                    tipo_item = request.POST.get(f"tipo_item_{i}")
+                    if not tipo_item:
+                        continue
 
-                registro_compra = CompraDetalle.objects.get(
-                    idcompra=id_compra, idproducto=idProducto)
+                    cantidad = int(request.POST.get(f"cantidad_{i}") or 0)
+                    precio_compra = float(request.POST.get(f"precio_compra_{i}") or 0)
+                    precio_venta = float(request.POST.get(f"precio_venta_{i}") or 0)
 
-                if registro_compra:
+                    if tipo_item == "vehiculo":
+                        idproducto = request.POST.get(f"idproducto_{i}", "").strip()
+                        idestadoproducto = request.POST.get(f"idestadoproducto_{i}", "").strip()
+                        
+                        if not idproducto:
+                            raise ValueError(f"Debe seleccionar un producto para el ítem {i}")
+                        
+                        if not idestadoproducto:
+                            raise ValueError(f"Debe seleccionar el estado del producto para el ítem {i}")
+                        
+                        vehiculo = Vehiculo.objects.create(
+                            idproducto_id=int(idproducto),
+                            serie_motor=request.POST.get(f"serie_motor_{i}", "").strip(),
+                            serie_chasis=request.POST.get(f"serie_chasis_{i}", "").strip(),
+                            idestadoproducto_id=int(idestadoproducto),
+                            imperfecciones=request.POST.get(f"imperfecciones_{i}", "").strip(),
+                            estado=1
+                        )
+                        CompraDetalle.objects.create(
+                            idcompra=compra,
+                            id_vehiculo=vehiculo,
+                            id_repuesto_comprado=None,
+                            cantidad=cantidad,
+                            precio_compra=precio_compra,
+                            precio_venta=precio_venta,
+                            subtotal=cantidad * precio_compra
+                        )
 
-                    # Stock de la tabla detalle del producto relazacionado con la compra
-                    cantidad_registro = registro_compra.cantidad
+                    elif tipo_item == "repuesto":
+                        id_repuesto = request.POST.get(f"id_repuesto_{i}", "").strip()
+                        
+                        if not id_repuesto:
+                            raise ValueError(f"Debe seleccionar un repuesto para el ítem {i}")
+                        
+                        repuesto = RepuestoComp.objects.create(
+                            id_repuesto_id=int(id_repuesto),
+                            descripcion=request.POST.get(f"descripcion_{i}", "").strip(),
+                            codigo_barras=request.POST.get(f"codigo_barras_{i}", "").strip(),
+                            estado=1
+                        )
+                        CompraDetalle.objects.create(
+                            idcompra=compra,
+                            id_repuesto_comprado=repuesto,
+                            id_vehiculo=None,
+                            cantidad=cantidad,
+                            precio_compra=precio_compra,
+                            precio_venta=precio_venta,
+                            subtotal=cantidad * precio_compra
+                        )
 
-                    # Obtengo el producto
-                    producto_registro = Producto.objects.get(
-                        idproducto=idProducto)
+                    total += cantidad * precio_compra
 
-                    # Obtengo el stock actual del producto
-                    stock_actual = producto_registro.stockactual
+                compra.total_compra = total
+                compra.save()
 
-                    # Resto el stock de producto con la cantidad de compraDetalle y sumo el nuevo stock
-                    stock_actualizada = float(
-                        stock_actual) - float(cantidad_registro) + float(stock)
+                # Guardar cuotas si aplica
+                if request.POST.get("forma_pago") == "2" and request.POST.get("tiene_cuotas") == "1":
+                    cuotas = int(request.POST.get("credito_cuotas") or 0)
+                    for i in range(1, cuotas + 1):
+                        monto_adelanto_cuota = float(request.POST.get(f"monto_adelanto_{i}", 0) or 0)
+                        
+                        Cuota.objects.create(
+                            idcompra=compra,
+                            numero_cuota=int(request.POST.get(f"numero_cuota_{i}")),
+                            monto=float(request.POST.get(f"monto_{i}")),
+                            tasa=float(request.POST.get(f"tasa_{i}")),
+                            interes=float(request.POST.get(f"interes_{i}")),
+                            total=float(request.POST.get(f"total_{i}")),
+                            fecha_vencimiento=request.POST.get(f"fecha_vencimiento_{i}"),
+                            monto_adelanto=monto_adelanto_cuota,
+                            estado=1
+                        )
 
-                    precio_unitario = producto_registro.preciounitario
+                print(f"✅ COMPRA REGISTRADA - ID: {compra.idcompra}, Caja: {apertura.id_caja.nombre_caja}")
 
-                    # Sumo el nuevo valor
-                    producto_registro.stockactual = stock_actualizada
-                    producto_registro.save()
+            return JsonResponse({
+                'ok': True,
+                'message': 'Compra registrada correctamente.'
+            })
 
-                    # actualizo la cantidad de compraDetalle
-                    registro_compra.cantidad = float(stock)
-                    registro_compra.subtotal = precio_unitario*float(stock)
-                    registro_compra.save()
+        except ValueError as ve:
+            print(f"ERROR DE VALIDACIÓN: {str(ve)}")
+            return JsonResponse({
+                'ok': False,
+                'error': str(ve)
+            })
+        except Exception as e:
+            print(f"ERROR: {str(e)}")
+            return JsonResponse({
+                'ok': False,
+                'error': 'Error al procesar la compra. Verifica que todos los campos estén completos.'
+            })
 
-                    # #Actualizar datos del lote como compraDetalle trae mas de 1 resultado a veces tengo que acceder a cada uno con un indice
-                    compra_detalle = CompraDetalle.objects.filter(
-                        idcompra=id_compra)
-
-                    detalleCompra = compra_detalle[i]
-
-                    # Filtrar los lotes para cada detalle de compra
-                    lote = Lotes.objects.get(
-                        idcompradetalle=detalleCompra.idcompradetalle)
-
-                    lote.identificador = identificadorPrimario
-                    lote.fecha_produccion = produccion
-                    lote.fecha_vencimiento = vencimiento
-                    lote.cantidad = stock
-                    lote.save()
-
-            # Se agrega un nuevo registro de lote
-            else:
-                # Obtengo el producto
-                producto_existente = Producto.objects.filter(
-                    nomproducto=nombre).first()
-
-                if producto_existente:
-                    # Agregar stock
-                    nuevo_stock = producto_existente.stockactual + float(stock)
-                    producto_existente.stockactual = nuevo_stock
-                    producto_existente.save()
-
-                    compraDetalleId = CompraDetalle.objects.create(idcompra_id=id_compra, idproducto=producto_existente, cantidad=float(
-                        stock), subtotal=producto_existente.preciounitario * float(stock))
-
-                    # Agregar datos del lote
-                    Lotes.objects.create(
-                        idcompradetalle=compraDetalleId,
-                        idproducto=producto_existente,
-                        identificador=identificadorPrimario,
-                        fecha_produccion=produccion,
-                        fecha_vencimiento=vencimiento,
-                        cantidad=float(stock))
-
-    return redirect('compras')
-
-
-def buscarFecha(request):
-
-    fecha_inicio = request.POST.get('fechaInicio')
-    fecha_fin = request.POST.get('fechaFin')
-
-    resultados = Compras.objects.filter(
-        estado=1,
-        # Filtrar por rango de fechas
-        fechacompra__range=(fecha_inicio, fecha_fin)
-    ).annotate(
-        total=Sum('compradetalle__subtotal')
-    ).values(
-        'idcompra', 'idproveedor', 'fechacompra', 'numcorrelativo', 'idproveedor__razonsocial', 'total'
-    ).order_by(
-        'idcompra', 'idproveedor', 'fechacompra', 'idproveedor__razonsocial', 'numcorrelativo'
-    )
-
-    resultado_json = list(resultados)
-    return JsonResponse(resultado_json, safe=False)
+    return redirect("compras")
 
 
-def export_compras_to_excel(request):
-    # Obtener datos de compras con el total calculado
-    compras = Compras.objects.filter(estado=1).annotate(
-        total=Sum('compradetalle__subtotal')
-    ).values(
-        'idcompra', 'idproveedor__razonsocial', 'numcorrelativo', 'fechacompra', 'total'
-    ).order_by(
-        'idcompra', 'idproveedor', 'fechacompra'
-    )
-
-    # Crear un workbook de Excel
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Compras"
-
-    # Crear la fila de encabezado
-    headers = ["ID", "Número Correlativo",
-               "Proveedor", "Total", "Fecha de Compra"]
-    sheet.append(headers)
-    # Ajustar el ancho de la columna de fecha
-    fecha_columna = sheet.column_dimensions['E']
-    fecha_columna.width = 15  # Puedes ajustar este valor según sea necesario
-
-    # Agregar datos de compras
-    for compra in compras:
-        # Formatear la fecha como cadena antes de agregarla al Excel
-        fecha_compra = compra['fechacompra'].strftime("%d/%m/%Y")
-        sheet.append([
-            compra['idcompra'],
-            compra['numcorrelativo'],
-            compra['idproveedor__razonsocial'],
-            compra['total'],
-            fecha_compra
-        ])
-
-    # Configurar la respuesta HTTP
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=compras.xlsx'
-
-    # Guardar el workbook en la respuesta
-    workbook.save(response)
-
-    return response

@@ -1,5 +1,5 @@
 from django.db import models
-from software.models.distritosModel import Distritos
+
 
 class Empresa(models.Model):
     idempresa = models.AutoField(primary_key=True)
@@ -13,7 +13,7 @@ class Empresa(models.Model):
     usersec = models.CharField(max_length=255)
     passwordsec = models.CharField(max_length=255)
     ubigueo = models.CharField(max_length=10, blank=True, null=True)
-    iddistrito = models.ForeignKey(Distritos, models.DO_NOTHING, db_column='iddistrito')
+    
     class Meta:
         managed = False
         db_table = 'empresa'

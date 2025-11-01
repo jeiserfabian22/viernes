@@ -1,250 +1,234 @@
 {% extends 'plantilla/base.html' %}
 {% block main %}
 <main id="main" class="main">
-  <div class="pagetitle">
-    <h1>Categorias</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-        <li class="breadcrumb-item active">Categorias</li>
-      </ol>
-    </nav>
-  </div><!-- End Page Title -->
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">Tipo de vehiculo</h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal"
+      data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Tipo de vehiculo
+    </button>
+  </div>
 
-  <section class="section dashboard">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Categorias</h5>
-            <button type="" class="btn btn-success"  data-bs-toggle="modal"
-              data-bs-target="#myModaAgregar">Agregar categoría</button>
-              
-              <table class="table datatable">
-                <thead>
-                  <tr>
-                    <th scope="col">CODIGO</th>
-                    <th scope="col">Categoria</th>
-                    <th scope="col">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for categorias_registro in cateogiras_registros %}
-                  <tr>
-                    <td>{{ forloop.counter }}</td>
-                    <td>{{ categorias_registro.nomcategoria }}</td>
-                    <td>
-                      <a type="button" id="btnEditar" class="btn" data-bs-toggle="modal" data-bs-target="#myModal2{{ categorias_registro.idcategoria }}">
-                        <i class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;"></i>
-                      </a>
-                      <a href="{% url 'categoriasEliminar' id=categorias_registro.idcategoria %}" class="eliminar"
-                        onclick="return confirmarEliminar('{{ categorias_registro.idcategoria }}', this)">
-                        <i class="fa-solid fa-trash fa-2xl" style="color: #f71b02;"></i>
-                      </a>
-                    </td>
-                     <!-- Modales de editar -->
-                     <div class="modal fade" id="myModal2{{ categorias_registro.idcategoria }}" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-                      <div class="modal-dialog" role="document">
-                        <div class="modal-content">
-                          <div class="modal-header">
-                            <h4 class="modal-title">Editar categoria</h4>
-                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                              <span aria-hidden="true">&times;</span>
-                            </button>
-                          </div>
-                          <div class="modal-body">
-                            <form id="formEditarCategoria{{ categorias_registro.idcategoria }}" action="{% url 'editarCategorias' %}" method="post" enctype="multipart/form-data">
-                              {% csrf_token %}
-                              <div class="form-group">
-                                <label for="nombreProducto2"><strong>Nombre</strong></label>
-                                <input type="text" name="nameCategoria" value="{{ categorias_registro.nomcategoria }}" class="form-control">
-                                <input type="hidden" name="idCategoria" value="{{ categorias_registro.idcategoria }}">
-                              </div>
-                              <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary btn-editar" data-id="{{ categorias_registro.idcategoria }}">Guardar</button>
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Tipo de vehiculo</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de tipos de vehiculos</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Tipo de vehiculo</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for categorias_registro in cateogiras_registros %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>{{ categorias_registro.nomcategoria }}</td>
+                <td class="text-center">
+                  <!-- Editar -->
+                  <a type="button" class="btn btn-sm btn-light border shadow-sm me-2"
+                     data-bs-toggle="modal" 
+                     data-bs-target="#myModal2{{ categorias_registro.idcategoria }}">
+                    <i class="fa-solid fa-pen-to-square text-primary"></i>
+                  </a>
+                  <!-- Eliminar -->
+                  <a href="{% url 'categoriasEliminar' id=categorias_registro.idcategoria %}" 
+                     class="btn btn-sm btn-light border shadow-sm eliminar"
+                     onclick="return confirmarEliminar('{{ categorias_registro.idcategoria }}', this)">
+                    <i class="fa-solid fa-trash text-danger"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ categorias_registro.idcategoria }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Tipo de vehiculo</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                     </div>
-                      <!-- fin del modal editar -->
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-              
-             
-              
-
-
-            <!-- Modal de Agregar -->
-            <div class="modal" id="myModaAgregar">
-              <div class="modal-dialog">
-                <div class="modal-content">
-
-                  <!-- Cabecera del modal -->
-                  <div class="modal-header">
-                    <h4 class="modal-title">Editar categoria</h4>
-                    <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                    <div class="modal-body">
+                      <form id="formEditarCategoria{{ categorias_registro.idcategoria }}" 
+                            action="{% url 'editarCategorias' %}" 
+                            method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Nombre</label>
+                          <input type="text" name="nameCategoria" value="{{ categorias_registro.nomcategoria }}" class="form-control rounded-pill">
+                          <input type="hidden" name="idCategoria" value="{{ categorias_registro.idcategoria }}">
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" 
+                                  data-id="{{ categorias_registro.idcategoria }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
-
-                  <!-- Contenido del modal De editar-->
-                  <div class="modal-body">
-
-                    <!-- inicio de form -->
-
-                    <form id="formAgregarCategoria" action="{% url 'agregarCategorias' %}" method="post" enctype="multipart/form-data">
-                      {% csrf_token %}
-                      <label for="nombreProducto2">Nombre</label><br>
-                      <input type="text" name="nameCategoriaAgregar" class="form-control">
-                      
-                      <div style="display:flex; margin-left:140px;">
-                          <div class="modal-footer">
-                              <button type="button" class="btn btn-secondary" id="agregar">Agregar</button>
-                          </div>
-                          <div class="modal-footer">
-                              <button type="button" id="btn-cerrar" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                          </div>
-                      </div>
-                    </form>
-                  
-
-                  <!-- fin del form -->
-
                 </div>
-
-                <!-- Pie del modal -->
-
               </div>
-            </div>
-
-            <!-- Fin del modal agregar-->
-
-          </div>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
-
       </div>
     </div>
   </section>
 
-</main><!-- End #main -->
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Tipo de vehiculo</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarCategoria" action="{% url 'agregarCategorias' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre</label>
+              <input type="text" name="nameCategoriaAgregar" class="form-control rounded-pill">
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Fin Modal Agregar -->
+</main>
 
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
 <script>
 $(function(){
-  //Para agregar
-    $("#agregar").click(function(){
-        // Obtener los datos del formulario
-        var formData = new FormData($('#formAgregarCategoria')[0]);
-        
-        // Realizar la solicitud AJAX
-        $.ajax({
-            type: "POST",
-            url: "{% url 'agregarCategorias' %}",
-            data: formData,
-            processData: false,  // Evitar que jQuery procese los datos automáticamente
-            contentType: false,  // No establecer automáticamente el tipo de contenido
-            success: function (response) {
-                Swal.fire({
-                    title: 'Categoría guardada exitosamente',
-                    icon: 'success',
-                    showCancelButton: true,
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: '¡Ok!',
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Redireccionar solo si el usuario hace clic en "OK"
-                        window.location.href=  "{% url 'categorias' %}";
-                    }
-                });
-            },
-            error: function(response) {
-                Swal.fire({
-                    title: 'Error al guardar la categoría',
-                    text: response.responseText,
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            }
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarCategoria')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarCategorias' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Categoría guardada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href=  "{% url 'categorias' %}";
+          }
         });
-
-        return false; // Prevenir el envío del formulario por defecto
-    });
-
-    //Para editar
-    $(".btn-editar").click(function(){
-        var id = $(this).data('id');
-        var form = $('#formEditarCategoria' + id);
-        var formData = new FormData(form[0]);
-
-        $.ajax({
-            type: "POST",
-            url: form.attr('action'),
-            data: formData,
-            processData: false,  // Evitar que jQuery procese los datos automáticamente
-            contentType: false,  // No establecer automáticamente el tipo de contenido
-            success: function (response) {
-                Swal.fire({
-                    title: 'Categoría editada exitosamente',
-                    icon: 'success',
-                    confirmButtonColor: '#3085d6',
-                    confirmButtonText: '¡Ok!',
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        // Redireccionar solo si el usuario hace clic en "OK"
-                        window.location.href = "{% url 'categorias' %}";
-                    }
-                });
-            },
-            error: function(response) {
-                Swal.fire({
-                    title: 'Error al guardar la categoría',
-                    text: response.responseText,
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            }
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la categoría',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
         });
-
-        return false; // Prevenir el envío del formulario por defecto
-    });
-});
-
-
-
-  function confirmarEliminar(idCompra, enlace) {
-    let urlEliminar = $(enlace).attr("href");
-    Swal.fire({
-      title: '¿Seguro que quieres eliminar esta compra?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
-    }).then((result) => {
-      if (result.isConfirmed) {
-
-        // Redirige a la URL para eliminar la compra si el usuario confirma
-        $.ajax({
-          type: "GET",
-          url: urlEliminar,
-          data: { csrfmiddlewaretoken: '{{ csrf_token }}' }, // Incluye el token CSRF en la solicitud
-          success: function (response) {
-            console.log(response); // Maneja la respuesta si es necesario
-            window.location.href = 'categorias'
-          },
-
-        });
-
       }
     });
-    return false; // Detiene la acción predeterminada del enlace
-  }
+    return false;
+  });
 
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarCategoria' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Categoría editada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'categorias' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la categoría',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
 
+  // DataTable inicialización
+  $('.datatable').DataTable({
+    language: {
+      url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+    },
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50],
+    responsive: true
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar esta categoría?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'categorias' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
 </script>
 {% endblock %}

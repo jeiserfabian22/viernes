@@ -1,8 +1,8 @@
 from django.shortcuts import redirect, render
 from software.models.empresaModel import Empresa
 from software.models.departamentosModel import Departamentos
-from software.models.ProvinciasModel import Provincias
-from software.models.distritosModel import Distritos
+from software.models.ProvinciaModel import Provincia
+from software.models.DistritoModel import Distrito
 from django.http import HttpResponse, JsonResponse
 from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
 import templates
@@ -31,7 +31,7 @@ def configuracion(request):
 
 def buscarProvincias(request):
     id = request.GET.get('selected_value')
-    provincias = Provincias.objects.filter(iddepartamento=id)
+    provincias = Provincia.objects.filter(iddepartamento=id)
 
     provincias_list = list(provincias.values())
     return JsonResponse(provincias_list, safe=False)
@@ -39,7 +39,7 @@ def buscarProvincias(request):
 
 def buscarDistritos(request):
     id = request.GET.get('selected_value')
-    distritos = Distritos.objects.filter(idprovincia=id)
+    distritos = Distrito.objects.filter(idprovincia=id)
 
     distritos_list = list(distritos.values())
     return JsonResponse(distritos_list, safe=False)
@@ -47,7 +47,7 @@ def buscarDistritos(request):
 
 def ubigueo(request):
     id = request.GET.get('selected_value')
-    distritos = Distritos.objects.filter(iddistrito=id)
+    distritos = Distrito.objects.filter(iddistrito=id)
 
     distritos_list = list(distritos.values())
     return JsonResponse(distritos_list, safe=False)
@@ -64,9 +64,6 @@ def editarEmpresa(request):
     ubigueo = request.POST.get('ubigueo')
     idempresaPost = request.POST.get('idempresa')
 
-    # traer el distrito
-    getDistrito = Distritos.objects.get(iddistrito=ubigueo)
-
     empresa = Empresa.objects.get(idempresa=idempresaPost)
     empresa.ruc = ruc
     empresa.razonsocial = razonSocial
@@ -75,7 +72,6 @@ def editarEmpresa(request):
     empresa.telefono = telefono
     empresa.passwordsec = password
     empresa.ubigueo = ubigueo
-    empresa.iddistrito = getDistrito
     empresa.save()
 
     return redirect('configuracion')

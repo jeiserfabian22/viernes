@@ -38,8 +38,8 @@
                                         <td>{{ forloop.counter }}</td>
                                         <td>{{ usuario.nombrecompleto }}</td>
                                         <td>{{ usuario.idtipousuario.nombretipousuario }}</td>
-                                        <td>{{ usuario.correo }}</td>
-                                        <td>{{ usuario.contrasena }}</td>
+                                        <td>{{ usuario.correo_descifrado }}</td>
+                                        <td>********</td> <!-- No mostrar contraseña hasheada -->
                                         <td>{{ usuario.celular }}</td>
                                         <td>{{ usuario.dni }}</td>
                                         <td>
@@ -67,24 +67,32 @@
                                                     <form id="formEditar{{ usuario.idusuario }}" action="{% url 'usuarioEditar' %}" method="post" enctype="multipart/form-data">
                                                         {% csrf_token %}
                                                         <input type="hidden" value="{{ usuario.idusuario }}" name="idusuario" >
+                                                        
                                                         <label for="nombreUsuario">Nombre</label><br>
                                                         <input type="text" value="{{ usuario.nombrecompleto }}" name="nombreUsuario" class="form-control">
+                                                        
                                                         <label for="correoUsuario">CORREO</label><br>
-                                                        <input type="email" value="{{ usuario.correo }}" name="correoUsuario" class="form-control">
-                                                        <label for="contrasenaUsuario">CONTRASEÑA</label><br>
-                                                        <input type="text" value="{{ usuario.contrasena }}" name="contrasenaUsuario" class="form-control">
+                                                        <input type="email" value="{{ usuario.correo_descifrado }}" name="correoUsuario" class="form-control">
+                                                        
+                                                        <label for="contrasenaUsuario">CONTRASEÑA (dejar en blanco para no cambiar)</label><br>
+                                                        <input type="password" value="" name="contrasenaUsuario" class="form-control" placeholder="Nueva contraseña (opcional)">
+                                                        <input type="hidden" value="{{ usuario.contrasena }}" name="contrasenaActual">
+                                                        
                                                         <label for="tipoUsuario">TIPO USUARIO</label><br>
                                                         <select class="form-select" name="tipoUsuario">
                                                             {% for tipoUsuario in tipoUsuarios %}
-                                                                <option value="{{ tipoUsuario.idtipousuario }}" {% if tipoUsuario.idtipousuario == usuario.tipoUsuario %}selected{% endif %}>
+                                                                <option value="{{ tipoUsuario.idtipousuario }}" {% if tipoUsuario.idtipousuario == usuario.idtipousuario.idtipousuario %}selected{% endif %}>
                                                                     {{ tipoUsuario.nombretipousuario }}
                                                                 </option>
                                                             {% endfor %}
                                                         </select>
+                                                        
                                                         <label for="celularUsuario">CELULAR</label><br>
                                                         <input type="text" value="{{ usuario.celular }}" name="celularUsuario" class="form-control">
+                                                        
                                                         <label for="dniUsuario">DNI</label><br>
                                                         <input type="text" value="{{ usuario.dni }}" name="dniUsuario" class="form-control">
+                                                        
                                                         <div style="display:flex; margin-left:140px;">
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary btn-editar" data-form-id="formEditar{{ usuario.idusuario }}">Editar</button>
@@ -126,26 +134,26 @@
                 <form id="formAgregar" action="{% url 'usuarioAgregar' %}" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <label for="nombreUsuario2">Nombre</label><br>
-                    <input type="text" name="nombreUsuario2" class="form-control" autocomplete="off">
+                    <input type="text" name="nombreUsuario2" class="form-control" autocomplete="off" required>
                 
                     <label for="correoUsuario2">CORREO</label><br>
-                    <input type="email" name="correoUsuario2" class="form-control">
+                    <input type="email" name="correoUsuario2" class="form-control" required>
                 
                     <label for="contrasenaUsuario2">CONTRASEÑA</label><br>
-                    <input type="password" name="contrasenaUsuario2" class="form-control">
+                    <input type="password" name="contrasenaUsuario2" class="form-control" required>
                 
                     <label for="tipoUsuario2">TIPO USUARIO</label><br>
-                    <select class="form-select" name="tipoUsuario2">
+                    <select class="form-select" name="tipoUsuario2" required>
                         {% for tipoUsuario in tipoUsuarios %}
                             <option value="{{ tipoUsuario.idtipousuario }}">{{ tipoUsuario.nombretipousuario }}</option>
                         {% endfor %}
                     </select>
                 
                     <label for="celularUsuario2">CELULAR</label><br>
-                    <input type="text" name="celularUsuario2" class="form-control">
+                    <input type="text" name="celularUsuario2" class="form-control" required>
                 
                     <label for="dniUsuario2">DNI</label><br>
-                    <input type="text" name="dniUsuario2" class="form-control">
+                    <input type="text" name="dniUsuario2" class="form-control" required>
                 
                     <div style="display:flex; margin-left:140px;">
                         <div class="modal-footer">
@@ -209,7 +217,7 @@
             error: function(response) {
                 Swal.fire({
                     title: 'Error al guardar el usuario',
-                    text: response.responseText,
+                    text: response.responseJSON ? response.responseJSON.error : response.responseText,
                     icon: 'error',
                     confirmButtonText: 'OK'
                 });
@@ -221,7 +229,16 @@
     // Editar usuario
     $('.btn-editar').click(function() {
         var formId = $(this).data('form-id');
-        var formData = new FormData($('#' + formId)[0]);
+        var form = $('#' + formId);
+        var formData = new FormData(form[0]);
+        
+        // Si el campo de contraseña está vacío, enviamos la contraseña actual (hasheada)
+        var nuevaContrasena = form.find('input[name="contrasenaUsuario"]').val();
+        if (!nuevaContrasena || nuevaContrasena.trim() === '') {
+            var contrasenaActual = form.find('input[name="contrasenaActual"]').val();
+            formData.set('contrasenaUsuario', contrasenaActual);
+        }
+        
         $.ajax({
             type: 'POST',
             url: "{% url 'usuarioEditar' %}",
@@ -245,7 +262,7 @@
             error: function(response) {
                 Swal.fire({
                     title: 'Error al editar el usuario',
-                    text: response.responseText,
+                    text: response.responseJSON ? response.responseJSON.error : response.responseText,
                     icon: 'error',
                     confirmButtonText: 'OK'
                 });

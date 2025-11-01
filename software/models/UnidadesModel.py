@@ -1,11 +1,19 @@
+
 from django.db import models
 
 class Unidades(models.Model):
     idunidad = models.AutoField(primary_key=True)
-    codigounidad = models.CharField(max_length=255)
-    abrunidad = models.CharField(max_length=255)
-    estado = models.IntegerField()
+    codigounidad = models.CharField(max_length=255, verbose_name="Código de unidad")
+    abrunidad = models.CharField(max_length=255, verbose_name="Nombre de la unidad")
+    estado = models.BooleanField(default=False, verbose_name="Estado", help_text="Indica si la unidad está activa (True) o desactivada (False)")
 
     class Meta:
-        managed = False
-        db_table = 'unidades'
+        db_table = 'unidades'  # Define la tabla en la base de datos
+        verbose_name = "Unidad"
+        verbose_name_plural = "Unidades"
+        ordering = ['idunidad']  # Orden por ID por defecto
+
+    def __str__(self):
+        # Devuelve una representación legible del objeto
+        return f"{self.codigounidad} - {self.abrunidad}"
+

@@ -1,19 +1,22 @@
+# software/models/cajaModel.py
 from django.db import models
+from software.models.sucursalesModel import Sucursales
 
 
 class Caja(models.Model):
     id_caja = models.AutoField(primary_key=True)
-    fecha_apertura = models.DateField(blank=True, null=True)
-    hora_apertura = models.TimeField(blank=True, null=True)
-    fecha_cierre = models.DateField(blank=True, null=True)
-    hora_cierre = models.TimeField(blank=True, null=True)
-    monto_inicial = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    monto_final = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
-    estado = models.IntegerField(blank=True, null=True)
-    usuario_apertura = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='usuario_apertura', blank=True, null=True)
-    usuario_cierre = models.ForeignKey('Usuario', models.DO_NOTHING, db_column='usuario_cierre', related_name='caja_usuario_cierre_set', blank=True, null=True)
+    id_sucursal = models.ForeignKey(Sucursales, models.DO_NOTHING, db_column='id_sucursal', null=True, blank=True)
+    nombre_caja = models.CharField(max_length=50, blank=True, null=True)
+    numero_caja = models.IntegerField(blank=True, null=True)
+    estado = models.IntegerField()
 
+    
     class Meta:
         managed = False
-        db_table = 'caja'
+        db_table = 'cajas'
+    
+    def __str__(self):
+        return self.nombre_caja
+    
+
 

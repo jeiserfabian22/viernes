@@ -1,0 +1,225 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">Marca</h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Marca
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Marca</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de marcas</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Marca</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for marca_registro in marcas_registros %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>{{ marca_registro.nombremarca }}</td>
+                <td class="text-center">
+                    <a type="submit" id="btnEditar" class="btn " data-bs-toggle="modal"
+                      data-bs-target="#myModal2{{marca_registro.idmarca}}">
+                      <i class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;"></i>
+                    </a>
+
+                    <a href="{% url 'marcasEliminar' id=marca_registro.idmarca %}" class="eliminar"
+                      onclick="return confirmarEliminar('{{ marca_registro.idmarca }}', this)">
+                      <i class="fa-solid fa-trash fa-2xl" style="color: #f71b02;"></i>
+                    </a>
+                  </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ marca_registro.idmarca }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Marca</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarMarca{{ marca_registro.idmarca }}" action="{% url 'editarMarcas' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Nombre</label>
+                          <input type="text" name="nameMarca" value="{{ marca_registro.nombremarca }}" class="form-control rounded-pill">
+                          <input type="hidden" name="idMarca" value="{{ marca_registro.idmarca }}">
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ marca_registro.idmarca }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Marca</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarMarca" action="{% url 'agregarMarcas' %}" method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre</label>
+              <input type="text" name="nameMarcaAgregar" class="form-control rounded-pill">
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(function(){
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarMarca')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarMarcas' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Marca guardada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'marcas' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la marca',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarMarca' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Marca editada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'marcas' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la marca',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // DataTable inicialización
+  $('.datatable').DataTable({
+    language: {
+      url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+    },
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50],
+    responsive: true
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar esta marca?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'marcas' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}

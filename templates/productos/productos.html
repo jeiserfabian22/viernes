@@ -4,364 +4,233 @@
 <main id="main" class="main">
 
   <div class="pagetitle">
-    <h1>Productos</h1>
+    <h1>Vehículos</h1>
     <nav>
       <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-        <li class="breadcrumb-item active">Productos</li>
+        <li class="breadcrumb-item active">Vehículos</li>
       </ol>
     </nav>
-  </div><!-- End Page Title -->
+  </div>
 
   <section class="section dashboard">
     <div class="row">
       <div class="col-lg-12">
         <div class="card">
           <div class="card-body">
-            <h5 class="card-title">Productos</h5>
-            <a type="submit" id="btnEditar" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#myModal">
-              Agregar producto
+            <h5 class="card-title">Vehículos</h5>
+
+            <a type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+              Agregar vehículos
             </a>
 
-            <!-- Modal de agregar -->
-            <div class="modal" id="myModal">
+            <!-- Modal AGREGAR -->
+            <div class="modal" id="modalAgregar">
               <div class="modal-dialog">
                 <div class="modal-content">
 
-                  <!-- Cabecera del modal -->
                   <div class="modal-header">
-                    <h4 class="modal-title">Nuevo producto</h4>
+                    <h4 class="modal-title">Nuevo vehículo</h4>
                     <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
                   </div>
 
-                  <!-- Contenido del modal -->
                   <div class="modal-body">
-                    <form action="{% url 'productosAgregar' %}" method="post" enctype="multipart/form-data">
+                    <form id="formAgregar" action="{% url 'productosAgregar' %}" method="post">
                       {% csrf_token %}
-                      <h4>Producto</h4>
-                      <label for="">Categoría</label>
-                      <select class="form-select" aria-label="Default select example" name="categoria">
+
+                      <label for="categoria">Tipo de vehículo</label>
+                      <select class="form-select" name="categoria" required>
+                        <option value="" disabled selected>Seleccione un tipo de vehículo</option>
                         {% for categoria in categorias %}
-                        <option value="{{categoria.idcategoria}}">{{categoria.nomcategoria}}</option>
+                          <option value="{{ categoria.idcategoria }}">{{ categoria.nomcategoria }}</option>
                         {% endfor %}
-                        </option>
                       </select>
 
-                      <label for="">Unidad</label>
-                      <select class="form-select" aria-label="Default select example" name="unidad">
+                      <label for="cilindrada">Cilindrada</label>
+                      <select class="form-select" name="cilindrada" required>
+                        <option value="" disabled selected>Seleccione la cilindrada</option>
+                        {% for cilindrada in cilindrada %}
+                          <option value="{{ cilindrada.idcilindrada }}">{{ cilindrada.cilindrada_cc }}</option>
+                        {% endfor %}
+                      </select>
+
+                      <label for="marca">Marca</label>
+                      <select class="form-select" name="marca" required>
+                        <option value="" disabled selected>Seleccione una marca</option>
+                        {% for marca in marcas %}
+                          <option value="{{ marca.idmarca }}">{{ marca.nombremarca }}</option>
+                        {% endfor %}
+                      </select>
+
+                      <label for="color">Color</label>
+                      <select class="form-select" name="color" required>
+                        <option value="" disabled selected>Seleccione un color</option>
+                        {% for color in color %}
+                          <option value="{{ color.idcolor }}">{{ color.nombrecolor }}</option>
+                        {% endfor %}
+                      </select>
+
+                      <label for="unidad">Unidad</label>
+                      <select class="form-select" name="unidad" required>
+                        <option value="" disabled selected>Seleccione una unidad</option>
                         {% for unidad in unidades %}
-                        <option value="{{unidad.idunidad}}">{{unidad.abrunidad}}</option>
+                          <option value="{{ unidad.idunidad }}">{{ unidad.abrunidad }}</option>
                         {% endfor %}
-                        </option>
                       </select>
 
-                      <label for="nombreProducto">Nombre</label><br>
-                      <input type="text" name="nombreProducto" id="nombreProducto" class="form-control">
+                      <label for="nombreProducto">Nombre</label>
+                      <input type="text" name="nombreProducto" id="nombreProducto" class="form-control" readonly>
 
+                      <!-- imagenprod es un varchar en BD; si no usarás imagen, puedes dejarlo vacío 
+                      <label for="imagenprod" class="mt-2">Imagen (URL o ruta)</label>
+                      <input type="text" name="imagenprod" id="imagenprod" class="form-control">-->
 
-                      <label for="descripcionProducto">Descripción</label><br>
-                      <input type="text" name="descripcionProducto" id="descripcionProducto" class="form-control">
-
-                      <label for="precioCompra">Precio compra</label><br>
-                      <input type="text" name="precioCompra" id="precioCompra" class="form-control">
-
-                      <label for="precioProducto">Precio venta</label><br>
-                      <input type="text" name="precioProducto" id="precioProducto" class="form-control">
-
-                      <label for="stockProducto">Stock</label><br>
-                      <input type="text" name="stockProducto" id="stockProducto" class="form-control">
-
-                      <label for="codigo">codigo</label><br>
-                      <input type="text" name="codigo" id="codigo" class="form-control">
-
-                      <label for="codigo_barras">codigo_barras</label><br>
-                      <input type="text" name="codigo_barras" id="codigo_barras" class="form-control">
-
-                      <div style="display:flex; margin-left:150px;">
-
-                        <div class="modal-footer">
-                          <button type="submit" id="modalAgregar" class="btn btn-secondary"
-                            data-bs-dismiss="modal">Agregar</button>
-                        </div>
-
-                        <div class="modal-footer">
-                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                        </div>
+                      <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">Agregar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                       </div>
-
+                    </form>
                   </div>
-                  </form>
+
                 </div>
-
-                <!-- Pie del modal -->
-
               </div>
             </div>
+            <!-- /Modal AGREGAR -->
 
-            <!-- Fin del modal -->
-
-
-
-
-            <!-- Table with stripped rows -->
-            <table class="table datatable">
+            <!-- Tabla -->
+            <table class="table datatable mt-3">
               <thead>
                 <tr>
-
-
-                  <th scope="col">#</th>
-                  <th scope="col">Producto</th>
-                  <th scope="col">Descripcion</th>
-                  <th scope="col">Precio compra</th>
-                  <th scope="col">Precio venta</th>
-                  <th scope="col">Stock</th>
-                  <th scope="col">Categoria</th>
-                  <th scope="col">Unidad</th>
-                  <th scope="col">Ver lotes</th>
-                  <th scope="col">Acciones</th>
+                  <th>#</th>
+                  <th>Producto</th>
+                  <th>Tipo de vehículo</th>
+                  <th>Unidad</th>
+                  <th>Marca</th>
+                  <th>Cilindrada</th>
+                  <th>Color</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-
                 {% for producto in productos %}
                 <tr>
-                  <td>
-                    {{forloop.counter}}
-                  </td>
-                  <td>
-                    {{producto.nomproducto}}
-                  </td>
-                  <td>
-                    {{producto.descripcion}}
-                  </td>
-                  <td>
-                    {{producto.precioCompra}}
-                  </td>
-                  <td>
-                    {{producto.preciounitario}}
-                  </td>
-
-                  <td>
-                    {{producto.stockactual}}
-                  </td>
-
-                  <td>
-                    {{producto.idcategoria.nomcategoria}}
-                  </td>
-                  <td>
-                    {{producto.idunidad.abrunidad}}
-                  </td>
-                  <td>
-                    <a type="submit" href="{% url 'verLotes' id=producto.idproducto %}" id="btnEditar"
-                      class="btn btn_lotes" data-bs-toggle="modal"
-                      data-bs-target="#myModalLotes{{producto.idproducto}}">
-                      <i class="fa-solid fa-eye  " style="color: #005eff;"></i>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ producto.nomproducto }}</td>
+                  <td>{{ producto.idcategoria.nomcategoria }}</td>
+                  <td>{{ producto.idunidad.abrunidad }}</td>
+                  <td>{{ producto.idmarca.nombremarca }}</td>
+                  <td>{{ producto.idcilindrada.cilindrada_cc }}</td>
+                  <td>{{ producto.idcolor.nombrecolor }}</td>
+                  <td class="d-flex gap-2">
+                    <a class="btn" data-bs-toggle="modal" data-bs-target="#modalEditar{{producto.idproducto}}">
+                      <i class="fa-solid fa-pen-to-square" style="color:#005eff;font-size:1.5rem;"></i>
+                    </a>
+                    <a href="{% url 'eliminarProducto' idproducto=producto.idproducto %}"
+                       class="eliminar" onclick="return confirmarEliminar('{{ producto.idproducto }}', this)">
+                      <i class="fa-solid fa-trash" style="color:#f71b02;font-size:1.5rem;"></i>
                     </a>
                   </td>
-                  <td>
-                    <a type="submit" id="btnEditar" class="btn " data-bs-toggle="modal"
-                      data-bs-target="#myModal2{{producto.idproducto}}">
-                      <i class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;"></i>
-                    </a>
+                </tr>
 
-                    <a href="{% url 'eliminarProducto' idproducto=producto.idproducto %}" class="eliminar"
-                      onclick="return confirmarEliminar('{{ producto.idproducto }}', this)">
-                      <i class="fa-solid fa-trash fa-2xl" style="color: #f71b02;"></i>
-                    </a>
+                <!-- Modal EDITAR -->
+                <div class="modal" id="modalEditar{{producto.idproducto}}">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
 
+                      <div class="modal-header">
+                        <h4 class="modal-title">Editar producto</h4>
+                        <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+                      </div>
 
-                  </td>
+                      <div class="modal-body">
+                        <form class="formEditar" action="{% url 'productosEditado' %}" method="post">
+                          {% csrf_token %}
 
-                  <!-- Modal de editar -->
-                  <div class="modal" id="myModal2{{producto.idproducto}}">
-                    <div class="modal-dialog">
-                      <div class="modal-content">
+                          <input type="hidden" name="idproducto2" value="{{ producto.idproducto }}">
 
-                        <!-- Cabecera del modal -->
-                        <div class="modal-header">
-                          <h4 class="modal-title">Editar producto</h4>
-                          <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
-                        </div>
+                          <label>Tipo de vehículo</label>
+                          <select class="form-select" name="categoria2">
+                            <option value="{{ producto.idcategoria.idcategoria }}" selected>
+                              {{ producto.idcategoria.nomcategoria }}
+                            </option>
+                            {% for categoria in categorias %}
+                              <option value="{{ categoria.idcategoria }}">{{ categoria.nomcategoria }}</option>
+                            {% endfor %}
+                          </select>
 
-                        <!-- Contenido del modal -->
-                        <div class="modal-body">
-                          <form action="{% url 'productosEditado' %}" method="post" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            <h4>Producto</h4>
+                          <label>Unidad</label>
+                          <select class="form-select" name="unidad2">
+                            <option value="{{ producto.idunidad.idunidad }}" selected>
+                              {{ producto.idunidad.abrunidad }}
+                            </option>
+                            {% for unidad in unidades %}
+                              <option value="{{ unidad.idunidad }}">{{ unidad.abrunidad }}</option>
+                            {% endfor %}
+                          </select>
 
-                            <label for="nombreProducto2">Categoria</label><br>
-                            <select class="form-select" aria-label="Default select example" name="categoria2">
-                              <option value="{{producto.idcategoria}}">{{producto.idcategoria.nomcategoria}}</option>
-                              {% for categoria in categorias %}
-                              <option value="{{categoria.idcategoria}}">{{categoria.nomcategoria}}</option>
-                              {% endfor %}
-                            </select>
+                          <label>Marca</label>
+                          <select class="form-select" name="marca2">
+                            <option value="{{ producto.idmarca.idmarca }}" selected>
+                              {{ producto.idmarca.nombremarca }}
+                            </option>
+                            {% for marca in marcas %}
+                              <option value="{{ marca.idmarca }}">{{ marca.nombremarca }}</option>
+                            {% endfor %}
+                          </select>
 
-                            <label for="nombreProducto2">Unidad</label><br>
-                            <select class="form-select" aria-label="Default select example" name="unidad2">
-                              <option value="{{producto.idunidad}}">{{producto.idunidad.abrunidad}}</option>
-                              {% for unidad in unidades %}
-                              <option value="{{unidad.idunidad}}">{{unidad.abrunidad}}</option>
-                              {% endfor %}
-                              </option>
-                            </select>
+                          <label>Cilindrada</label>
+                          <select class="form-select" name="cilindrada2">
+                            <option value="{{ producto.idcilindrada.idcilindrada }}" selected>
+                              {{ producto.idcilindrada.cilindrada_cc }}
+                            </option>
+                            {% for cil in cilindrada %}
+                              <option value="{{ cil.idcilindrada }}">{{ cil.cilindrada_cc }}</option>
+                            {% endfor %}
+                          </select>
 
-                            <input type="hidden" name="idproducto2" id="nombreProducto2"
-                              value="{{producto.idproducto}}">
+                          <label>Color</label>
+                          <select class="form-select" name="color2">
+                            <option value="{{ producto.idcolor.idcolor }}" selected>
+                              {{ producto.idcolor.nombrecolor }}
+                            </option>
+                            {% for c in color %}
+                              <option value="{{ c.idcolor }}">{{ c.nombrecolor }}</option>
+                            {% endfor %}
+                          </select>
 
-                            <label for="nombreProducto2">Nombre</label><br>
-                            <input type="text" name="nombreProducto2" id="nombreProducto2"
-                              value=" {{producto.nomproducto}}" class="form-control">
+                          <label>Nombre</label>
+                          <input type="text" name="nombreProducto2" id="nombreProducto2_{{producto.idproducto}}"
+                                 value="{{ producto.nomproducto }}" class="form-control">
 
-                            <label for="descripcionProducto2">Descripción</label><br>
-                            <input type="text" name="descripcionProducto2" id="descripcionProducto2"
-                              value="{{producto.descripcion}}" class="form-control">
+                          <label class="mt-2">Imagen (URL o ruta)</label>
+                          <input type="text" name="imagenprod2" id="imagenprod2_{{producto.idproducto}}"
+                                 value="{{ producto.imagenprod }}" class="form-control">
 
-                            <label for="precioCompra2">Precio compra</label><br>
-                            <input type="text" name="precioCompra2" id="precioCompra2"
-                              value=" {{producto.precioCompra}}" class="form-control">
-
-                            <label for="precioProducto2">Precio venta</label><br>
-                            <input type="text" name="precioProducto2" id="precioProducto2"
-                              value=" {{producto.preciounitario}}" class="form-control">
-
-                            <label for="stockProducto2">Stock</label><br>
-                            <input type="number" name="stockProducto2" id="stockProducto2"
-                              value="{{producto.stockactual}}" class="form-control">
-
-
-
-                            <!-- <label for="imagenProducto2">Igamen</label><br>
-                      <input type="file" value="Adjuntar imagen" name="imagenProducto2" id="imagenProducto2" 
-                        style="width: 400px;"> -->
-
-                            <div style="display:flex; margin-left:140px;">
-
-                              <div class="modal-footer">
-                                <button type="submit" class="btn btn-secondary" data-bs-dismiss="modal">Editar</button>
-                              </div>
-
-                              <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                              </div>
-                            </div>
-
-
-                        </div>
+                          <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary">Editar</button>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                          </div>
                         </form>
                       </div>
 
-                      <!-- Pie del modal -->
-
                     </div>
                   </div>
-
-                  <!-- Fin del modal -->
-
-
-
-
-
-<!-- Modal de lotes -->
-<div class="modal" id="myModalLotes{{producto.idproducto}}">
-  <div class="modal-dialog">
-      <div class="modal-content">
-
-          <!-- Cabecera del modal -->
-          <div class="modal-header">
-              <h4 class="modal-title">Lotes del producto</h4>
-              <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
-          </div>
-
-          <!-- Contenido del modal  falta agregar funcionalidad de editar acá-->
-          <div class="modal-body">
-      
-                  <div class="lotes">
-     
-                  </div>
-             
-                  <div class="modal-footer justify-content-center"> <!-- Agregamos la clase justify-content-center para centrar -->
-                    <button type="submit"  class="btn btn-success" data-bs-dismiss="modal">Ok</button>
                 </div>
-                
-                  
-
-          </div>
-      </div>
-  </div>
-</div>
-<!-- Fin del modal lotes -->
-
-                </tr>
+                <!-- /Modal EDITAR -->
                 {% endfor %}
               </tbody>
             </table>
+
           </div>
         </div>
-
       </div>
     </div>
   </section>
-</main><!-- End #main -->
+</main>
+
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script>
-
-  $(function () {
-    $("#modalAgregar").click(function () {
-      // Obtener los datos del formulario
-      var formData = new FormData($('form')[0]);
-      // Realizar la solicitud AJAX
-      $.ajax({
-        type: "POST",
-        url: "{% url 'productosAgregar' %}",
-        data: formData,
-        processData: false,  // Evitar que jQuery procese los datos automáticamente
-        contentType: false,  // No establecer automáticamente el tipo de contenido
-        success: function (response) {
-          Swal.fire({
-            title: 'Producto guardada exitosamente',
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: '¡Ok!',
-          }).then((result) => {
-            if (result.isConfirmed) {
-              // Redireccionar solo si el usuario hace clic en "OK"
-              window.location.href = "{% url 'productos' %}";
-
-            }
-          });
-        }
-      });
-      return false; // Prevenir el envío del formulario por defecto
-    });
-
-    //Para ver lotes
-    $(".btn_lotes").click(function(event){
-        event.preventDefault(); // Previene la acción por defecto del enlace
-        let urlEliminar = $(this).attr("href");
-        $.ajax({
-            type: "GET",
-            url: urlEliminar,
-            success: function(response) {
-              $('.lotes').empty();
-                $.each(response, function(index, value) {
-                    // Crear y agregar inputs
-                    let valores = '<h2>Lote '+(index+1)+'</h2>';
-                    valores += '<label ><strong>Fecha de producción</strong></label><br> <input type="text" name="lote[fecha_produccion][]"  value="'+value.fecha_produccion+'" class="form-control">';
-                    valores += '<label ><strong>Fecha de vencimiento</strong></label><br> <input type="text" name="lote[fecha_vencimiento][]" value="'+value.fecha_vencimiento+'" class="form-control">';
-                    valores += '<label ><strong>Identificador</strong></label><br> <input type="text" name="lote[identificador][]" value="'+value.identificador+'" class="form-control">';
-                    valores += '<label ><strong>Cantidad</strong></label><br> <input type="text" name="lote[cantidad][]" value="'+value.cantidad+'" class="form-control">';
-                    $('.lotes').append(valores);
-                });
-            },
-        });
-    });
-  });
-
-  
-//Para eliminar
+  // Confirmar eliminación
   function confirmarEliminar(idproducto, enlace) {
     let urlEliminar = $(enlace).attr("href");
     Swal.fire({
@@ -374,21 +243,74 @@
       cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
-
-        // Redirige a la URL para eliminar la compra si el usuario confirma
         $.ajax({
           type: "GET",
           url: urlEliminar,
-          data: { csrfmiddlewaretoken: '{{ csrf_token }}' }, // Incluye el token CSRF en la solicitud
-          success: function (response) {
-            window.location.href = 'productos'
-          },
-
+          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+          success: function () {
+            window.location.href = "{% url 'productos' %}";
+          }
         });
-
       }
     });
-    return false; // Detiene la acción predeterminada del enlace
+    return false;
   }
+
+  // Construir nombre automáticamente (modal AGREGAR)
+  function actualizarNombreNuevo() {
+    const tipoVehiculo = document.querySelector('#modalAgregar select[name="categoria"] option:checked')?.text || '';
+    const cil = document.querySelector('#modalAgregar select[name="cilindrada"] option:checked')?.text || '';
+    const marca = document.querySelector('#modalAgregar select[name="marca"] option:checked')?.text || '';
+    const color = document.querySelector('#modalAgregar select[name="color"] option:checked')?.text || '';
+    document.getElementById('nombreProducto').value = `${tipoVehiculo} ${cil} ${marca} ${color}`.trim();
+  }
+  document.addEventListener('change', function(e){
+    if (e.target.closest('#modalAgregar')) actualizarNombreNuevo();
+  });
+  document.addEventListener('DOMContentLoaded', actualizarNombreNuevo);
+
+
+  // Confirmación para AGREGAR
+  document.addEventListener('DOMContentLoaded', function () {
+    const formAgregar = document.getElementById('formAgregar');
+    if (formAgregar) {
+      formAgregar.addEventListener('submit', function (e) {
+        e.preventDefault();
+        Swal.fire({
+          title: '¿Guardar producto?',
+          text: 'Se registrará el producto con los datos ingresados.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, guardar',
+          cancelButtonText: 'Cancelar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            formAgregar.submit(); // POST normal a tu view
+          }
+        });
+      });
+    }
+
+    // Confirmación para EDITAR (varios formularios)
+    const formsEditar = document.querySelectorAll('form.formEditar');
+    formsEditar.forEach((form) => {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        Swal.fire({
+          title: '¿Actualizar producto?',
+          text: 'Se guardarán los cambios del producto.',
+          icon: 'question',
+          showCancelButton: true,
+          confirmButtonText: 'Sí, actualizar',
+          cancelButtonText: 'Cancelar'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            form.submit(); // POST normal a tu view
+          }
+        });
+      });
+    });
+  });
+  
 </script>
 {% endblock %}

@@ -1,822 +1,828 @@
-import decimal
-from datetime import datetime, date, time
+from django.shortcuts import render, redirect, get_object_or_404
+from django.http import HttpResponse, JsonResponse, FileResponse
+from django.db import transaction
+from django.utils import timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
-from django.db import connection
-from software.views.apiBusquedaRUcDni import ApisNetPe
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render, get_object_or_404
-import templates
-from software.models.comprasModel import Compras
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+from io import BytesIO
+from software.decorators import requiere_caja_aperturada
 
-from software.models.cajaModel import Caja
-from software.models.tipoTransaccion import TipoTransaccion
-from software.models.transaccionModel import Transaccion
-
-from software.models.ProveedoresModel import Proveedores
-from software.models.TipoclienteModel import Tipocliente
-from software.models.compradetalleModel import CompraDetalle
-from software.models.ProductoModel import Producto
-from software.models.categoriaModel import Categoria
-from software.models.compradetalleModel import CompraDetalle
-from software.models.VentaModel import Venta
+from software.models.VentasModel import Ventas
 from software.models.VentaDetalleModel import VentaDetalle
-from software.models.UsuarioModel import Usuario
-from software.models.UnidadesModel import Unidades
-from software.models.TipousuarioModel import Tipousuario
-from software.models.TipodocumentoModel import Tipodocumento
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProvinciasModel import Provincias
-from software.models.ProveedoresModel import Proveedores
-from software.models.NumserieModel import Numserie
-from software.models.ModulosModel import Modulos
-from software.models.empresaModel import Empresa
-from software.models.empleadoModel import Empleado
-from software.models.Tipo_entidadModel import TipoEntidad
-from software.models.distritosModel import Distritos
-from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
-from software.models.detallecategoriaxunidadesModel import Detallecategoriaxunidades
-from software.models.departamentosModel import Departamentos
-from software.models.codigocorreoModel import CodigoCorreo
+from software.models.CuotasVentaModel import CuotasVenta
+from software.models.ClienteModel import Cliente
 from software.models.TipoIgvModel import TipoIgv
-from software.models.clientesModel import Clientes
-from software.models.ModopagoModel import Modopago
-from software.models.DepatamentoIgvModel import Detalletipoigvxdepartamento
-from openpyxl import Workbook
-from django.db.models import Sum
-from openpyxl.utils import get_column_letter
-
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-import os
-from django.conf import settings
-from django.templatetags.static import static
-
-
-# Create your views here.
-import requests
-import json
+from software.models.SeriecomprobanteModel import Seriecomprobante
+from software.models.TipocomprobanteModel import Tipocomprobante
+from software.models.FormaPagoModel import FormaPago
+from software.models.TipoPagoModel import TipoPago
+from software.models.VehiculosModel import Vehiculo
+from software.models.ProductoModel import Producto
+from software.models.RespuestoCompModel import RepuestoComp
+from software.models.RepuestoModel import Repuesto
+from software.models.compradetalleModel import CompraDetalle
+from software.models.AperturaCierreCajaModel import AperturaCierreCaja
+from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
 
 
+# Listado de ventas
 def ventas(request):
-    id = request.session.get('idtipousuario')
+    # Obtención del id del tipo de usuario desde la sesión
+    id2 = request.session.get('idtipousuario')
+    
+    if not id2:
+        return HttpResponse("<h1>No tiene acceso señor</h1>")
+    
+    # Verificar si tiene caja abierta
+    idusuario = request.session.get('idusuario')
+    apertura_actual = AperturaCierreCaja.objects.filter(
+        idusuario_id=idusuario,
+        estado='abierta'
+    ).first()
+    
+    # Validación de permisos
+    permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
+    
+    # Ventas activas, ordenadas de más recientes a más antiguas
+    ventas_registros = Ventas.objects.filter(estado=1).select_related(
+        'idcliente', 'idtipocomprobante', 'idusuario', 'id_forma_pago'
+    ).order_by('-fecha_venta')
+    
+    # Catálogos relacionados
+    clientes = Cliente.objects.filter(estado=1)
+    tipo_comprobante = Tipocomprobante.objects.filter(estado=1)
+    forma_pago = FormaPago.objects.filter(estado=1)
+    tipo_pago = TipoPago.objects.filter(estado=1)
+    tipo_igv = TipoIgv.objects.filter(estado=1)
+    serie_comprobante = Seriecomprobante.objects.filter(estado=1)
+    
+    # CORREGIDO: Agrupar vehículos por nombre de producto
+    productos_stock = {}
+    productos = Producto.objects.filter(estado=1)
+    
+    for producto in productos:
+        vehiculos = Vehiculo.objects.filter(
+            idproducto=producto,
+            estado=1
+        ).select_related('idestadoproducto')
+        
+        vehiculos_disponibles = []
+        for vehiculo in vehiculos:
+            detalle_compra = CompraDetalle.objects.filter(
+                id_vehiculo=vehiculo
+            ).first()
+            
+            if detalle_compra:
+                vehiculos_disponibles.append({
+                    'id_vehiculo': vehiculo.id_vehiculo,
+                    'serie_motor': vehiculo.serie_motor,
+                    'serie_chasis': vehiculo.serie_chasis,
+                    'precio_venta': float(detalle_compra.precio_venta),
+                    'precio_compra': float(detalle_compra.precio_compra),
+                })
+        
+        # Solo agregar productos que tengan vehículos disponibles
+        if vehiculos_disponibles:
+            if producto.nomproducto not in productos_stock:
+                productos_stock[producto.nomproducto] = []
+            productos_stock[producto.nomproducto].extend(vehiculos_disponibles)
+    
+    # CORREGIDO: Agrupar repuestos por nombre
+    repuestos_stock = {}
+    catalogo_repuestos = Repuesto.objects.filter(estado=1)
+    
+    for repuesto_catalogo in catalogo_repuestos:
+        repuestos_comprados = RepuestoComp.objects.filter(
+            id_repuesto=repuesto_catalogo,
+            estado=1
+        )
+        
+        repuestos_disponibles = []
+        for repuesto_comp in repuestos_comprados:
+            detalle_compra = CompraDetalle.objects.filter(
+                id_repuesto_comprado=repuesto_comp
+            ).first()
+            
+            if detalle_compra:
+                repuestos_disponibles.append({
+                    'id_repuesto_comprado': repuesto_comp.id_repuesto_comprado,
+                    'codigo_barras': repuesto_comp.codigo_barras if repuesto_comp.codigo_barras else 'N/A',
+                    'precio_venta': float(detalle_compra.precio_venta),
+                    'precio_compra': float(detalle_compra.precio_compra),
+                })
+        
+        # Solo agregar repuestos que tengan items disponibles
+        if repuestos_disponibles:
+            if repuesto_catalogo.nombre not in repuestos_stock:
+                repuestos_stock[repuesto_catalogo.nombre] = []
+            repuestos_stock[repuesto_catalogo.nombre].extend(repuestos_disponibles)
+    
+    # Obtener usuario actual
+    idusuario = request.session.get('idusuario')
+    
+    # Convertir a JSON para JavaScript
+    import json
+    productos_stock_json = json.dumps(productos_stock)
+    repuestos_stock_json = json.dumps(repuestos_stock)
+    
+    # Contexto para el template
+    data = {
+        'ventas_registros': ventas_registros,
+        'clientes': clientes,
+        'tipo_comprobante': tipo_comprobante,
+        'tipo_igv': tipo_igv,
+        'serie_comprobante': serie_comprobante, 
+        'forma_pago': forma_pago,
+        'tipo_pago': tipo_pago,
+        'productos_stock': productos_stock_json,
+        'repuestos_stock': repuestos_stock_json,
+        'idusuario': idusuario,
+        'permisos': permisos,
+        'apertura_actual': apertura_actual, 
+        'tiene_caja_abierta': bool(apertura_actual)
+    }
+    
+    return render(request, 'ventas/ventas.html', data)
 
-    if id:
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id)
 
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT `venta`.`idventa`, `clientes`.`razonsocial`, `venta`.`total_a_pagar` AS `total`,
-                `venta`.`fechaemision`, `numserie`.`numserie`, `venta`.`numcorrelativo`, `venta`.`ruta_pdf`, `venta`.`ruta_cdr`, `venta`.`respuesta_sunat_descripcion`, `venta`.`respuesta_sunat_codigo`, `venta`.`ruta_ticket`
-                FROM `venta`
-                INNER JOIN `venta_detalle` ON (`venta`.`idventa` = `venta_detalle`.`idventa`)
-                INNER JOIN `numserie` ON (`venta`.`idnumserie` = `numserie`.`idnumserie`)
-                INNER JOIN `clientes` ON (`clientes`.`idcliente` = `venta`.`idcliente`)
-                WHERE `venta`.`estado` = 1
-                GROUP BY `venta`.`idventa`, `clientes`.`razonsocial`, `venta`.`fechaemision`,
-                `numserie`.`numserie`, `venta`.`numcorrelativo`
-            """)
-            rows = cursor.fetchall()
-
-        request.session.get('idusuario')
-
-        return render(request, 'venta/venta.html', {'resultados': rows, "permisos": permisos})
-    else:
-        return HttpResponse("<h1>No tiene accedo señor</h1>")
-
-
-def agregar(request):
-    id = request.session.get('idtipousuario')
-    if id:
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id)
-        tipo_documentos = Tipodocumento.objects.all()
-        tipo_cliente = Tipocliente.objects.all()
-        unidades = Unidades.objects.all()
-        # tipo_igv = TipoIgv.objects.all()
-        modoPago = Modopago.objects.all()
-
-        empresa = Empresa.objects.filter(idempresa=1).first()
-        id_departamento = str(empresa.ubigueo)[:2]
-
-        # TIpo documento
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT d.nombredepartamento, ti.id_tipo_igv, ti.tipo_igv
-                FROM facsiswave.detalletipoigvxdepartamento dp
-                INNER JOIN tipo_igvs ti ON ti.id_tipo_igv = dp.id_tipo_igv
-                INNER JOIN departamentos d ON d.iddepartamentos = dp.iddepartamentos
-                WHERE d.iddepartamentos = %s
-            """, [id_departamento])
-            rows = cursor.fetchall()
-
-        data = {
-            "tipoDocumentos": tipo_documentos,
-            "unidades": unidades,
-            "tipoClientes": tipo_cliente,
-            'rows': rows,
-            "modoPagos": modoPago,
-            "permisos": permisos
-        }
-        return render(request, 'venta/agregarVenta.html', data)
-
-
-def buscarSerie(request):
-
-    doc = request.POST.get('doc')  # Acceder al valor 'doc' enviado por AJAX
-    get_numserie = Numserie.objects.filter(
-        idtipodocumento=doc, estado=1, idusuario=request.session.get('idusuario'))
-    serie_list = list(get_numserie.values())
-    return JsonResponse(serie_list, safe=False)
-
-
-def buscarProducto(request):
-
-    if request.method == 'POST':
-        busqueda = request.POST.get('busqueda')
-
-        productos = Producto.objects.filter(
-            nomproducto__icontains=busqueda, estado=1)
-        unidad = Unidades.objects.filter(
-            idunidad=productos[0].idunidad.idunidad)
-
-        unidad_list = list(unidad.values())
-        productos_list = list(productos.values())
-
-        response_data = {
-            'productos': productos_list,
-            'unidad': unidad_list,
-        }
-
-        return JsonResponse(response_data, safe=False)
+# Obtener series por tipo de comprobante (AJAX)
+def obtener_series(request):
+    if request.method == "GET":
+        idtipocomprobante = request.GET.get('idtipocomprobante')
+        series = Seriecomprobante.objects.filter(
+            idtipocomprobante=idtipocomprobante,
+            estado=1
+        ).values('idseriecomprobante', 'serie', 'numero_actual')
+        
+        return JsonResponse(list(series), safe=False)
+    
     return JsonResponse({'error': 'Método no permitido'}, status=400)
 
 
-def dni(request):
-
-    doc = request.POST.get('doc')
-    APIS_TOKEN = 'apis-token-7422.K4qsT4qnQsAvf7Eb6rovatLjtysiiCge'
-    api_consultas = ApisNetPe(APIS_TOKEN)
-    perosna_info = api_consultas.get_person(doc)
-    return JsonResponse(perosna_info, safe=False)
-
-
-def ruc(request):
-
-    doc = request.POST.get('doc')
-    print(doc)
-    APIS_TOKEN = 'apis-token-7422.K4qsT4qnQsAvf7Eb6rovatLjtysiiCge'
-    api_consultas = ApisNetPe(APIS_TOKEN)
-    empresa_info = api_consultas.get_company(doc)
-    return JsonResponse(empresa_info, safe=False)
-
-
-def guardarVenta(request):
-    # Datos totales
-    totalGravada = request.POST.get('totalGravada')
-    totalExonerada = request.POST.get('totalExonerada')
-    totalIgv = request.POST.get('totalIgv')
-    ventaTotal = request.POST.get('ventaTotal')
-
-    # Obtener fecha actual
-    fechaNow = date.today()
-
-    # cliente
-    docCliente = request.POST.get('doccliente')
-    tipoCliente = request.POST.get('tipoCliente')
-    nomcliente = request.POST.get('nomcliente')
-    direccionCliente = request.POST.get('direccion')
-    tipoPago = request.POST.get('tipoPago')
-
-    # Para tipo pago
-    getTipoPago = Modopago.objects.get(idmodoPago=tipoPago)
-
-    # Para tipo entidad, dni o ruc
-    tipo_entidad = 0
-    if int(tipoCliente) == 1:
-        tipo_entidad = 2
-
-    elif int(tipoCliente) == 2:
-        tipo_entidad = 1
-
-    # Documento
-    tipoDocumento = request.POST.get('tipoDocumento')
-    serie = request.POST.get('serie')
-    placa = request.POST.get('placa')
-    # fechDocumento = request.POST.get('fechDocumento')
-
-    productos = request.POST.getlist('producto[nombre][]')
-    unidades = request.POST.getlist('producto[unidad][]')
-    cantidades = request.POST.getlist('producto[cantidad][]')
-    precio_unitarios = request.POST.getlist('producto[precioUnitario][]')
-    sub_totales = request.POST.getlist('producto[subTotal][]')
-
-    # Tipo igv
-    tipo_igv = request.POST.get('tipo_igv')
-
-    getTipoIgv = TipoIgv.objects.get(id_tipo_igv=tipo_igv)
-
-    # Empresa
-    getEmpresa = Empresa.objects.get(idempresa=1)
-
-    # Obtener el numero correlativo y sumarlo +1
-    GetNumcorrelativo = Venta.objects.filter(
-        idnumserie=serie).order_by('-numcorrelativo').first()
-
-    intNumcorrelativo = int(GetNumcorrelativo.numcorrelativo)+1
-
-    num_ceros = len(str(GetNumcorrelativo.numcorrelativo))
-
-    nuevo_numcorrelativo = "{:0{}}".format(intNumcorrelativo, num_ceros)
-
-    productos_sin_stock = []
-
-    for nombre, cantidad in zip(productos, cantidades):
-        obtener_producto = Producto.objects.filter(nomproducto=nombre).first()
-
-        if obtener_producto:
-            stockActual = obtener_producto.stockactual
-
-            if stockActual < float(cantidad):
-                productos_sin_stock.append(obtener_producto.nomproducto)
-        else:
-            return JsonResponse({"error": f"Producto {nombre} no encontrado"})
-
-    if productos_sin_stock:
-        mensaje = "Falta stock para los siguientes productos:<br>-" + \
-            "<br>- ".join(productos_sin_stock)
-        return JsonResponse({"mensaje": mensaje})
-
-    # Obtener tipo cliente
-    tipo_cliente = Tipocliente.objects.get(idtipocliente=tipoCliente)
-    # obtener tipo_entidad
-    getTipo_entidad = TipoEntidad.objects.get(id_tipo_entidad=tipo_entidad)
-    # agregar cliente
-    cliente = Clientes.objects.create(idtipocliente=tipo_cliente, numdoc=docCliente,
-                                      razonsocial=nomcliente, direccion=direccionCliente, estado=1,
-                                      id_tipo_entidad=getTipo_entidad)
-
-    # Obtener numserie
-
-    numserie = Numserie.objects.get(idnumserie=serie)
-    # Obtener la hora actual
-    hora_actual = datetime.now().time()
-
-    # Formatear la hora actual en formato HH:MM:SS
-    hora_actual_formateada = hora_actual.strftime('%H:%M:%S')
-
-    venta_creada = Venta.objects.create(idnumserie=numserie,
-                                        numcorrelativo=nuevo_numcorrelativo,
-                                        idcliente=cliente,
-                                        fechaemision=fechaNow,
-                                        horaemision=hora_actual_formateada,
-                                        estado=1,
-                                        id_tipo_igv=getTipoIgv,
-                                        idempresa=getEmpresa,
-                                        idmodoPago=getTipoPago,
-                                        total_gravada=totalGravada,
-                                        total_igv=totalIgv,
-                                        total_exonerada=totalExonerada,
-                                        total_a_pagar=ventaTotal)
-
-    # new_list= zip(productos,unidades,cantidades,precio_unitarios,sub_totales)
-
-    for nombre, cantidad_subtotal, sub_total in zip(productos, cantidades, sub_totales):
-
-        obtener_producto = Producto.objects.filter(nomproducto=nombre).first()
-        stockActual = obtener_producto.stockactual
-        # if stockActual < int(cantidad_subtotal):
-        #     return redirect('agregarVenta')
-
-        obtener_producto.stockactual = stockActual - float(cantidad_subtotal)
-        obtener_producto.save()
-
-        # precio_subtotal= cantidad_subtotal*precio_unitario #Tal vez
-        VentaDetalle.objects.create(idventa=venta_creada, idproducto=obtener_producto,
-                                    cantidad=cantidad_subtotal, preciosubtotal=sub_total)
-
-    # Para transaccion
-    ultimo_registro = Caja.objects.order_by('-id_caja').first()
-
-    caja = Caja.objects.get(id_caja=ultimo_registro.id_caja)
-    tipoTransaccion = TipoTransaccion.objects.get(id_tipo_transaccion=1)
-
-    transaccion = Transaccion()
-    transaccion.id_caja = caja
-    transaccion.id_tipo_transaccion = tipoTransaccion
-    transaccion.monto = ventaTotal
-    transaccion.fecha = fechaNow
-    transaccion.hora = hora_actual_formateada
-    transaccion.save()
-
-    return JsonResponse({"mensaje": "Venta exitosa"})
-
-
-def eliminarVentas(request, id):
-
-    Venta.objects.filter(idventa=id).update(estado=0)
-
-    return redirect('ventas')
-
-
-def eliminarVentaDetalle(request, id):
-    if request.method == 'GET':
-        id2 = request.session.get('idtipousuario')
-        if id2:
-            permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-
-            # Recuperar el objeto VentaDetalle que se va a eliminar
-            venta_detalle = get_object_or_404(VentaDetalle, idventadetalle=id)
-            
-            # Recuperar el id de la venta asociada al VentaDetalle
-            id_venta = venta_detalle.idventa_id # Accede al id de la venta asociada al detalle
-
-            # Recuperar el producto asociado al detalle de venta
-            producto = get_object_or_404(Producto, idproducto=venta_detalle.idproducto_id)
-
-
-            # Actualizar el stock del producto
-            producto.stockactual += venta_detalle.cantidad
-            producto.save()
-            
-            # Eliminar el objeto VentaDetalle
-            venta_detalle.delete()
-
-            return redirect('editarVenta', id=id_venta)
-        
-        return JsonResponse({'error': 'No autorizado'}, status=403)
-    
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
-
-
-
-def editarVenta(request, id):
-    id2 = request.session.get('idtipousuario')
-    if id2:
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-
-        ventas = Venta.objects.get(pk=id)
-        ventas_fechaemision = ventas.fechaemision.strftime('%Y-%m-%d')
-
-        ventas_detalles = VentaDetalle.objects.filter(idventa=id)
-
-        # Registro de la empresa
-        empresa = Empresa.objects.filter(idempresa=1).first()
-
-        id_departamento = str(empresa.ubigueo)[:2]
-
-        # Formatear preciounitario en cada detalle de venta
-        for detalle in ventas_detalles:
-            detalle.preciounitario_formateado = str(detalle.idproducto.preciounitario).replace(',', '.')
-            detalle.cantidad_formateado = str(detalle.cantidad).replace(',', '.')
-            detalle.preciosubtotal_formateado = str(detalle.preciosubtotal).replace(',', '.')
-
-
-        ventas.total_gravada_formateado = str(ventas.total_gravada).replace(',', '.')
-        ventas.total_exonerada_formateado = str(ventas.total_exonerada).replace(',', '.')
-        ventas.total_igv_formateado = str(ventas.total_igv).replace(',', '.')
-        ventas.total_a_pagar_formateado = str(ventas.total_a_pagar).replace(',', '.')
-
-  
-        data = {
-            'ventas': ventas,
-            'ventas_detalles': ventas_detalles,
-            'ventas_fechaemision': ventas_fechaemision,
-            "permisos": permisos,
-            # "rows":rows
-        }
-
-        return render(request, 'venta/editarVenta.html', data)
-
-
-def guardarEditar(request):
-    # Datos totales
-    totalGravada = request.POST.get('totalGravada')
-    totalExonerada = request.POST.get('totalExonerada')
-    totalIgv = request.POST.get('totalIgv')
-    ventaTotal = request.POST.get('ventaTotal')
-
-    # Cliente
-    docCliente = request.POST.get('doccliente')
-    nomcliente = request.POST.get('nomcliente')
-    direccionCliente = request.POST.get('direccion')
-    idCliente = request.POST.get('idcliente')
-
-    nombres = request.POST.getlist('producto[nombre][]')
-    cantidades = request.POST.getlist('producto[cantidad][]')
-    precio_unitarios = request.POST.getlist('producto[precioUnitario][]')
-    sub_totales = request.POST.getlist('producto[subTotal][]')
-    idproductos = request.POST.getlist('producto[idproducto][]')
-
-    id_venta = request.POST.get('idVenta')
-
-    venta = Venta.objects.get(idventa=id_venta)
-
-    new_zip = zip(nombres, cantidades, precio_unitarios,
-                  sub_totales, idproductos)
-    productos_sin_stock = []
-    for nombre, cantidad in zip(nombres, cantidades):
-        obtener_producto = Producto.objects.filter(nomproducto=nombre).first()
-
-        if obtener_producto:
-            stockActual = obtener_producto.stockactual
-
-            if stockActual < float(cantidad):
-                productos_sin_stock.append(obtener_producto.nomproducto)
-        else:
-            return JsonResponse({"error": f"Producto {nombre} no encontrado"})
-
-    if productos_sin_stock:
-        mensaje = "Falta stock para los siguientes productos:<br>-" + \
-            "<br>- ".join(productos_sin_stock)
-        return JsonResponse({"mensaje": mensaje})
-    
-    # Si ya existía el registro, edita, si no resta el stock del producto nuevo y agrega un nuevo registro de venta detalle
-    for nombre, cantidad, precio_unitario, subtotal, id_producto in new_zip:
-        # Reemplaza las comas por puntos en el subtotal
-        subtotal = subtotal.replace(',', '.')
-
-        # Convierte los valores a Decimal
-        cantidad_decimal = Decimal(cantidad)
-        subtotal_decimal = Decimal(subtotal)
-
-        # Si hay un id_producto, intenta actualizar el registro existente
-        if id_producto:
-            venta_detalle = VentaDetalle.objects.filter(
-                idproducto=id_producto, idventa=venta).first()
-
-            if venta_detalle:
-                # Sumo la cantidad antes puesta y resto el nuevo
-                obtener_producto = Producto.objects.filter(
-                    nomproducto=nombre).first()
-                stockActual = obtener_producto.stockactual + venta_detalle.cantidad
-                obtener_producto.stockactual = stockActual - Decimal(cantidad)
-                obtener_producto.save()
-
-                # Actualizo datos en el detalle
-                venta_detalle.cantidad = cantidad_decimal
-                venta_detalle.preciosubtotal = subtotal_decimal
-                venta_detalle.save()
-        # else:
-        else:
-            print("Entro a crear")
-            # Si no hay id_producto, busca el producto por su nombre y resta el stock
-            producto = Producto.objects.get(nomproducto=nombre)
-            stockActual = producto.stockactual
-            producto.stockactual = stockActual - int(cantidad)
-            producto.save()
-
-            # Verifica si ya existe un registro para este producto en la venta actual
-            venta_detalle_existente = VentaDetalle.objects.filter(
-                idproducto=producto, idventa=venta).exists()
-
-            if not venta_detalle_existente:
-                # Crea un nuevo registro solo si no existe un registro para este producto en la venta actual
-                VentaDetalle.objects.create(
-                    idventa=venta, idproducto=producto, cantidad=cantidad_decimal, preciosubtotal=subtotal_decimal)
-
-    # Cliente
-    getCliente = Clientes.objects.get(idcliente=idCliente)
-    getCliente.numdoc = docCliente
-    getCliente.razonsocial = nomcliente
-    getCliente.direccion = direccionCliente
-    getCliente.save()
-    # Editar totales de la venta
-    venta.total_gravada = totalGravada
-    venta.total_igv = totalIgv
-    venta.total_exonerada = totalExonerada
-    venta.total_a_pagar = ventaTotal
-    venta.save()
-
-    return JsonResponse({"mensaje": "Venta exitosa"})
-
-
-def buscarFechaVentas(request):
-    fecha_inicio = request.POST.get('fechaInicio')
-    fecha_fin = request.POST.get('fechaFin')
-
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT venta.idventa, clientes.razonsocial, SUM(venta_detalle.preciosubtotal) AS total,
-            venta.fechaemision, numserie.numserie, venta.numcorrelativo
-            FROM venta
-            INNER JOIN venta_detalle ON (venta.idventa = venta_detalle.idventa)
-            INNER JOIN numserie ON (venta.idnumserie = numserie.idnumserie)
-            INNER JOIN clientes ON (clientes.idcliente = venta.idcliente)
-            WHERE (venta.estado = 1) and (venta.fechaemision BETWEEN %s AND %s)
-            GROUP BY venta.idventa, clientes.razonsocial, venta.fechaemision,
-            numserie.numserie, venta.numcorrelativo
-        """, [fecha_inicio, fecha_fin])
-        rows = cursor.fetchall()
-
-    resultado_json = list(rows)
-    return JsonResponse(resultado_json, safe=False)
-
-
-def export_to_excel_ventas(request):
-    # Obtener datos de ventas con el total calculado
-    ventas = Venta.objects.annotate(
-        total=Sum('ventadetalle__preciosubtotal')
-    ).values(
-        'idventa', 'idcliente__razonsocial', 'numcorrelativo', 'fechaemision', 'total', 'idnumserie__idtipodocumento__abrrdoc'
-    ).order_by(
-        'idventa', 'idcliente', 'fechaemision'
-    )
-
-    # Crear un workbook de Excel
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.title = "Ventas"
-
-    # Crear la fila de encabezado
-    headers = ["Venta", "Cliente", "Total", "Fecha", "Doc"]
-    sheet.append(headers)
-
-    # Ajustar el ancho de la columna de fecha
-    fecha_columna = sheet.column_dimensions['D']
-    fecha_columna.width = 15  # Ajustar el ancho de la columna de fecha
-
-    # Agregar datos de ventas
-    for venta in ventas:
-        # Verificar si la fecha de emisión es None
-        if venta['fechaemision'] is None:
-            fecha_emision = ""  # O cualquier otro valor predeterminado que desees
-        else:
-            # Formatear la fecha como cadena antes de agregarla al Excel
-            fecha_emision = venta['fechaemision'].strftime("%d/%m/%Y")
-        # Obtener el prefijo del documento según el tipo de documento
-        prefijo_doc = venta['idnumserie__idtipodocumento__abrrdoc'] if venta['idnumserie__idtipodocumento__abrrdoc'] else ''
-        doc = f"{prefijo_doc}{venta['numcorrelativo']}-{venta['idventa']}"
-        sheet.append([
-            venta['idventa'],
-            venta['idcliente__razonsocial'],
-            venta['total'],
-            fecha_emision,
-            doc
-        ])
-
-    # Configurar la respuesta HTTP
-    response = HttpResponse(
-        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    )
-    response['Content-Disposition'] = 'attachment; filename=ventas.xlsx'
-
-    # Guardar el workbook en la respuesta
-    workbook.save(response)
-
-    return response
-
-
-def custom_json_serializer(obj):
-    if isinstance(obj, (datetime, date)):
-        return obj.isoformat()
-    elif isinstance(obj, time):
-        return obj.strftime('%H:%M:%S')
-    elif isinstance(obj, decimal.Decimal):
-        return float(obj)
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-
-def enviarSunat(request, id):
-    # Recoger datos para envío a SUNAT
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT 
-                e.ruc as ruc,  
-                e.razonsocial as razon_social, 
-                e.nombrecomercial as nombre_comercial, 
-                e.direccion as domicilio_fiscal, 
-                e.ubigueo as ubigeo, 
-                d.nombredistrito as distrito, 
-                pr.nombreprovincia as provincia, 
-                dp.nombredepartamento as departamento, 
-                e.mododev as modo, 
-                e.usersec as usu_secundario_produccion_user, 
-                e.passwordsec as usu_secundario_produccion_password,
-
-                c.razonsocial AS razon_social_nombres, 
-                c.numdoc AS numero_documento, 
-                te.codigo AS codigo_tipo_entidad,
-                c.direccion AS cliente_direccion, 
-
-                n.numserie as serie, 
-                v.numcorrelativo as numero, 
-                v.fechaemision as fecha_emision, 
-                v.horaemision as hora_emision, 
-                m.idmodoPago as forma_pago_id,
-                v.total_gravada as total_gravada,
-                v.total_igv as total_igv,
-                v.total_exonerada as total_exonerada,
-                v.total_inafecta as total_inafecta,
-                tpD.codigosunat as tipo_documento_codigo,
-
-                p.nomproducto as producto,
-                vd.cantidad as cantidad,
-                p.preciounitario as precio_base,
-                p.codigo as codigo_sunat,
-                p.codigo_barras as codigo_producto,
-                u.codigounidad as codigo_unidad,
-                igv.codigo as tipo_igv_codigo
-            FROM 
-                venta v
-                INNER JOIN tipo_igvs igv ON igv.id_tipo_igv = v.id_tipo_igv
-                INNER JOIN empresa e ON e.idempresa = v.idempresa
-                INNER JOIN clientes c ON c.idcliente = v.idcliente
-                INNER JOIN venta_detalle vd ON vd.idventa = v.idventa
-                INNER JOIN producto p ON p.idproducto = vd.idproducto
-                INNER JOIN unidades u ON u.idunidad = p.idunidad
-                INNER JOIN numserie n ON n.idnumserie = v.idnumserie  
-                INNER JOIN tipodocumento tpD ON tpD.idtipodocumento = n.idtipodocumento
-                INNER JOIN modopago m ON m.idmodoPago = v.idmodoPago
-                INNER JOIN distritos d ON e.iddistrito = d.iddistrito
-                INNER JOIN provincias pr ON pr.idprovincia = d.idprovincia
-                INNER JOIN departamentos dp ON dp.iddepartamentos = pr.iddepartamento
-                INNER JOIN tipo_entidad te ON te.id_tipo_entidad = c.id_tipo_entidad
-            WHERE
-                v.idventa = %s;
-        """, [id])
-
-        rows = cursor.fetchall()
-    # Inicializar la lista de items vacía
-    items1 = []
-
-    # Construir la lista de items
-    for row in rows:
-        item = {
-            "producto": row[25],
-            "cantidad": row[26],
-            "precio_base": row[27],
-            "codigo_sunat": row[28],
-            "codigo_producto": row[29],
-            "codigo_unidad": row[30],
-            "tipo_igv_codigo": row[31]
-        }
-        items1.append(item)
-
-    # Serializar fecha y hora
-    fecha_emision = custom_json_serializer(
-        rows[0][17])  # Convertir fecha_emision
-    hora_emision = custom_json_serializer(
-        rows[0][18])   # Convertir hora_emision
-
-    # Envíar a SUNAT
-    url = "http://localhost/antiguo/API_SUNAT/post.php"
-    payload = {
-        "empresa": {
-            "ruc": rows[0][0],
-            "razon_social": rows[0][1],
-            "nombre_comercial": rows[0][2],
-            "domicilio_fiscal": rows[0][3],
-            "ubigeo": rows[0][4],
-            "urbanizacion": "",
-            "distrito": rows[0][5],
-            "provincia": rows[0][6],
-            "departamento": rows[0][7],
-            "modo": rows[0][8],
-            "usu_secundario_produccion_user": rows[0][9],
-            "usu_secundario_produccion_password": rows[0][10]
-        },
-        "cliente": {
-            "razon_social_nombres": rows[0][11],
-            "numero_documento": rows[0][12],
-            "codigo_tipo_entidad": rows[0][13],
-            "cliente_direccion": rows[0][14]
-        },
-        "venta": {
-            "serie": rows[0][15],
-            "numero": rows[0][16],
-            "fecha_emision": fecha_emision,
-            "hora_emision": hora_emision,
-            "fecha_vencimiento": "",
-            "moneda_id": "1",
-            "forma_pago_id": rows[0][19],
-            "total_gravada": rows[0][20],
-            "total_igv": rows[0][21],
-            "total_exonerada": rows[0][22],
-            "total_inafecta": rows[0][23],
-            "tipo_documento_codigo": rows[0][24],
-            "nota": "notas o comentarios"
-        },
-        "items": items1  # Agregar la lista de items aquí
-    }
-
-    headers = {
-        'Content-Type': 'application/json'
-    }
-
-    # Convertir payload a JSON
-    payload_json = json.dumps(payload, default=custom_json_serializer)
-
-    # Enviar solicitud a SUNAT
-    response = requests.request(
-        "POST", url, headers=headers, data=payload_json)
-
-    # Manejar la respuesta
-    if response.status_code == 200:
+# Nueva venta
+@requiere_caja_aperturada
+def nueva_venta(request):
+    if request.method == "POST":
         try:
-            # Obtener el contenido de la respuesta como texto
-            response_text = response.text
+            print("======= DEBUG POST VENTA =======")
+            for k, v in request.POST.items():
+                print(f"{k}: {v}")
+            print("================================")
 
-            # Variables para almacenar los valores encontrados
-            respuesta_codigo = None
-            respuesta_descripcion = None
-            ruta_xml = None
-            ruta_cdr = None
-            ruta_pdf = None
-            ruta_ticket = None
+            with transaction.atomic():
+                # ⭐ NUEVO: Obtener y validar caja aperturada
+                idusuario_session = request.session.get('idusuario')
+                apertura = AperturaCierreCaja.objects.filter(
+                    idusuario_id=idusuario_session,
+                    estado='abierta'
+                ).first()
+                
+                if not apertura:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'No tiene una caja aperturada. Por favor, aperture una caja antes de realizar ventas.',
+                        'necesita_aperturar': True
+                    }, status=400)
+                
+                # Obtener datos de cabecera
+                idcliente = int(request.POST.get("cliente"))
+                idusuario = int(request.POST.get("idusuario"))
+                idtipocomprobante = int(request.POST.get("tipo_comprobante"))
+                idseriecomprobante = int(request.POST.get("serie"))
+                fecha_venta = request.POST.get("fecha_venta")
+                id_forma_pago = int(request.POST.get("forma_pago"))
+                id_tipo_pago = request.POST.get("tipo_pago")
+                id_tipo_pago_id = int(id_tipo_pago) if id_tipo_pago else None
+                importe_recibido = request.POST.get("importe_recibido")
+                vuelto = request.POST.get("vuelto")
+                observaciones = request.POST.get("observaciones", "")
+                
+                # Validación para Contado
+                if id_forma_pago == 1:  # Contado
+                    if not importe_recibido or not vuelto:
+                        raise ValueError("Para ventas al contado, debe ingresar el importe recibido y el vuelto.")
+                    importe_recibido = Decimal(importe_recibido)
+                    vuelto = Decimal(vuelto)
+                    if importe_recibido < 0 or vuelto < 0:
+                        raise ValueError("El importe recibido y el vuelto no pueden ser negativos.")
+                else:
+                    importe_recibido = None
+                    vuelto = None
 
-            # Buscar el valor de respuesta_sunat_codigo
-            if '"respuesta_sunat_codigo":"' in response_text:
-                start_index = response_text.index(
-                    '"respuesta_sunat_codigo":"') + len('"respuesta_sunat_codigo":"')
-                end_index = response_text.index('"', start_index)
-                respuesta_codigo = response_text[start_index:end_index]
-                print("Respuesta SUNAT Código:", respuesta_codigo)
-            else:
-                print("No se encontró respuesta_sunat_codigo en la respuesta")
+                # Obtener serie y generar número de comprobante
+                serie = Seriecomprobante.objects.get(idseriecomprobante=idseriecomprobante)
+                serie.numero_actual += 1
+                numero_comprobante = f"{serie.serie}-{str(serie.numero_actual).zfill(8)}"
+                serie.save()
+                
+                id_tipo_igv = int(request.POST.get("tipo_igv"))
 
-            # Buscar el valor de respuesta_sunat_descripcion
-            if '"respuesta_sunat_descripcion":"' in response_text:
-                start_index = response_text.index(
-                    '"respuesta_sunat_descripcion":"') + len('"respuesta_sunat_descripcion":"')
-                end_index = response_text.index('"', start_index)
-                respuesta_descripcion = response_text[start_index:end_index]
-                print("Respuesta SUNAT Descripción:", respuesta_descripcion)
-            else:
-                print("No se encontró respuesta_sunat_descripcion en la respuesta")
+                # Crear venta
+                venta = Ventas.objects.create(
+                    idcliente_id=idcliente,
+                    idusuario_id=idusuario,
+                    idtipocomprobante_id=idtipocomprobante,
+                    idseriecomprobante_id=idseriecomprobante,
+                    id_tipo_igv_id=id_tipo_igv,
+                    numero_comprobante=numero_comprobante,
+                    fecha_venta=fecha_venta,
+                    id_forma_pago_id=id_forma_pago,
+                    id_tipo_pago_id=id_tipo_pago_id,
+                    importe_recibido=importe_recibido,
+                    vuelto=vuelto,
+                    subtotal=0,
+                    total_venta=0,
+                    total_ganancia=0,
+                    observaciones=observaciones,
+                    estado=1,
+                )
 
-            # Buscar el valor de ruta_xml
-            if '"ruta_xml":"' in response_text:
-                start_index = response_text.index(
-                    '"ruta_xml":"') + len('"ruta_xml":"')
-                end_index = response_text.index('"', start_index)
-                ruta_xml = response_text[start_index:end_index]
-                print("Ruta XML:", ruta_xml)
-            else:
-                print("No se encontró ruta_xml en la respuesta")
+                total = Decimal('0')
+                total_ganancia = Decimal('0')
+                items = int(request.POST.get("items_count") or 0)
 
-            # Buscar el valor de ruta_cdr
-            if '"ruta_cdr":"' in response_text:
-                start_index = response_text.index(
-                    '"ruta_cdr":"') + len('"ruta_cdr":"')
-                end_index = response_text.index('"', start_index)
-                ruta_cdr = response_text[start_index:end_index]
-                print("Ruta CDR:", ruta_cdr)
-            else:
-                print("No se encontró ruta_cdr en la respuesta")
+                # Procesar items del detalle
+                for i in range(1, items + 1):
+                    tipo_item = request.POST.get(f"tipo_item_{i}")
+                    if not tipo_item:
+                        continue
 
-            # Buscar el valor de ruta_pdf
-            if '"ruta_pdf":"' in response_text:
-                start_index = response_text.index(
-                    '"ruta_pdf":"') + len('"ruta_pdf":"')
-                end_index = response_text.index('"', start_index)
-                ruta_pdf = response_text[start_index:end_index]
-                print("Ruta PDF:", ruta_pdf)
-            else:
-                print("No se encontró ruta_pdf en la respuesta")
+                    cantidad = int(request.POST.get(f"cantidad_{i}") or 1)
+                    precio_venta_contado = Decimal(request.POST.get(f"precio_venta_contado_{i}") or 0)
+                    precio_venta_credito = request.POST.get(f"precio_venta_credito_{i}")
+                    precio_venta_credito = Decimal(precio_venta_credito) if precio_venta_credito else None
+                    precio_compra = Decimal(request.POST.get(f"precio_compra_{i}") or 0)
+                    
+                    if id_forma_pago == 2 and precio_venta_credito:
+                        precio_final = precio_venta_credito
+                    else:
+                        precio_final = precio_venta_contado
+                    
+                    subtotal = cantidad * precio_final
+                    ganancia = (precio_final - precio_compra) * cantidad
 
-            # Buscar el valor de ruta_ticket
-            if '"ruta_ticket":"' in response_text:
-                start_index = response_text.index(
-                    '"ruta_ticket":"') + len('"ruta_ticket":"')
-                end_index = response_text.index('"', start_index)
-                ruta_ticket1 = response_text[start_index:end_index]
-                print("Ruta TICKET:", ruta_ticket1)
-            else:
-                print("No se encontró ruta_ticket en la respuesta")
+                    if tipo_item == "vehiculo":
+                        id_vehiculo = request.POST.get(f"id_vehiculo_{i}", "").strip()
+                        
+                        if not id_vehiculo:
+                            raise ValueError(f"Debe seleccionar un vehículo para el ítem {i}")
+                        
+                        VentaDetalle.objects.create(
+                            idventa=venta,
+                            tipo_item='vehiculo',
+                            id_vehiculo_id=int(id_vehiculo),
+                            id_repuesto_comprado=None,
+                            cantidad=cantidad,
+                            precio_venta_contado=precio_venta_contado,
+                            precio_venta_credito=precio_venta_credito,
+                            precio_compra=precio_compra,
+                            subtotal=subtotal,
+                            ganancia=ganancia,
+                            estado=1
+                        )
 
-            # Crear el objeto de respuesta adecuado
-            response_data = {
-                'respuesta_codigo': respuesta_codigo,
-                'respuesta_descripcion': respuesta_descripcion,
-                'ruta_xml': ruta_xml,
-                'ruta_cdr': ruta_cdr,
-                'ruta_pdf': ruta_pdf,
-                'ruta_ticket1': ruta_ticket1,
-            }
+                    elif tipo_item == "repuesto":
+                        id_repuesto = request.POST.get(f"id_repuesto_{i}", "").strip()
+                        
+                        if not id_repuesto:
+                            raise ValueError(f"Debe seleccionar un repuesto para el ítem {i}")
+                        
+                        VentaDetalle.objects.create(
+                            idventa=venta,
+                            tipo_item='repuesto',
+                            id_vehiculo=None,
+                            id_repuesto_comprado_id=int(id_repuesto),
+                            cantidad=cantidad,
+                            precio_venta_contado=precio_venta_contado,
+                            precio_venta_credito=precio_venta_credito,
+                            precio_compra=precio_compra,
+                            subtotal=subtotal,
+                            ganancia=ganancia,
+                            estado=1
+                        )
 
-            getVenta = Venta.objects.get(idventa=id)
-            # Accede usando corchetes
-            getVenta.ruta_pdf = response_data['ruta_pdf']
-            # Accede usando corchetes
-            getVenta.ruta_ticket = response_data['ruta_ticket1']
-            # Accede usando corchetes
-            getVenta.ruta_cdr = response_data['ruta_cdr']
-            # Accede usando corchetes
-            getVenta.respuesta_sunat_descripcion = response_data['respuesta_descripcion']
-            # Accede usando corchetes
-            getVenta.respuesta_sunat_codigo = response_data['respuesta_codigo']
+                    total += subtotal
+                    total_ganancia += ganancia
 
-            getVenta.save()
+                # Actualizar totales de la venta
+                venta.subtotal = total
+                venta.total_venta = total
+                venta.total_ganancia = total_ganancia
+                venta.save()
 
-            return JsonResponse(response_data, safe=False)
+                # Guardar cuotas si aplica
+                if id_forma_pago == 2 and request.POST.get("tiene_cuotas") == "1":
+                    cantidad_cuotas = int(request.POST.get("cantidad_cuotas") or 0)
+                    
+                    if cantidad_cuotas > 0:
+                        monto_adelanto_total = request.POST.get("monto_adelanto_total")
+                        monto_adelanto_total = Decimal(monto_adelanto_total) if monto_adelanto_total else Decimal('0')
+                        
+                        saldo_financiar = total - monto_adelanto_total
+                        monto_por_cuota = saldo_financiar / cantidad_cuotas
+                        fecha_base = datetime.strptime(fecha_venta, "%Y-%m-%d")
+                        
+                        for i in range(1, cantidad_cuotas + 1):
+                            numero_cuota = request.POST.get(f"numero_cuota_{i}")
+                            monto_cuota = request.POST.get(f"monto_{i}")
+                            tasa_cuota = request.POST.get(f"tasa_{i}")
+                            interes_cuota = request.POST.get(f"interes_{i}")
+                            total_cuota = request.POST.get(f"total_{i}")
+                            fecha_venc = request.POST.get(f"fecha_vencimiento_{i}")
+                            monto_adelanto_cuota = request.POST.get(f"monto_adelanto_{i}")
+                            
+                            if not monto_cuota:
+                                monto_cuota = monto_por_cuota
+                            else:
+                                monto_cuota = Decimal(monto_cuota)
+                            
+                            if not tasa_cuota:
+                                tasa_cuota = Decimal('0')
+                            else:
+                                tasa_cuota = Decimal(tasa_cuota)
+                            
+                            if not interes_cuota:
+                                interes_cuota = Decimal('0')
+                            else:
+                                interes_cuota = Decimal(interes_cuota)
+                            
+                            if not total_cuota:
+                                total_cuota = monto_cuota + interes_cuota
+                            else:
+                                total_cuota = Decimal(total_cuota)
+                            
+                            if not fecha_venc:
+                                fecha_vencimiento = fecha_base + timedelta(days=30 * i)
+                                fecha_venc = fecha_vencimiento.strftime("%Y-%m-%d")
+                            
+                            if not monto_adelanto_cuota:
+                                monto_adelanto_cuota = monto_adelanto_total if i == 1 else Decimal('0')
+                            else:
+                                monto_adelanto_cuota = Decimal(monto_adelanto_cuota)
+                            
+                            CuotasVenta.objects.create(
+                                idventa=venta,
+                                numero_cuota=int(numero_cuota) if numero_cuota else i,
+                                monto=monto_cuota,
+                                tasa=tasa_cuota,
+                                interes=interes_cuota,
+                                total=total_cuota,
+                                fecha_vencimiento=fecha_venc,
+                                monto_adelanto=monto_adelanto_cuota,
+                                estado_pago='Pendiente',
+                                estado=1
+                            )
 
+                print(f"✅ VENTA REGISTRADA - ID: {venta.idventa}, Caja: {apertura.id_caja.nombre_caja}")
+
+            return JsonResponse({
+                'ok': True,
+                'message': 'Venta registrada correctamente.',
+                'numero_comprobante': numero_comprobante,
+                'idventa': venta.idventa
+            })
+
+        except ValueError as ve:
+            print(f"ERROR DE VALIDACIÓN: {str(ve)}")
+            return JsonResponse({
+                'ok': False,
+                'error': str(ve)
+            })
         except Exception as e:
-            print(f"Error al manejar la respuesta: {e}")
-            print("Contenido de la respuesta:", response.text)
-            return HttpResponseServerError("Error en el servidor al procesar la respuesta de SUNAT")
+            print(f"ERROR: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'ok': False,
+                'error': f'Error al procesar la venta: {str(e)}'
+            })
 
-    else:
-        print(f"Error al enviar solicitud a SUNAT: {response.status_code}")
-        print("Contenido de la respuesta:", response.text)
-        return HttpResponseServerError("Error en el servidor al enviar la solicitud a SUNAT")
+    return redirect("ventas")
 
-    return HttpResponse("request")
+
+# Anular venta
+def anular_venta(request, id):
+    try:
+        venta = Ventas.objects.get(idventa=id)
+        venta.estado = 0
+        venta.save()
+        return redirect('ventas')
+    except Ventas.DoesNotExist:
+        return HttpResponse("<h1>Venta no encontrada</h1>")
+    
+
+#Para Imprimir_comprobante
+def imprimir_comprobante(request, idventa):
+    """
+    Genera un PDF del comprobante de venta en formato TICKET con logo y QR
+    Optimizado para impresoras térmicas de 80mm - ALTURA AUTOMÁTICA
+    """
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
+        from io import BytesIO
+        import qrcode
+        import os
+        from django.conf import settings
+        
+        # Obtener la venta
+        venta = get_object_or_404(Ventas, idventa=idventa)
+        
+        # Obtener detalles de la venta
+        detalles = VentaDetalle.objects.filter(idventa=venta, estado=1)
+        
+        # Obtener cuotas si existen
+        cuotas = CuotasVenta.objects.filter(idventa=venta, estado=1).order_by('numero_cuota')
+        
+        # Crear el PDF en memoria con tamaño de TICKET (80mm de ancho)
+        buffer = BytesIO()
+        
+        # Tamaño de ticket: 80mm de ancho, altura MUY GRANDE para permitir crecimiento automático
+        ticket_width = 80 * mm
+        ticket_height = 800 * mm  # Altura muy grande, se ajustará automáticamente
+        
+        doc = SimpleDocTemplate(
+            buffer, 
+            pagesize=(ticket_width, ticket_height),
+            rightMargin=3*mm,
+            leftMargin=3*mm,
+            topMargin=3*mm, 
+            bottomMargin=3*mm
+        )
+        
+        # Ancho útil para el contenido (80mm - 6mm de márgenes)
+        ancho_util = 74 * mm
+        
+        # Contenedor para los elementos del PDF
+        elements = []
+        
+        # Estilos personalizados para ticket
+        styles = getSampleStyleSheet()
+        
+        style_company = ParagraphStyle(
+            'CompanyName',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.black,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            spaceAfter=1,
+            leading=11
+        )
+        
+        style_header = ParagraphStyle(
+            'TicketHeader',
+            parent=styles['Normal'],
+            fontSize=9,
+            textColor=colors.black,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold',
+            spaceAfter=2,
+            leading=10
+        )
+        
+        style_normal_center = ParagraphStyle(
+            'NormalCenter',
+            parent=styles['Normal'],
+            fontSize=7,
+            alignment=TA_CENTER,
+            spaceAfter=1,
+            leading=8
+        )
+        
+        style_normal = ParagraphStyle(
+            'TicketNormal',
+            parent=styles['Normal'],
+            fontSize=7,
+            spaceAfter=1,
+            leading=8
+        )
+        
+        style_bold = ParagraphStyle(
+            'TicketBold',
+            parent=styles['Normal'],
+            fontSize=7,
+            fontName='Helvetica-Bold',
+            spaceAfter=1,
+            alignment=TA_CENTER,
+            leading=8
+        )
+        
+        style_small = ParagraphStyle(
+            'SmallText',
+            parent=styles['Normal'],
+            fontSize=6,
+            alignment=TA_CENTER,
+            spaceAfter=0.5,
+            leading=7
+        )
+        
+        # ==========================================
+        # LOGO DE LA EMPRESA
+        # ==========================================
+        try:
+            logo_path = os.path.join(settings.BASE_DIR, 'static', 'img','empresa', 'logo.png')
+            
+            if os.path.exists(logo_path):
+                logo = Image(logo_path, width=30*mm, height=20*mm)
+                logo.hAlign = 'CENTER'
+                elements.append(logo)
+                elements.append(Spacer(1, 2*mm))
+        except Exception as e:
+            print(f"No se pudo cargar el logo: {str(e)}")
+        
+        # ==========================================
+        # ENCABEZADO - DATOS DE LA EMPRESA
+        # ==========================================
+        elements.append(Paragraph("TU EMPRESA S.A.C.", style_company))
+        elements.append(Paragraph("RUC: 12345678901", style_normal_center))
+        elements.append(Paragraph("Av. Principal 123, Lima", style_normal_center))
+        elements.append(Paragraph("Telf: (01) 123-4567", style_normal_center))
+        elements.append(Paragraph("www.tuempresa.com", style_small))
+        
+        elements.append(Spacer(1, 2*mm))
+        elements.append(Paragraph("=" * 48, style_normal_center))
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # TIPO DE COMPROBANTE Y NÚMERO
+        # ==========================================
+        elements.append(Paragraph(f"<b>{venta.idtipocomprobante.nombre.upper()}</b>", style_header))
+        elements.append(Paragraph(f"<b>{venta.numero_comprobante}</b>", style_header))
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # DATOS DEL CLIENTE
+        # ==========================================
+        cliente_nombre = venta.idcliente.razonsocial
+        if len(cliente_nombre) > 35:
+            cliente_nombre = cliente_nombre[:32] + '...'
+        
+        elements.append(Paragraph(f"<b>CLIENTE:</b>", style_bold))
+        elements.append(Paragraph(f"{cliente_nombre}", style_normal_center))
+        elements.append(Paragraph(f"<b>DNI/RUC:</b> {venta.idcliente.numdoc or '---'}", style_normal_center))
+        
+        if venta.idcliente.telefono:
+            elements.append(Paragraph(f"<b>Tel:</b> {venta.idcliente.telefono}", style_small))
+        
+        elements.append(Spacer(1, 2*mm))
+        elements.append(Paragraph("-" * 50, style_normal_center))
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # FECHA Y HORA
+        # ==========================================
+        fecha_str = venta.fecha_venta.strftime('%d/%m/%Y')
+        try:
+            hora_str = venta.fecha_venta.strftime('%I:%M %p')
+        except:
+            hora_str = '---'
+        
+        elements.append(Paragraph(f"<b>FECHA:</b> {fecha_str}  <b>HORA:</b> {hora_str}", style_normal_center))
+        
+        # Acortar nombre de vendedor si es muy largo
+        vendedor = venta.idusuario.nombrecompleto
+        if len(vendedor) > 30:
+            vendedor = vendedor[:27] + '...'
+        elements.append(Paragraph(f"<b>VENDEDOR:</b> {vendedor}", style_small))
+        
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # DETALLE DE PRODUCTOS/SERVICIOS
+        # ==========================================
+        elements.append(Paragraph("-" * 50, style_normal_center))
+        elements.append(Spacer(1, 1*mm))
+        
+        # Encabezado de la tabla
+        data_detalle = [['CN', 'DESCRIPCIÓN', 'P.U', 'TOTAL']]
+        
+        for detalle in detalles:
+            if detalle.tipo_item == 'vehiculo':
+                vehiculo = detalle.id_vehiculo
+                nombre_producto = vehiculo.idproducto.nomproducto
+                if len(nombre_producto) > 25:
+                    nombre_producto = nombre_producto[:22] + '...'
+                descripcion = f"{nombre_producto}\n{vehiculo.serie_motor[:15]}\n{vehiculo.serie_chasis[:15]}"
+            else:
+                repuesto = detalle.id_repuesto_comprado
+                nombre_repuesto = repuesto.id_repuesto.nombre
+                if len(nombre_repuesto) > 25:
+                    nombre_repuesto = nombre_repuesto[:22] + '...'
+                codigo = repuesto.codigo_barras or 'S/N'
+                descripcion = f"{nombre_repuesto}\n{codigo[:12]}"
+            
+            # Determinar el precio según la forma de pago
+            if venta.id_forma_pago.id_forma_pago == 2 and detalle.precio_venta_credito:
+                precio_unitario = detalle.precio_venta_credito
+            else:
+                precio_unitario = detalle.precio_venta_contado
+            
+            data_detalle.append([
+                str(detalle.cantidad),
+                descripcion,
+                f"{precio_unitario:.2f}",
+                f"{detalle.subtotal:.2f}"
+            ])
+        
+        # Anchos de columna para 74mm útiles
+        col_widths = [7*mm, 40*mm, 13*mm, 14*mm]
+        
+        table_detalle = Table(data_detalle, colWidths=col_widths)
+        table_detalle.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 6),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('ALIGN', (1, 0), (1, 0), 'LEFT'),
+            ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+            ('ALIGN', (3, 0), (3, 0), 'RIGHT'),
+            ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 6),
+            ('ALIGN', (0, 1), (0, -1), 'CENTER'),
+            ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+            ('ALIGN', (2, 1), (2, -1), 'RIGHT'),
+            ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elements.append(table_detalle)
+        
+        elements.append(Spacer(1, 2*mm))
+        elements.append(Paragraph("-" * 50, style_normal_center))
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # TOTALES
+        # ==========================================
+        data_totales = [
+            ['SUBTOTAL:', f"S/ {venta.subtotal:.2f}"],
+            ['IGV (0%):', f"S/ 0.00"],
+        ]
+        
+        table_totales = Table(data_totales, colWidths=[50*mm, 24*mm])
+        table_totales.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 7),
+            ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+            ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 1),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ]))
+        elements.append(table_totales)
+        
+        # TOTAL
+        data_total = [[f"TOTAL:    S/ {venta.total_venta:.2f}"]]
+        table_total = Table(data_total, colWidths=[ancho_util])
+        table_total.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('LINEABOVE', (0, 0), (-1, 0), 1, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 2),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ]))
+        elements.append(table_total)
+        
+        # Importe recibido y vuelto
+        if venta.id_forma_pago.id_forma_pago == 1 and venta.importe_recibido:
+            elements.append(Spacer(1, 2*mm))
+            data_pago = [
+                ['RECIBIDO:', f"S/ {venta.importe_recibido:.2f}"],
+                ['VUELTO:', f"S/ {venta.vuelto:.2f}"],
+            ]
+            table_pago = Table(data_pago, colWidths=[50*mm, 24*mm])
+            table_pago.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('TOPPADDING', (0, 0), (-1, -1), 1),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+            ]))
+            elements.append(table_pago)
+        
+        elements.append(Spacer(1, 2*mm))
+        
+        # ==========================================
+        # FORMA DE PAGO Y TIPO
+        # ==========================================
+        forma_pago_nombre = venta.id_forma_pago.nombre
+        tipo_pago_nombre = venta.id_tipo_pago.nombre if venta.id_tipo_pago else 'N/A'
+        
+        elements.append(Paragraph(f"<b>FORMA DE PAGO:</b> {forma_pago_nombre}", style_normal_center))
+        elements.append(Paragraph(f"<b>TIPO:</b> {tipo_pago_nombre}", style_small))
+        
+        # ==========================================
+        # CRONOGRAMA DE CUOTAS (si aplica)
+        # ==========================================
+        if cuotas.exists():
+            elements.append(Spacer(1, 2*mm))
+            elements.append(Paragraph("-" * 50, style_normal_center))
+            elements.append(Paragraph("<b>CRONOGRAMA DE PAGOS</b>", style_bold))
+            elements.append(Spacer(1, 1*mm))
+            
+            data_cuotas = [['N°', 'VENC.', 'MONTO', 'TOTAL']]
+            
+            for cuota in cuotas:
+                data_cuotas.append([
+                    str(cuota.numero_cuota),
+                    cuota.fecha_vencimiento.strftime('%d/%m/%y'),
+                    f"{cuota.monto:.2f}",
+                    f"{cuota.total:.2f}"
+                ])
+            
+            table_cuotas = Table(data_cuotas, colWidths=[8*mm, 20*mm, 23*mm, 23*mm])
+            table_cuotas.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 6),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('LINEBELOW', (0, 0), (-1, 0), 0.5, colors.black),
+                ('TOPPADDING', (0, 0), (-1, -1), 2),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+            ]))
+            elements.append(table_cuotas)
+        
+        # ==========================================
+        # OBSERVACIONES
+        # ==========================================
+        if venta.observaciones:
+            elements.append(Spacer(1, 2*mm))
+            obs_text = venta.observaciones[:60] + '...' if len(venta.observaciones) > 60 else venta.observaciones
+            elements.append(Paragraph(f"<b>Obs:</b> {obs_text}", style_small))
+        
+        # ==========================================
+        # CÓDIGO QR
+        # ==========================================
+        try:
+            elements.append(Spacer(1, 2*mm))
+            
+            qr_data = f"Comprobante: {venta.numero_comprobante}\n"
+            qr_data += f"Cliente: {venta.idcliente.razonsocial[:30]}\n"
+            qr_data += f"RUC/DNI: {venta.idcliente.numdoc or 'N/A'}\n"
+            qr_data += f"Total: S/ {venta.total_venta:.2f}\n"
+            qr_data += f"Fecha: {venta.fecha_venta.strftime('%d/%m/%Y')}"
+            
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                box_size=8,
+                border=1,
+            )
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_buffer = BytesIO()
+            qr_img.save(qr_buffer, format='PNG')
+            qr_buffer.seek(0)
+            
+            qr_image = Image(qr_buffer, width=28*mm, height=28*mm)
+            qr_image.hAlign = 'CENTER'
+            elements.append(qr_image)
+            
+        except Exception as e:
+            print(f"No se pudo generar el código QR: {str(e)}")
+        
+        # ==========================================
+        # PIE DE PÁGINA
+        # ==========================================
+        elements.append(Spacer(1, 2*mm))
+        elements.append(Paragraph("=" * 48, style_normal_center))
+        elements.append(Spacer(1, 1*mm))
+        elements.append(Paragraph("¡Gracias por su compra!", style_normal_center))
+        elements.append(Paragraph("Vuelva pronto", style_small))
+        
+        # Construir el PDF - ReportLab ajustará automáticamente la altura
+        doc.build(elements)
+        
+        buffer.seek(0)
+        
+        response = FileResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="ticket_{venta.numero_comprobante}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        print(f"ERROR al generar comprobante: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f"Error al generar el comprobante: {str(e)}", status=500)
+
+
+
+
+
+

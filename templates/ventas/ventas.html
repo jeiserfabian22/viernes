@@ -1,0 +1,1105 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="fa-solid fa-cash-register me-2"></i>Ventas
+    </h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaVenta">
+      <i class="fa-solid fa-circle-plus me-2"></i>Nueva Venta
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Ventas</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de Ventas</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Comprobante</th>
+                <th scope="col">Cliente</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Forma Pago</th>
+                <th scope="col" class="text-end">Total</th>
+                <th scope="col" class="text-end">Ganancia</th>
+                <th scope="col">Vendedor</th>
+                <th scope="col" class="text-center">Estado</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for venta in ventas_registros %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>
+                  <span class="badge bg-primary">{{ venta.numero_comprobante }}</span>
+                </td>
+                <td>{{ venta.idcliente.razonsocial }}</td>
+                <td>{{ venta.fecha_venta|date:"d/m/Y" }}</td>
+                <td>
+                  {% if venta.id_forma_pago.id_forma_pago == 1 %}
+                    <span class="badge bg-success">Contado</span>
+                  {% else %}
+                    <span class="badge bg-warning text-dark">Crédito</span>
+                  {% endif %}
+                </td>
+                <td class="text-end fw-bold text-success">S/ {{ venta.total_venta|floatformat:2 }}</td>
+                <td class="text-end fw-bold text-info">S/ {{ venta.total_ganancia|floatformat:2 }}</td>
+                <td>{{ venta.idusuario.nombrecompleto }}</td>
+                <td class="text-center">
+                  {% if venta.estado == 1 %}
+                    <span class="badge bg-success">Activo</span>
+                  {% else %}
+                    <span class="badge bg-danger">Anulado</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalVerDetalle{{ venta.idventa }}">
+                    <i class="fa-solid fa-eye"></i>
+                  </button>
+                  {% if venta.estado == 1 %}
+                  <a href="{% url 'anularVenta' id=venta.idventa %}" class="btn btn-sm btn-danger" onclick="return confirmarAnular('{{ venta.idventa }}', this)">
+                    <i class="fa-solid fa-ban"></i>
+                  </a>
+                  {% endif %}
+                  <a href="{% url 'imprimir_comprobante' venta.idventa %}" 
+                    class="btn btn-sm btn-info" 
+                    target="_blank"
+                    title="Imprimir Comprobante">
+                      <i class="fas fa-print"></i>
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Nueva Venta -->
+  <div class="modal fade" id="modalNuevaVenta" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">
+            <i class="fa-solid fa-cart-shopping me-2"></i>Nueva Venta
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formNuevaVenta" action="{% url 'nuevaVenta' %}" method="post">
+            {% csrf_token %}
+            
+            <!-- CABECERA DE LA VENTA -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold">Datos de la Venta</h6>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <!-- Cliente -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Cliente <span class="text-danger">*</span></label>
+                    <select name="cliente" class="form-select" required>
+                      <option value="">Seleccione un cliente</option>
+                      {% for cliente in clientes %}
+                      <option value="{{ cliente.idcliente }}" {% if cliente.razonsocial == "Clientes varios" %}selected{% endif %}>{{ cliente.razonsocial }} - {{ cliente.numdoc }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Tipo Comprobante -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Tipo Comprobante <span class="text-danger">*</span></label>
+                    <select name="tipo_comprobante" id="tipo_comprobante" class="form-select" required>
+                      <option value="">Seleccione</option>
+                      {% for tc in tipo_comprobante %}
+                      <option value="{{ tc.idtipocomprobante }}" {% if tc.nombre == "FACTURA ELECTRONICA" %}selected{% endif %}>{{ tc.nombre }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Serie -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Serie Comprobante <span class="text-danger">*</span></label>
+                    <select name="serie" id="serie_comprobante" class="form-select" required>
+                      <option value="">Seleccione</option>
+                      {% for sc in serie_comprobante %}
+                      <option value="{{ sc.idseriecomprobante }}" {% if sc.serie == "F001" %}selected{% endif %}>{{ sc.serie }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Nro. Comprobante -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Nro. Comprobante</label>
+                    <input type="text" name="nro_comprobante" class="form-control" value="Autogenerado" readonly>
+                  </div>
+                  
+                  <!-- Tipo IGV -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Tipo IGV <span class="text-danger">*</span></label>
+                    <select name="tipo_igv" class="form-select" required>
+                      <option value="">Seleccione</option>
+                      {% for igv in tipo_igv %}
+                      <option value="{{ igv.id_tipo_igv }}">{{ igv.tipo_igv }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Fecha Venta -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Fecha Venta <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_venta" class="form-control" value="2025-10-15" required>
+                  </div>
+
+                  <!-- Vendedor -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Vendedor</label>
+                    <input type="hidden" name="idusuario" value="{{ idusuario }}">
+                    <input type="text" class="form-control" value="Usuario actual" readonly>
+                  </div>
+
+                  <!-- Forma de Pago -->
+                  <div class="col-md-3">
+                    <label class="form-label fw-semibold">Forma de Pago <span class="text-danger">*</span></label>
+                    <select name="forma_pago" id="forma_pago" class="form-select" required>
+                      <option value="">Seleccione</option>
+                      {% for fp in forma_pago %}
+                      <option value="{{ fp.id_forma_pago }}">{{ fp.nombre }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Tipo de Pago (se oculta cuando es Crédito) -->
+                  <div class="col-md-3" id="tipo_pago_container">
+                    <label class="form-label fw-semibold">Tipo de Pago</label>
+                    <select name="tipo_pago" id="tipo_pago" class="form-select">
+                      <option value="">Seleccione</option>
+                      {% for tipo in tipo_pago %}
+                        <option value="{{ tipo.id_tipo_pago }}">{{ tipo.nombre }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <!-- Importe Recibido (se oculta cuando es Crédito) -->
+                  <div class="col-md-3" id="importe_recibido_container">
+                    <label class="form-label fw-semibold">S/ Importe recibido</label>
+                    <input type="number" name="importe_recibido" id="importe_recibido" class="form-control" step="0.01" min="0" placeholder="0.00">
+                  </div>
+
+                  <!-- Vuelto (se oculta cuando es Crédito) -->
+                  <div class="col-md-3" id="vuelto_container">
+                    <label class="form-label fw-semibold">S/ Vuelto</label>
+                    <input type="number" name="vuelto" id="vuelto" class="form-control" step="0.01" value="0.00" readonly>
+                  </div>
+
+                  <!-- Botón Configurar Cuotas (aparece cuando es Crédito) -->
+                  <div class="col-md-3 d-none" id="btn_cuotas_container">
+                    <label class="form-label">Plan de Pago</label><br>
+                    <button type="button" class="btn btn-warning w-100" data-bs-toggle="modal" data-bs-target="#modalCuotasVenta">
+                      <i class="fa-solid fa-calendar-days me-2"></i>Configurar Cuotas
+                    </button>
+                  </div>
+
+                  <!-- Campo oculto para indicar si tiene cuotas configuradas -->
+                  <input type="hidden" id="tiene_cuotas" name="tiene_cuotas" value="0">
+
+                  <!-- Observaciones -->
+                  <div class="col-md-12">
+                    <label class="form-label fw-semibold">Observaciones</label>
+                    <textarea name="observaciones" class="form-control" rows="2" placeholder="Ingrese observaciones adicionales (opcional)"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DETALLE DE LA VENTA -->
+            <div class="card mb-3">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">Detalle de la Venta</h6>
+                <div>
+                  <button type="button" class="btn btn-sm btn-success" onclick="agregarItem('vehiculo')">
+                    <i class="fa-solid fa-motorcycle me-1"></i>Agregar Vehículo
+                  </button>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="agregarItem('repuesto')">
+                    <i class="fa-solid fa-wrench me-1"></i>Agregar Repuesto
+                  </button>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Producto/Repuesto</th>
+                        <th>Detalle</th>
+                        <th>Cant.</th>
+                        <th>P. Compra</th>
+                        <th>P. Venta Contado</th>
+                        <th>P. Venta Crédito</th>
+                        <th>Subtotal</th>
+                        <th>Ganancia</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyItems">
+                      <!-- Se llena dinámicamente -->
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <td colspan="7" class="text-end fw-bold">TOTAL:</td>
+                        <td class="fw-bold text-success" id="totalVenta">S/ 0.00</td>
+                        <td class="fw-bold text-info" id="totalGanancia">S/ 0.00</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <input type="hidden" name="items_count" id="items_count" value="0">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="btnGuardarVenta">
+                <i class="fa-solid fa-save me-2"></i>Guardar Venta
+              </button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para configurar las cuotas de VENTAS -->
+  <div class="modal fade" id="modalCuotasVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title"><i class="fa-solid fa-calendar-days me-2"></i>Configurar Cuotas</h5>
+          <button type="button" class="btn-close" onclick="cerrarModalCuotasVenta()"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Formulario para configurar cuotas -->
+          <div class="row mb-3">
+            <div class="col-md-3">
+              <label class="form-label">Cantidad de Cuotas</label>
+              <input type="number" id="cantidad_cuotas_venta" class="form-control" value="4" min="1" max="36" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tasa de Interés (%)</label>
+              <input type="number" id="tasa_interes_venta" class="form-control" value="0" step="0.1" min="0" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Monto Adelanto (S/)</label>
+              <input type="number" id="monto_adelanto_venta" class="form-control" value="0" step="0.01" min="0" placeholder="0.00">
+              <small class="text-muted">Se resta del total antes de dividir</small>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tipo de Periodo</label>
+              <select id="tipo_periodo_venta" class="form-select">
+                <option value="dias">Días</option>
+                <option value="meses">Meses</option>
+              </select>
+            </div>
+          </div>
+          <div class="row mb-3">
+            <div class="col-md-3" id="container_dias_venta">
+              <label class="form-label">Días entre cuotas</label>
+              <input type="number" id="dias_cuotas_venta" class="form-control" value="30" min="1" required>
+            </div>
+            <div class="col-md-6 d-none" id="container_meses_venta">
+              <label class="form-label">Fecha de primera cuota</label>
+              <div class="row g-2">
+                <div class="col-6">
+                  <select id="credito_mes_venta" class="form-select">
+                    <option value="1">Enero</option>
+                    <option value="2">Febrero</option>
+                    <option value="3">Marzo</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Mayo</option>
+                    <option value="6">Junio</option>
+                    <option value="7">Julio</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Septiembre</option>
+                    <option value="10" selected>Octubre</option>
+                    <option value="11">Noviembre</option>
+                    <option value="12">Diciembre</option>
+                  </select>
+                </div>
+                <div class="col-6">
+                  <input type="number" id="credito_dia_mes_venta" class="form-control" value="15" min="1" max="31" placeholder="Día (1-31)">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-end mb-3">
+            <button type="button" class="btn btn-success" onclick="generarCuotas()">
+              <i class="fa-solid fa-calculator me-2"></i>Generar Cuotas
+            </button>
+          </div>
+
+          <!-- Tabla para mostrar las cuotas generadas -->
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Cuota</th>
+                  <th>Fecha Vencimiento</th>
+                  <th>Monto</th>
+                  <th>Interés</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="tablaCuotasVenta"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="cerrarModalCuotasVenta()">
+            <i class="fa-solid fa-xmark me-2"></i>Cancelar
+          </button>
+          <button type="button" class="btn btn-success" onclick="guardarYCerrarCuotasVenta()">
+            <i class="fa-solid fa-check me-2"></i>Guardar Configuración
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- 1. PRIMERO: jQuery (DEBE IR PRIMERO) -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<!-- 2. SEGUNDO: DataTables CSS -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+
+<!-- 3. TERCERO: DataTables JS (después de jQuery) -->
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+// IMPORTANTE: Parsear JSON correctamente
+let productosStockAgrupado = {};
+let repuestosStockAgrupado = {};
+
+try {
+  productosStockAgrupado = JSON.parse('{{ productos_stock|escapejs }}');
+  repuestosStockAgrupado = JSON.parse('{{ repuestos_stock|escapejs }}');
+  console.log("✅ Datos cargados:", productosStockAgrupado, repuestosStockAgrupado);
+} catch(e) {
+  console.error("❌ Error parseando datos:", e);
+}
+
+let itemCounter = 0;
+
+// Inicializar DataTable
+$(document).ready(function() {
+  if ($('.datatable').length) {
+    $('.datatable').DataTable({
+      language: {
+        url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+      },
+      pageLength: 10,
+      order: [[0, 'desc']]
+    });
+  }
+});
+
+// ========================================
+// CONTROL DE FORMA DE PAGO Y TIPO DE PERIODO
+// ========================================
+document.addEventListener("DOMContentLoaded", function () {
+  const formaPago = document.getElementById("forma_pago");
+  const btnCuotasContainer = document.getElementById("btn_cuotas_container");
+  const tipoPagoContainer = document.getElementById("tipo_pago_container");
+  const importeRecibidoContainer = document.getElementById("importe_recibido_container");
+  const vueltoContainer = document.getElementById("vuelto_container");
+  const tipoPagoSelect = document.getElementById("tipo_pago");
+  const importeRecibidoInput = document.getElementById("importe_recibido");
+
+  // Event listener para cambio de forma de pago
+  formaPago.addEventListener("change", function () {
+    const valor = this.value;
+    console.log("🔄 Forma de pago cambió a:", valor);
+    
+    if (valor === "2") { // CRÉDITO
+      console.log("💳 CRÉDITO seleccionado");
+      
+      tipoPagoContainer.classList.add("d-none");
+      importeRecibidoContainer.classList.add("d-none");
+      vueltoContainer.classList.add("d-none");
+      btnCuotasContainer.classList.remove("d-none");
+      
+      tipoPagoSelect.required = false;
+      importeRecibidoInput.required = false;
+      tipoPagoSelect.value = "";
+      importeRecibidoInput.value = "";
+      document.getElementById("vuelto").value = "0.00";
+      
+    } else if (valor === "1") { // CONTADO
+      console.log("💵 CONTADO seleccionado");
+      
+      tipoPagoContainer.classList.remove("d-none");
+      importeRecibidoContainer.classList.remove("d-none");
+      vueltoContainer.classList.remove("d-none");
+      btnCuotasContainer.classList.add("d-none");
+      
+      tipoPagoSelect.required = true;
+      importeRecibidoInput.required = false;
+      
+      document.getElementById("tiene_cuotas").value = "0";
+      document.querySelectorAll(".cuota-hidden").forEach(e => e.remove());
+      document.getElementById("tablaCuotasVenta").innerHTML = "";
+      
+    } else {
+      console.log("⚪ Sin selección");
+      
+      tipoPagoContainer.classList.remove("d-none");
+      importeRecibidoContainer.classList.remove("d-none");
+      vueltoContainer.classList.remove("d-none");
+      btnCuotasContainer.classList.add("d-none");
+      
+      tipoPagoSelect.required = true;
+    }
+  });
+
+  // Control de tipo de periodo para ventas
+  const tipoPeriodoVenta = document.getElementById("tipo_periodo_venta");
+  const containerDiasVenta = document.getElementById("container_dias_venta");
+  const containerMesesVenta = document.getElementById("container_meses_venta");
+
+  if (tipoPeriodoVenta) {
+    tipoPeriodoVenta.addEventListener("change", function() {
+      if (this.value === "meses") {
+        containerDiasVenta.classList.add("d-none");
+        containerMesesVenta.classList.remove("d-none");
+      } else {
+        containerDiasVenta.classList.remove("d-none");
+        containerMesesVenta.classList.add("d-none");
+      }
+    });
+  }
+});
+
+// Calcular vuelto automáticamente
+$(document).on('input', '#importe_recibido', function() {
+  const total = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+  const recibido = parseFloat($(this).val()) || 0;
+  const vuelto = recibido - total;
+  $('#vuelto').val(vuelto >= 0 ? vuelto.toFixed(2) : '0.00');
+});
+
+// ⭐ NUEVO: Guardar venta con verificación de caja
+$(document).on('click', '#btnGuardarVenta', function(e) {
+  e.preventDefault();
+  
+  // ⭐ VERIFICAR CAJA ANTES DE TODO
+  const tieneCajaAbierta = {{ tiene_caja_abierta|yesno:"true,false" }};
+  
+  if (!tieneCajaAbierta) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Caja Requerida',
+      html: `<p>Debe aperturar una caja antes de realizar ventas.</p>
+             <p class="text-muted mt-2"><small>Haga clic en "Aperturar Caja" para abrir el formulario de apertura.</small></p>`,
+      showCancelButton: true,
+      confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#0d9488',
+      cancelButtonColor: '#6c757d'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // Cerrar modal de venta
+        const modalVenta = bootstrap.Modal.getInstance(document.getElementById('modalNuevaVenta'));
+        if (modalVenta) {
+          modalVenta.hide();
+        }
+        
+        // Abrir modal de gestión de caja
+        setTimeout(() => {
+          const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+          modalCaja.show();
+        }, 300);
+      }
+    });
+    return;
+  }
+  
+  // Continuar con validaciones normales
+  const formaPagoVal = document.getElementById("forma_pago").value;
+  const tieneCuotas = document.getElementById("tiene_cuotas").value;
+  
+  // Validar cuotas para crédito
+  if (formaPagoVal === "2" && tieneCuotas === "0") {
+    Swal.fire({
+      title: "Cuotas no configuradas",
+      text: "Debe configurar las cuotas para ventas a crédito antes de guardar",
+      icon: "warning",
+      confirmButtonColor: "#f0ad4e"
+    });
+    return;
+  }
+  
+  // Validar que haya productos
+  const itemsCount = parseInt(document.getElementById("items_count").value) || 0;
+  if (itemsCount === 0) {
+    Swal.fire({
+      title: "Sin productos",
+      text: "Debe agregar al menos un producto a la venta",
+      icon: "warning",
+      confirmButtonColor: "#f0ad4e"
+    });
+    return;
+  }
+
+  // Validar tipo de pago y montos para contado
+  if (formaPagoVal === '1') {
+    if (!document.getElementById('tipo_pago').value) {
+      Swal.fire('Error', 'Debe seleccionar un tipo de pago', 'error');
+      return;
+    }
+    
+    const total = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+    const recibido = parseFloat($('#importe_recibido').val()) || 0;
+    
+    if (recibido < total) {
+      Swal.fire('Error', 'El importe recibido debe ser mayor o igual al total de la venta', 'error');
+      return;
+    }
+  }
+
+  // Mostrar loading mientras se procesa
+  Swal.fire({
+    title: 'Procesando venta...',
+    text: 'Por favor espere',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    willOpen: () => {
+      Swal.showLoading();
+    }
+  });
+
+  let form = $("#formNuevaVenta");
+  let formData = new FormData(form[0]);
+
+  $.ajax({
+    type: "POST",
+    url: form.attr("action"),
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function (res) {
+      if (res.ok) {
+        Swal.fire({
+          title: "¡Venta registrada exitosamente!",
+          html: `<p>${res.message || 'Venta guardada correctamente'}</p>
+                 <p><strong>Comprobante: ${res.numero_comprobante}</strong></p>
+                 <p class="mt-2"><small>Se abrirá el comprobante para imprimir...</small></p>`,
+          icon: "success",
+          confirmButtonColor: "#198754",
+          confirmButtonText: "Aceptar",
+          allowOutsideClick: false
+        }).then((result) => {
+          if (result.isConfirmed) {
+            if (res.idventa) {
+              const urlComprobante = `/ventas/imprimir/${res.idventa}/`;
+              const ventanaComprobante = window.open(urlComprobante, '_blank');
+              
+              if (!ventanaComprobante || ventanaComprobante.closed || typeof ventanaComprobante.closed == 'undefined') {
+                Swal.fire({
+                  title: 'Ventana bloqueada',
+                  html: `El navegador bloqueó la ventana del comprobante.<br>
+                         <a href="${urlComprobante}" target="_blank" class="btn btn-primary mt-2">
+                           <i class="fas fa-print"></i> Abrir comprobante manualmente
+                         </a>`,
+                  icon: 'warning',
+                  confirmButtonText: 'Continuar'
+                }).then(() => {
+                  window.location.href = '/ventas/';
+                });
+              } else {
+                setTimeout(() => {
+                  window.location.href = '/ventas/';
+                }, 1500);
+              }
+            } else {
+              window.location.href = '/ventas/';
+            }
+          }
+        });
+      } else {
+        // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+        if (res.necesita_aperturar || res.codigo === 'CAJA_REQUERIDA') {
+          Swal.fire({
+            icon: 'warning',
+            title: 'Caja Requerida',
+            text: res.error || 'Debe aperturar una caja antes de realizar ventas',
+            showCancelButton: true,
+            confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#0d9488',
+            cancelButtonColor: '#6c757d'
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Cerrar modal de venta
+              const modalVenta = bootstrap.Modal.getInstance(document.getElementById('modalNuevaVenta'));
+              if (modalVenta) {
+                modalVenta.hide();
+              }
+              
+              // Abrir modal de gestión de caja
+              setTimeout(() => {
+                const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+                modalCaja.show();
+              }, 300);
+            }
+          });
+        } else {
+          Swal.fire({
+            title: "Error",
+            text: res.error || "Error desconocido al procesar la venta",
+            icon: "error",
+            confirmButtonColor: "#dc3545"
+          });
+        }
+      }
+    },
+    error: function (xhr) {
+      console.log("Error AJAX:", xhr);
+      
+      let errorMessage = "Ocurrió un problema al guardar la venta.";
+      let necesitaAperturar = false;
+      
+      try {
+        const response = JSON.parse(xhr.responseText);
+        errorMessage = response.error || errorMessage;
+        necesitaAperturar = response.necesita_aperturar || false;
+      } catch (e) {
+        if (xhr.responseText) {
+          errorMessage = xhr.responseText;
+        }
+      }
+      
+      // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+      if (necesitaAperturar) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Caja Requerida',
+          text: errorMessage,
+          showCancelButton: true,
+          confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#0d9488',
+          cancelButtonColor: '#6c757d'
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const modalVenta = bootstrap.Modal.getInstance(document.getElementById('modalNuevaVenta'));
+            if (modalVenta) {
+              modalVenta.hide();
+            }
+            
+            setTimeout(() => {
+              const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+              modalCaja.show();
+            }, 300);
+          }
+        });
+      } else {
+        Swal.fire({
+          title: "Error",
+          text: errorMessage,
+          icon: "error",
+          confirmButtonColor: "#dc3545"
+        });
+      }
+    }
+  });
+});
+
+// ========================================
+// FUNCIONES DE DETALLE
+// ========================================
+function agregarItem(tipo) {
+  itemCounter++;
+  const items = tipo === 'vehiculo' ? productosStockAgrupado : repuestosStockAgrupado;
+  const nombres = Object.keys(items);
+  const opciones = nombres.map(n => `<option value="${n}">${n}</option>`).join('');
+  const badge = tipo === 'vehiculo' ? 'bg-success' : 'bg-primary';
+  const label = tipo === 'vehiculo' ? 'Vehículo' : 'Repuesto';
+  
+  const html = `
+    <tr id="item_${itemCounter}">
+      <td>
+        <span class="badge ${badge}">${label}</span>
+        <input type="hidden" name="tipo_item_${itemCounter}" value="${tipo}">
+      </td>
+      <td>
+        <select name="nombre_${tipo}_${itemCounter}" class="form-select form-select-sm nombre-select" data-item="${itemCounter}" data-tipo="${tipo}" required>
+          <option value="">Seleccione</option>
+          ${opciones}
+        </select>
+      </td>
+      <td>
+        <select name="id_${tipo}_${itemCounter}" id="detalle_${itemCounter}" class="form-select form-select-sm detalle-select" data-item="${itemCounter}" required disabled>
+          <option value="">Primero seleccione</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm cantidad-input" data-item="${itemCounter}" value="1" min="1" required>
+      </td>
+      <td>
+        <input type="number" name="precio_compra_${itemCounter}" id="precio_compra_${itemCounter}" class="form-control form-control-sm" readonly>
+      </td>
+      <td>
+        <input type="number" name="precio_venta_contado_${itemCounter}" id="precio_venta_contado_${itemCounter}" class="form-control form-control-sm precio-input" data-item="${itemCounter}" step="0.01" required>
+      </td>
+      <td>
+        <input type="number" name="precio_venta_credito_${itemCounter}" id="precio_venta_credito_${itemCounter}" class="form-control form-control-sm precio-input" data-item="${itemCounter}" step="0.01">
+      </td>
+      <td id="subtotal_${itemCounter}">S/ 0.00</td>
+      <td id="ganancia_${itemCounter}">S/ 0.00</td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarItem(${itemCounter})">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    </tr>`;
+  
+  $('#tbodyItems').append(html);
+  $('#items_count').val(itemCounter);
+  
+  $(`.nombre-select[data-item="${itemCounter}"]`).change(function() {
+    const item = $(this).data('item');
+    const tipoItem = $(this).data('tipo');
+    const nombre = $(this).val();
+    const $detalle = $(`#detalle_${item}`);
+    
+    $detalle.empty().append('<option value="">Seleccione...</option>');
+    
+    if (nombre && items[nombre]) {
+      items[nombre].forEach(el => {
+        const id = tipoItem === 'vehiculo' ? el.id_vehiculo : el.id_repuesto_comprado;
+        const texto = tipoItem === 'vehiculo' 
+          ? `Motor: ${el.serie_motor} | Chasis: ${el.serie_chasis}` 
+          : `Código: ${el.codigo_barras}`;
+        $detalle.append(`<option value="${id}" data-pv="${el.precio_venta}" data-pc="${el.precio_compra}">${texto}</option>`);
+      });
+      $detalle.prop('disabled', false);
+    } else {
+      $detalle.prop('disabled', true);
+    }
+    
+    $(`#precio_compra_${item}`).val('');
+    $(`#precio_venta_contado_${item}`).val('');
+    calcularSubtotal(item);
+  });
+  
+  $(`.detalle-select[data-item="${itemCounter}"]`).change(function() {
+    const item = $(this).data('item');
+    const selected = $(this).find(':selected');
+    
+    if (selected.val()) {
+      $(`#precio_compra_${item}`).val(selected.data('pc'));
+      $(`#precio_venta_contado_${item}`).val(selected.data('pv'));
+      calcularSubtotal(item);
+    }
+  });
+  
+  $(`.cantidad-input[data-item="${itemCounter}"], .precio-input[data-item="${itemCounter}"]`).on('input', function() {
+    calcularSubtotal($(this).data('item'));
+  });
+}
+
+function calcularSubtotal(item) {
+  const cantidad = parseFloat($(`input[name="cantidad_${item}"]`).val()) || 0;
+  const precioCompra = parseFloat($(`#precio_compra_${item}`).val()) || 0;
+  const precioVentaContado = parseFloat($(`#precio_venta_contado_${item}`).val()) || 0;
+  const precioVentaCredito = parseFloat($(`#precio_venta_credito_${item}`).val()) || 0;
+  
+  const formaPago = $('#forma_pago').val();
+  const precioFinal = (formaPago == '2' && precioVentaCredito > 0) ? precioVentaCredito : precioVentaContado;
+  
+  const subtotal = cantidad * precioFinal;
+  const ganancia = (precioFinal - precioCompra) * cantidad;
+  
+  $(`#subtotal_${item}`).text(`S/ ${subtotal.toFixed(2)}`);
+  $(`#ganancia_${item}`).text(`S/ ${ganancia.toFixed(2)}`);
+  
+  calcularTotales();
+}
+
+function calcularTotales() {
+  let total = 0;
+  let totalGanancia = 0;
+  
+  $('#tbodyItems tr').each(function() {
+    const itemId = $(this).attr('id');
+    if (itemId) {
+      const itemNum = itemId.split('_')[1];
+      total += parseFloat($(`#subtotal_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
+      totalGanancia += parseFloat($(`#ganancia_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
+    }
+  });
+  
+  $('#totalVenta').text(`S/ ${total.toFixed(2)}`);
+  $('#totalGanancia').text(`S/ ${totalGanancia.toFixed(2)}`);
+  
+  if ($('#forma_pago').val() === '1' && $('#importe_recibido').val()) {
+    const recibido = parseFloat($('#importe_recibido').val()) || 0;
+    const vuelto = recibido - total;
+    $('#vuelto').val(vuelto >= 0 ? vuelto.toFixed(2) : '0.00');
+  }
+}
+
+function eliminarItem(item) {
+  $(`#item_${item}`).remove();
+  calcularTotales();
+}
+
+// ========================================
+// FUNCIÓN GENERAR CUOTAS
+// ========================================
+function generarCuotas() {
+  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val()) || 0;
+  const tasaInteres = parseFloat($('#tasa_interes_venta').val()) || 0;
+  const montoAdelanto = parseFloat($('#monto_adelanto_venta').val()) || 0;
+  const tipoPeriodo = document.getElementById("tipo_periodo_venta").value;
+  const totalVenta = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+  
+  if (cantidadCuotas <= 0) {
+    Swal.fire('Error', 'Debe ingresar una cantidad de cuotas válida', 'error');
+    return;
+  }
+  
+  if (totalVenta <= 0) {
+    Swal.fire('Error', 'Debe agregar productos al detalle de la venta', 'error');
+    return;
+  }
+  
+  if (montoAdelanto >= totalVenta) {
+    Swal.fire('Error', 'El monto de adelanto no puede ser mayor o igual al total de la venta', 'error');
+    return;
+  }
+  
+  const montoFinanciar = totalVenta - montoAdelanto;
+  const montoCuota = montoFinanciar / cantidadCuotas;
+  
+  $('#tablaCuotasVenta').empty();
+  $('.cuota-hidden').remove();
+  
+  if (tipoPeriodo === "meses") {
+    // LÓGICA PARA MESES
+    const mes = parseInt(document.getElementById("credito_mes_venta").value);
+    const diaMes = parseInt(document.getElementById("credito_dia_mes_venta").value) || 15;
+    
+    if (diaMes < 1 || diaMes > 31) {
+      Swal.fire('Error', 'El día debe estar entre 1 y 31', 'error');
+      return;
+    }
+
+    const hoy = new Date();
+    let anioInicio = hoy.getFullYear();
+    const mesActual = hoy.getMonth() + 1;
+    const diaActual = hoy.getDate();
+    
+    if (mes < mesActual || (mes === mesActual && diaMes <= diaActual)) {
+      anioInicio++;
+    }
+
+    for (let i = 0; i < cantidadCuotas; i++) {
+      let mesActualCuota = mes + i;
+      let anioCuota = anioInicio;
+      
+      while (mesActualCuota > 12) {
+        mesActualCuota -= 12;
+        anioCuota++;
+      }
+      
+      const fechaVencimiento = `${anioCuota}-${String(mesActualCuota).padStart(2, '0')}-${String(diaMes).padStart(2, '0')}`;
+      const interes = (montoCuota * tasaInteres) / 100;
+      const totalCuota = montoCuota + interes;
+
+      const html = `
+        <tr>
+          <td>${i + 1}</td>
+          <td>
+            <input type="date" name="fecha_vencimiento_${i + 1}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
+          </td>
+          <td>
+            <input type="number" name="monto_${i + 1}" class="form-control form-control-sm" value="${montoCuota.toFixed(2)}" step="0.01" readonly>
+          </td>
+          <td>
+            <input type="number" name="interes_${i + 1}" class="form-control form-control-sm" value="${interes.toFixed(2)}" step="0.01" readonly>
+            <input type="hidden" name="tasa_${i + 1}" value="${tasaInteres}">
+          </td>
+          <td>
+            <input type="number" name="total_${i + 1}" class="form-control form-control-sm fw-bold" value="${totalCuota.toFixed(2)}" step="0.01" readonly>
+          </td>
+        </tr>`;
+      
+      $('#tablaCuotasVenta').append(html);
+      $('#formNuevaVenta').append(`<input type="hidden" class="cuota-hidden" name="numero_cuota_${i + 1}" value="${i + 1}">`);
+    }
+  } else {
+    // LÓGICA PARA DÍAS
+    const diasCuotas = parseInt($('#dias_cuotas_venta').val()) || 30;
+    const fechaActual = new Date();
+    
+    for (let i = 1; i <= cantidadCuotas; i++) {
+      const interes = (montoCuota * tasaInteres) / 100;
+      const totalCuota = montoCuota + interes;
+      
+      const fechaVencimiento = new Date(fechaActual);
+      fechaVencimiento.setDate(fechaVencimiento.getDate() + (diasCuotas * i));
+      const fechaFormat = fechaVencimiento.toISOString().split('T')[0];
+      
+      const html = `
+        <tr>
+          <td>${i}</td>
+          <td>
+            <input type="date" name="fecha_vencimiento_${i}" class="form-control form-control-sm" value="${fechaFormat}" required>
+          </td>
+          <td>
+            <input type="number" name="monto_${i}" class="form-control form-control-sm" value="${montoCuota.toFixed(2)}" step="0.01" readonly>
+          </td>
+          <td>
+            <input type="number" name="interes_${i}" class="form-control form-control-sm" value="${interes.toFixed(2)}" step="0.01" readonly>
+            <input type="hidden" name="tasa_${i}" value="${tasaInteres}">
+          </td>
+          <td>
+            <input type="number" name="total_${i}" class="form-control form-control-sm fw-bold" value="${totalCuota.toFixed(2)}" step="0.01" readonly>
+          </td>
+        </tr>`;
+      
+      $('#tablaCuotasVenta').append(html);
+      $('#formNuevaVenta').append(`<input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${i}">`);
+    }
+  }
+  
+  Swal.fire({
+    icon: "success",
+    title: "Cuotas generadas",
+    text: `Se generaron ${cantidadCuotas} cuotas correctamente`,
+    timer: 1500,
+    showConfirmButton: false
+  });
+}
+
+function guardarYCerrarCuotasVenta() {
+  const tbody = document.getElementById("tablaCuotasVenta");
+  if (tbody.children.length === 0) {
+    Swal.fire("Atención", "Debes generar las cuotas primero", "warning");
+    return;
+  }
+
+  document.getElementById("tiene_cuotas").value = "1";
+  
+  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val());
+  if (!$('#formNuevaVenta').find('[name="cantidad_cuotas"]').length) {
+    $('#formNuevaVenta').append(`
+      <input type="hidden" class="cuota-hidden" name="cantidad_cuotas" value="${cantidadCuotas}">
+    `);
+  }
+  
+  Swal.fire({
+    icon: "success",
+    title: "Cuotas configuradas",
+    text: "Las cuotas han sido guardadas correctamente",
+    timer: 1500,
+    showConfirmButton: false
+  });
+
+  cerrarModalCuotasVenta();
+}
+
+function cerrarModalCuotasVenta() {
+  const modalCuotas = bootstrap.Modal.getInstance(document.getElementById('modalCuotasVenta'));
+  if (modalCuotas) {
+    modalCuotas.hide();
+  }
+  
+  const modalVenta = document.getElementById('modalNuevaVenta');
+  if (!modalVenta.classList.contains('show')) {
+    const modalInstance = new bootstrap.Modal(modalVenta);
+    modalInstance.show();
+  }
+}
+
+function confirmarAnular(id, enlace) {
+  const urlAnular = $(enlace).attr('href');
+  Swal.fire({
+    title: '¿Seguro que quieres anular esta venta?',
+    text: 'Esta acción no se puede deshacer',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#d33',
+    cancelButtonColor: '#3085d6',
+    confirmButtonText: 'Sí, anular',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      window.location.href = urlAnular;
+    }
+  });
+  return false;
+}
+</script>
+
+<style>
+  .form-control-sm, .form-select-sm {
+    font-size: 0.875rem;
+  }
+  
+  .table td {
+    vertical-align: middle;
+  }
+  
+  .modal-xl {
+    max-width: 95%;
+  }
+  
+  .card {
+    border-radius: 10px;
+  }
+  
+  .card-header {
+    border-radius: 10px 10px 0 0 !important;
+  }
+  
+  .badge {
+    padding: 0.4em 0.8em;
+  }
+  
+  /* Scroll para tablas largas */
+  .table-responsive {
+    max-height: 900px;
+    overflow-y: auto;
+  }
+  
+  /* Estilos para inputs readonly */
+  input[readonly] {
+    background-color: #e9ecef;
+  }
+</style>
+{% endblock %}

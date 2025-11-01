@@ -13,6 +13,10 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 import os
 
+
+
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -27,6 +31,7 @@ SECRET_KEY = 'django-insecure-1yqp4mb^j0uqm-uf6zgr+^axhif(n-^x%kk2y$folet5#i##!a
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
 
 
 # Application definition
@@ -64,6 +69,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'software.context_processors.modulos_sidebar',
+                'software.context_processors.empresa_context',
             ],
         },
     },
@@ -115,7 +122,7 @@ TIME_ZONE = 'America/Lima'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
@@ -135,3 +142,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Configuración de la ruta media
 MEDIA_URL = '/media/'  # URL que se usará para acceder a los archivos media
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # Ruta en el sistema de archivos
+
+# Configuración de correo Gmail
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'jerojasd@alumno.unsm.edu.pe'  # ← Cambia esto
+EMAIL_HOST_PASSWORD = 'usrlkwexthgfjmxh'  # ← Contraseña de aplicación de Gmail
+DEFAULT_FROM_EMAIL = 'MotoVentas <jerojasd@alumno.unsm.edu.pe>'
+
+
+
+ENCRYPTION_KEY = 'lhgnTN5ZgcS6UKinpZdMrknlCeUPFxy5Eq10e8tyB0I='
+
+
+

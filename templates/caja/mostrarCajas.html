@@ -38,14 +38,14 @@
                   {% for caja_registro in cajas_registros_for %}
                   <tr>
                     <td>{{ forloop.counter }}</td>
-                    <td>{{ caja_registro.usuario_apertura.nombrecompleto }}</td>
+                    <td>{{ caja_registro.idusuario.nombrecompleto }}</td>
                     <td>{{ caja_registro.usuario_cierre.nombrecompleto }}</td>
                     <td>{{ caja_registro.fecha_apertura }}</td>
                     <td>{{ caja_registro.hora_apertura }}</td>
                     <td>{{ caja_registro.fecha_cierre }}</td>
                     <td>{{ caja_registro.hora_cierre }}</td>
-                    <td>{{ caja_registro.monto_inicial }}</td>
-                    <td>{{ caja_registro.monto_final }}</td>
+                    <td>{{ caja_registro.saldo_inicial }}</td>
+                    <td>{{ caja_registro.saldo_final }}</td>
 
                   </tr>
                   {% endfor %}

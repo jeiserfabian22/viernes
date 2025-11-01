@@ -1,0 +1,227 @@
+
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">Estado de Producto</h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Estado de Producto
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Estado de Producto</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de Estado de Productos</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Estado de Producto</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for estado_producto_registro in estadoproductos_registros %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>{{ estado_producto_registro.nombreestadoproducto }}</td>
+                <td class="text-center">
+                  <!-- Editar -->
+                  <a type="button" class="btn btn-sm btn-light border shadow-sm me-2" data-bs-toggle="modal" data-bs-target="#myModal2{{ estado_producto_registro.idestadoproducto }}">
+                    <i class="fa-solid fa-pen-to-square text-primary"></i>
+                  </a>
+                  <!-- Eliminar -->
+                  <a href="{% url 'estadoproductosEliminar' id=estado_producto_registro.idestadoproducto %}" class="btn btn-sm btn-light border shadow-sm eliminar" onclick="return confirmarEliminar('{{ estado_producto_registro.idestadoproducto }}', this)">
+                    <i class="fa-solid fa-trash text-danger"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ estado_producto_registro.idestadoproducto }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Estado de Producto</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarEstadoProducto{{ estado_producto_registro.idestadoproducto }}" action="{% url 'editarEstadoProductos' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Nombre</label>
+                          <input type="text" name="nameEstadoProducto" value="{{ estado_producto_registro.nombreestadoproducto }}" class="form-control rounded-pill">
+                          <input type="hidden" name="idEstadoProducto" value="{{ estado_producto_registro.idestadoproducto }}">
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ estado_producto_registro.idestadoproducto }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Estado de Producto</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarEstadoProducto" action="{% url 'agregarEstadoProductos' %}" method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre</label>
+              <input type="text" name="nameEstadoProductoAgregar" class="form-control rounded-pill">
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(function(){
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarEstadoProducto')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarEstadoProductos' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Estado de Producto guardado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'estadoproductos' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el Estado de Producto',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarEstadoProducto' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Estado de Producto editado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'estadoproductos' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el Estado de Producto',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // DataTable inicialización
+  $('.datatable').DataTable({
+    language: {
+      url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+    },
+    pageLength: 5,
+    lengthMenu: [5, 10, 25, 50],
+    responsive: true
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar este Estado de Producto?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'estadoproductos' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}
+
+

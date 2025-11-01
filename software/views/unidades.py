@@ -1,34 +1,10 @@
-from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
-from software.models.comprasModel import Compras
-from software.models.ProveedoresModel import Proveedores
-from software.models.TipoclienteModel import Tipocliente
-from software.models.compradetalleModel import CompraDetalle
-from software.models.ProductoModel import Producto
-from software.models.categoriaModel import Categoria
-from software.models.compradetalleModel import CompraDetalle
-from software.models.VentaModel import Venta
-from software.models.VentaDetalleModel import VentaDetalle
-from software.models.UsuarioModel import Usuario
-from software.models.UnidadesModel import Unidades
-from software.models.TipousuarioModel import Tipousuario
-from software.models.TipodocumentoModel import Tipodocumento
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProvinciasModel import Provincias
-from software.models.ProveedoresModel import Proveedores
-from software.models.NumserieModel import Numserie
-from software.models.ModulosModel import Modulos
-from software.models.empresaModel import Empresa
-from software.models.empleadoModel import Empleado
-from software.models.distritosModel import Distritos
-from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
-from software.models.detallecategoriaxunidadesModel import Detallecategoriaxunidades
-from software.models.departamentosModel import Departamentos
-from software.models.codigocorreoModel import CodigoCorreo
-from software.models.clientesModel import Clientes
-from django.db import connection
 
-import templates
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from software.models.UnidadesModel import Unidades
+from django.core.paginator import Paginator
+from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
+
 # Create your views here.
 
 
@@ -39,6 +15,7 @@ def unidades(request):
 
         permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
         unidades = Unidades.objects.all()
+        
         data = {
             'unidades': unidades,
             'permisos': permisos
@@ -49,14 +26,16 @@ def unidades(request):
 
 
 def activo(request, id):
-    unidades = Unidades.objects.get(idunidad=id)
-    unidades.estado = 1
-    unidades.save()
-    return redirect('unidades')
+    # Obtiene la unidad o retorna un 404 si no se encuentra
+    unidad = get_object_or_404(Unidades, idunidad=id)
+    unidad.estado = 1  # Cambiar a activo
+    unidad.save()
+    return JsonResponse({'status': 'success', 'new_state': 'activo'})
 
 
 def desactivo(request, id):
-    unidades = Unidades.objects.get(idunidad=id)
-    unidades.estado = 0
-    unidades.save()
-    return redirect('unidades')
+    # Obtiene la unidad o retorna un 404 si no se encuentra
+    unidad = get_object_or_404(Unidades, idunidad=id)
+    unidad.estado = 0  # Cambiar a desactivado
+    unidad.save()
+    return JsonResponse({'status': 'success', 'new_state': 'desactivado'})

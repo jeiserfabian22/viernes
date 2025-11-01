@@ -1,5 +1,5 @@
 from django.db import models
-
+from software.models.TipoclienteModel import Tipocliente
 class Proveedores(models.Model):
     idproveedor = models.AutoField(primary_key=True)
     idtipocliente = models.ForeignKey('Tipocliente', models.DO_NOTHING, db_column='idtipocliente')
