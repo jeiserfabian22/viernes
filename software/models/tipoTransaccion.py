@@ -7,5 +7,5 @@ class TipoTransaccion(models.Model):
     ingresoegreso = models.IntegerField(blank=True, null=True) #Para saber si es ingres 1 o egreso 0
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'tipo_transaccion'

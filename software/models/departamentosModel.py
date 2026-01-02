@@ -5,5 +5,5 @@ class Departamentos(models.Model):
     nombredepartamento = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'departamentos'

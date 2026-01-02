@@ -10,5 +10,5 @@ class Detalletipousuarioxmodulos(models.Model):
     idtipousuario = models.ForeignKey(Tipousuario, models.DO_NOTHING, db_column='idtipousuario')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'detalletipousuarioxmodulos'

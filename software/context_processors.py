@@ -84,7 +84,7 @@ def empresa_context(request):
             if id_sucursal:
                 sucursal = Sucursales.objects.get(id_sucursal=id_sucursal)
             
-            # Obtener caja desde la sesión (la que el usuario abrió)
+            # Obtener caja desde la sesión
             id_caja = request.session.get('id_caja')
             if id_caja:
                 caja = Caja.objects.get(id_caja=id_caja)
@@ -94,18 +94,22 @@ def empresa_context(request):
             if id_almacen:
                 almacen = Almacenes.objects.get(id_almacen=id_almacen)
             
-            # Obtener apertura actual de caja
+            # Obtener apertura de la caja seleccionada
             idusuario = request.session.get('idusuario')
-            apertura_actual = AperturaCierreCaja.objects.filter(
-                idusuario_id=idusuario,
-                estado='abierta'
-            ).select_related('id_caja').first()
+            
+            if id_caja:
+                apertura_actual = AperturaCierreCaja.objects.filter(
+                    idusuario_id=idusuario,
+                    id_caja_id=id_caja,
+                    estado__in=['abierta', 'reabierta']
+                ).select_related('id_caja').first()
+            else:
+                apertura_actual = None
 
-            # ⭐ Determinar si tiene caja abierta
             tiene_caja_abierta = apertura_actual is not None
                 
         except Exception as e:
-            print(f"Error obteniendo datos: {e}")
+            print(f"❌ Error en context_processor: {e}")
     
     return {
         'empresa': empresa,
@@ -113,7 +117,7 @@ def empresa_context(request):
         'caja': caja,
         'almacen': almacen,
         'apertura_actual': apertura_actual,
-        'tiene_caja_abierta': tiene_caja_abierta,  
+        'tiene_caja_abierta': tiene_caja_abierta,
     }
 
 

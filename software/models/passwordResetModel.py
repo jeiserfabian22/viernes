@@ -13,6 +13,7 @@ class PasswordResetToken(models.Model):
     usado = models.BooleanField(default=False)
     
     class Meta:
+        managed = True
         db_table = 'password_reset_tokens'
     
     def save(self, *args, **kwargs):

@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     {% load static %}
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MotoVentas - Login</title>
 
     <!-- Bootstrap -->
@@ -19,6 +18,12 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
         }
 
         body {
@@ -31,7 +36,8 @@
             justify-content: center;
             color: #fff;
             position: relative;
-            overflow: hidden;
+            overflow-x: hidden;
+            padding: 0;
         }
 
         /* Efectos de fondo animados */
@@ -76,6 +82,7 @@
             position: relative;
             z-index: 10;
             transition: transform 0.3s ease;
+            margin: 1rem;
         }
 
         .login-container:hover {
@@ -160,7 +167,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        .logo-moto:hover {
+        .logo-moto:active {
             transform: scale(1.15) rotate(-10deg);
             background: linear-gradient(135deg, #26c6da, #00bfa5);
             box-shadow: 0 20px 50px rgba(0,191,165,0.8);
@@ -208,9 +215,9 @@
             position: relative;
         }
 
-        .moto-gallery img:hover {
-            transform: scale(1.1) translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,191,165,0.6);
+        .moto-gallery img:active {
+            transform: scale(1.05) translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0,191,165,0.6);
             z-index: 10;
         }
 
@@ -275,6 +282,8 @@
             transition: all 0.3s ease;
             background: white;
             width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
         }
 
         .form-control:focus {
@@ -296,6 +305,9 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 8px 25px rgba(0,191,165,0.3);
+            min-height: 54px;
+            -webkit-appearance: none;
+            appearance: none;
         }
 
         .btn-login::before {
@@ -307,13 +319,13 @@
             transition: opacity 0.4s ease;
         }
 
-        .btn-login:hover::before {
+        .btn-login:active::before {
             opacity: 1;
         }
 
-        .btn-login:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 35px rgba(0,191,165,0.5);
+        .btn-login:active {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(0,191,165,0.5);
         }
 
         .btn-login i,
@@ -367,7 +379,7 @@
             transition: width 0.3s ease;
         }
 
-        a:hover::after {
+        a:active::after {
             width: 100%;
         }
 
@@ -384,42 +396,449 @@
             width: 100%;
         }
 
-        /* Responsive */
-        @media (max-width: 900px) {
+        /* ============================================ */
+        /* RESPONSIVE MOBILE FIRST - OPTIMIZADO */
+        /* ============================================ */
+
+        /* Tablets y móviles grandes (max-width: 1024px) */
+        @media (max-width: 1024px) {
             .login-container {
-                flex-direction: column;
-                width: 90%;
+                width: 95vw;
+                max-width: 800px;
             }
-            .login-left, .login-right {
-                width: 100%;
-            }
+            
             .login-left {
-                padding: 2.5rem 1.5rem;
-            }
-            .moto-gallery {
-                max-width: 350px;
-            }
-            .login-right {
                 padding: 2.5rem 2rem;
+            }
+            
+            .login-right {
+                padding: 3rem 2.5rem;
             }
         }
 
-        @media (max-width: 576px) {
+        /* Tablets en vertical y móviles grandes (max-width: 900px) */
+        @media (max-width: 900px) {
+            body {
+                padding: 0;
+            }
+            
+            .login-container {
+                flex-direction: column;
+                width: 100%;
+                max-width: 100%;
+                margin: 0;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            .login-container:hover {
+                transform: none;
+            }
+            
+            .login-left, 
+            .login-right {
+                width: 100%;
+            }
+            
+            .login-left {
+                padding: 2.5rem 1.5rem;
+                min-height: auto;
+            }
+            
             .logo-moto {
                 width: 100px;
                 height: 100px;
                 font-size: 2.5rem;
+                margin-bottom: 15px;
             }
+            
             .logo-text {
-                font-size: 2.2rem;
+                font-size: 2.4rem;
+                margin-bottom: 20px;
             }
-            .login-right h3 {
-                font-size: 1.8rem;
+            
+            .moto-gallery {
+                max-width: 100%;
+                gap: 12px;
+                padding: 0 1rem;
             }
+            
             .moto-gallery img {
                 height: 110px;
             }
+            
+            .login-left > p {
+                font-size: 0.95rem;
+                margin-top: 1.2rem;
+            }
+            
+            .login-right {
+                padding: 2.5rem 2rem;
+            }
+            
+            .login-right h3 {
+                font-size: 2rem;
+            }
+            
+            .login-right > p {
+                font-size: 0.95rem;
+                margin-bottom: 2rem;
+            }
         }
+
+        /* Móviles medianos (max-width: 640px) */
+        @media (max-width: 640px) {
+            .login-left {
+                padding: 2rem 1.2rem;
+            }
+            
+            .logo-moto {
+                width: 90px;
+                height: 90px;
+                font-size: 2.2rem;
+                margin-bottom: 12px;
+            }
+            
+            .logo-text {
+                font-size: 2rem;
+                margin-bottom: 15px;
+                letter-spacing: 1px;
+            }
+            
+            .moto-gallery {
+                gap: 10px;
+                padding: 0 0.5rem;
+            }
+            
+            .moto-gallery img {
+                height: 100px;
+                border-radius: 12px;
+            }
+            
+            .login-left > p {
+                font-size: 0.9rem;
+                line-height: 1.5;
+                padding: 0 0.5rem;
+            }
+            
+            .login-right {
+                padding: 2rem 1.5rem;
+            }
+            
+            .login-right h3 {
+                font-size: 1.8rem;
+                margin-bottom: 0.4rem;
+            }
+            
+            .login-right > p {
+                font-size: 0.9rem;
+                margin-bottom: 1.8rem;
+            }
+            
+            .mb-3 {
+                margin-bottom: 1.5rem;
+            }
+            
+            .form-label {
+                font-size: 0.9rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .form-control {
+                padding: 0.9rem 1rem;
+                font-size: 1rem;
+                border-radius: 12px;
+            }
+            
+            .btn-login {
+                padding: 0.9rem 1.5rem;
+                font-size: 1rem;
+                border-radius: 12px;
+                min-height: 50px;
+            }
+            
+            footer {
+                font-size: 0.75rem;
+                margin-top: 1.5rem;
+                padding-top: 1.2rem;
+            }
+        }
+
+        /* Móviles pequeños (max-width: 480px) */
+        @media (max-width: 480px) {
+            .login-left {
+                padding: 1.8rem 1rem;
+            }
+            
+            .logo-moto {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+                margin-bottom: 10px;
+            }
+            
+            .logo-text {
+                font-size: 1.8rem;
+                margin-bottom: 12px;
+            }
+            
+            .moto-gallery {
+                gap: 8px;
+                margin-top: 8px;
+            }
+            
+            .moto-gallery img {
+                height: 90px;
+                border-radius: 10px;
+            }
+            
+            .login-left > p {
+                font-size: 0.85rem;
+                margin-top: 1rem;
+            }
+            
+            .login-right {
+                padding: 1.8rem 1.2rem;
+            }
+            
+            .login-right h3 {
+                font-size: 1.6rem;
+            }
+            
+            .login-right > p {
+                font-size: 0.85rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            .mb-3 {
+                margin-bottom: 1.3rem;
+            }
+            
+            .form-control {
+                padding: 0.85rem 1rem;
+                font-size: 1rem;
+            }
+            
+            .btn-login {
+                padding: 0.85rem 1.2rem;
+                font-size: 0.95rem;
+                min-height: 48px;
+            }
+            
+            .small {
+                font-size: 0.85rem;
+            }
+            
+            footer {
+                font-size: 0.7rem;
+                margin-top: 1.2rem;
+                padding-top: 1rem;
+            }
+        }
+
+        /* Móviles extra pequeños (max-width: 360px) */
+        @media (max-width: 360px) {
+            .login-left {
+                padding: 1.5rem 0.8rem;
+            }
+            
+            .logo-moto {
+                width: 70px;
+                height: 70px;
+                font-size: 1.8rem;
+            }
+            
+            .logo-text {
+                font-size: 1.6rem;
+                margin-bottom: 10px;
+            }
+            
+            .moto-gallery {
+                gap: 6px;
+            }
+            
+            .moto-gallery img {
+                height: 80px;
+            }
+            
+            .login-left > p {
+                font-size: 0.8rem;
+            }
+            
+            .login-right {
+                padding: 1.5rem 1rem;
+            }
+            
+            .login-right h3 {
+                font-size: 1.5rem;
+            }
+            
+            .login-right > p {
+                font-size: 0.8rem;
+            }
+            
+            .form-control {
+                padding: 0.8rem 0.9rem;
+            }
+            
+            .btn-login {
+                padding: 0.8rem 1rem;
+                font-size: 0.9rem;
+                min-height: 46px;
+            }
+        }
+
+        /* Landscape mode para móviles (altura < 600px) */
+        @media (max-height: 600px) and (orientation: landscape) {
+            .login-container {
+                flex-direction: row;
+                border-radius: 0;
+                min-height: 100vh;
+            }
+            
+            .login-left {
+                width: 40%;
+                padding: 1.5rem 1rem;
+            }
+            
+            .login-right {
+                width: 60%;
+                padding: 1.5rem 1.5rem;
+            }
+            
+            .logo-moto {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+                margin-bottom: 8px;
+            }
+            
+            .logo-text {
+                font-size: 1.4rem;
+                margin-bottom: 10px;
+            }
+            
+            .moto-gallery {
+                gap: 6px;
+                margin-top: 5px;
+            }
+            
+            .moto-gallery img {
+                height: 70px;
+            }
+            
+            .login-left > p {
+                font-size: 0.75rem;
+                margin-top: 0.8rem;
+                line-height: 1.4;
+            }
+            
+            .login-right h3 {
+                font-size: 1.5rem;
+                margin-bottom: 0.3rem;
+            }
+            
+            .login-right > p {
+                font-size: 0.8rem;
+                margin-bottom: 1.2rem;
+            }
+            
+            .mb-3 {
+                margin-bottom: 1rem;
+            }
+            
+            .form-control {
+                padding: 0.7rem 0.9rem;
+                font-size: 0.9rem;
+            }
+            
+            .btn-login {
+                padding: 0.7rem 1rem;
+                font-size: 0.9rem;
+                min-height: 44px;
+            }
+            
+            .small {
+                font-size: 0.8rem;
+            }
+            
+            footer {
+                margin-top: 1rem;
+                padding-top: 0.8rem;
+                font-size: 0.65rem;
+            }
+        }
+
+        /* Optimización para iOS */
+        @supports (-webkit-touch-callout: none) {
+            .form-control {
+                font-size: 16px; /* Previene zoom en iOS */
+            }
+        }
+
+        /* Modo oscuro del sistema - mantener colores originales */
+        @media (prefers-color-scheme: dark) {
+            /* Mantener diseño claro para mejor legibilidad */
+        }
+
+        /* Reducir animaciones si el usuario lo prefiere */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Botón de registro */
+        .btn-registro {
+            background: linear-gradient(135deg, #26a69a, #00897b);
+            color: #fff;
+            border: none;
+            border-radius: 15px;
+            padding: 1rem 2rem;
+            font-weight: 700;
+            font-size: 1.1rem;
+            transition: all 0.4s ease;
+            box-shadow: 0 8px 25px rgba(38,166,154,0.3);
+            min-height: 54px;
+            margin-top: 0.8rem;
+        }
+
+        .btn-registro:active {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(38,166,154,0.5);
+        }
+
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0 1rem;
+            color: #999;
+            font-size: 0.9rem;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #ddd, transparent);
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+        
     </style>
 </head>
 
@@ -431,10 +850,10 @@
             <div class="logo-text">MotoVentas</div>
 
             <div class="moto-gallery">
-                <img src="{% static 'img/moto_01.jpg' %}" alt="Moto 1">
-                <img src="{% static 'img/moto_02.jpg' %}" alt="Moto 2">
-                <img src="{% static 'img/moto_03.jpg' %}" alt="Moto 3">
-                <img src="{% static 'img/moto_04.jpg' %}" alt="Moto 4">
+                <img src="../static/img/moto_01.jpg" alt="Moto 1">
+                <img src="../static/img/moto_02.jpg" alt="Moto 2">
+                <img src="../static/img/moto_03.jpg" alt="Moto 3">
+                <img src="../static/img/moto_04.jpg" alt="Moto 4">
             </div>
 
             <p class="mt-3">Sistema de ventas inteligente y moderno para concesionarios de motocicletas.</p>
@@ -464,6 +883,13 @@
                     <i class="fas fa-sign-in-alt me-2"></i> Iniciar Sesión
                 </button>
 
+                <div class="divider">o</div>
+
+                <!-- Botón de registro -->
+                <button type="button" class="btn btn-registro w-100" onclick="window.location.href='{% url 'registro_usuario' %}'">
+                    <i class="fas fa-user-plus me-2"></i> Crear Cuenta Nueva
+                </button>
+
                 <p class="text-center small">¿Olvidaste tu contraseña? 
                     <a href="{% url 'solicitar_recuperacion' %}">Recuperar contraseña</a>
                 </p>
@@ -474,8 +900,3 @@
     </div>
 </body>
 </html>
-
-
-
-
-

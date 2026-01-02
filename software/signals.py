@@ -1,9 +1,12 @@
-
+# software/signals.py
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.db import transaction
+
 from software.models.compradetalleModel import CompraDetalle
 from software.models.VentaDetalleModel import VentaDetalle
+from software.models.VentasModel import Ventas
 from software.models.transferenciaModel import Transferencia
 from software.models.detalleTransferenciaModel import DetalleTransferencia
 from software.models.stockModel import Stock
@@ -128,96 +131,95 @@ def actualizar_stock_transferencia(sender, instance, created, **kwargs):
 
 
 # ============================================
-# SIGNAL 3: Descontar Stock y Crear Movimiento de Caja en Ventas
+# SIGNAL 3: Descontar Stock y Crear Movimiento de Caja
 # ============================================
 @receiver(post_save, sender=VentaDetalle)
-def procesar_venta(sender, instance, created, **kwargs):
+def procesar_venta_detalle(sender, instance, created, **kwargs):
     """
     Cuando se registra un detalle de venta:
-    1. Descuenta el stock del almacén de la sucursal
-    2. Crea un movimiento de caja (ingreso) automático
+    1. Descuenta el stock del almacén
+    2. Crea el movimiento de caja (solo una vez, al último detalle)
     """
-    if created:
-        # Obtener almacén de la venta (desde la sesión o configuración)
-        # En tu caso, deberás pasar el id_almacen desde la vista
-        # Por ahora, usamos el primer almacén de la sucursal del usuario
-        
-        # IMPORTANTE: Necesitarás modificar la vista de ventas para pasar el almacén
-        # Por ahora, esta lógica asume que hay un almacén asociado
-        
-        venta = instance.idventa
-        
-        # Obtener sucursal del usuario que vendió
-        if venta.idusuario.id_sucursal:
-            almacen = venta.idusuario.id_sucursal.almacenes.filter(estado=1).first()
-        else:
-            print("❌ ERROR: Usuario sin sucursal asignada")
-            return
-        
-        if not almacen:
-            print("❌ ERROR: No se encontró almacén para la sucursal")
-            return
-        
-        # 1. DESCONTAR STOCK
-        if instance.id_vehiculo:
-            # VEHÍCULO
-            stock = Stock.objects.filter(
-                id_almacen=almacen,
-                id_vehiculo=instance.id_vehiculo,
-                estado=1
-            ).first()
-            
-            if stock and stock.descontar_stock(instance.cantidad):
-                print(f"✅ Stock descontado: Vehículo {instance.id_vehiculo.id_vehiculo} - Almacén: {almacen.nombre_almacen}")
-            else:
-                print(f"❌ ERROR: Stock insuficiente para vehículo {instance.id_vehiculo.id_vehiculo}")
-        
-        elif instance.id_repuesto_comprado:
-            # REPUESTO
-            stock = Stock.objects.filter(
-                id_almacen=almacen,
-                id_repuesto_comprado=instance.id_repuesto_comprado,
-                estado=1
-            ).first()
-            
-            if stock and stock.descontar_stock(instance.cantidad):
-                print(f"✅ Stock descontado: Repuesto {instance.id_repuesto_comprado.id_repuesto_comprado} - Cantidad: {instance.cantidad}")
-            else:
-                print(f"❌ ERROR: Stock insuficiente para repuesto {instance.id_repuesto_comprado.id_repuesto_comprado}")
-
-
-# ============================================
-# SIGNAL 4: Crear Movimiento de Caja automático en Ventas
-# ============================================
-from software.models.VentasModel import Ventas
-
-@receiver(post_save, sender=Ventas)
-def crear_movimiento_caja_venta(sender, instance, created, **kwargs):
-    """
-    Cuando se completa una venta, crea automáticamente un movimiento de caja (ingreso)
-    """
-    if created:
-        # Obtener la caja desde AperturaCierreCaja del usuario
-        from software.models.AperturaCierreCajaModel import AperturaCierreCaja
-        
-        apertura_actual = AperturaCierreCaja.objects.filter(
-            idusuario=instance.idusuario,
-            estado='abierta'
+    if not created:
+        return
+    
+    venta = instance.idventa
+    
+    # ========================================
+    # PARTE 1: DESCONTAR STOCK
+    # ========================================
+    if not hasattr(venta, 'id_almacen') or not venta.id_almacen:
+        print(f"❌ SIGNAL: La venta #{venta.idventa} no tiene almacén asignado")
+        return
+    
+    almacen = venta.id_almacen
+    
+    if instance.id_vehiculo:
+        # VEHÍCULO
+        stock = Stock.objects.filter(
+            id_almacen=almacen,
+            id_vehiculo=instance.id_vehiculo,
+            estado=1
         ).first()
         
-        if not apertura_actual:
-            print(f"❌ ERROR: No hay caja abierta para el usuario {instance.idusuario.nombrecompleto}")
+        if stock and stock.descontar_stock(instance.cantidad):
+            print(f"✅ SIGNAL: Stock descontado - Vehículo {instance.id_vehiculo.id_vehiculo}")
+            print(f"   Almacén: {almacen.nombre_almacen}, Stock restante: {stock.cantidad_disponible}")
+        else:
+            print(f"⚠️ SIGNAL: No se pudo descontar stock para vehículo {instance.id_vehiculo.id_vehiculo}")
+    
+    elif instance.id_repuesto_comprado:
+        # REPUESTO
+        stock = Stock.objects.filter(
+            id_almacen=almacen,
+            id_repuesto_comprado=instance.id_repuesto_comprado,
+            estado=1
+        ).first()
+        
+        if stock and stock.descontar_stock(instance.cantidad):
+            print(f"✅ SIGNAL: Stock descontado - Repuesto {instance.id_repuesto_comprado.id_repuesto_comprado}")
+            print(f"   Cantidad: {instance.cantidad}, Stock restante: {stock.cantidad_disponible}")
+        else:
+            print(f"⚠️ SIGNAL: No se pudo descontar stock para repuesto")
+    
+    # ========================================
+    # PARTE 2: CREAR MOVIMIENTO DE CAJA (solo una vez)
+    # ========================================
+    def crear_movimiento_caja():
+        # Refrescar la venta desde la BD para obtener el total actualizado
+        venta.refresh_from_db()
+        
+        # Verificar que no exista ya un movimiento
+        existe_movimiento = MovimientoCaja.objects.filter(
+            idventa=venta,
+            tipo_movimiento='ingreso'
+        ).exists()
+        
+        if existe_movimiento:
             return
         
-        # Crear movimiento de caja (ingreso por venta)
+        # Verificar que tiene caja asignada
+        if not hasattr(venta, 'id_caja') or not venta.id_caja:
+            print(f"❌ SIGNAL: La venta #{venta.idventa} no tiene caja asignada")
+            return
+        
+        # Verificar que el total no sea 0
+        if venta.total_venta <= 0:
+            print(f"⚠️ SIGNAL: La venta #{venta.idventa} tiene total S/ 0")
+            return
+        
+        # ✅ CREAR MOVIMIENTO DE CAJA
         movimiento = MovimientoCaja.objects.create(
-            id_caja=apertura_actual.id_caja,
-            idusuario=instance.idusuario,
-            idventa=instance,
+            id_caja=venta.id_caja,
+            idusuario=venta.idusuario,
+            idventa=venta,
             tipo_movimiento='ingreso',
-            monto=instance.total_venta,
-            descripcion=f"Venta {instance.numero_comprobante} - Cliente: {instance.idcliente.razonsocial}",
+            monto=venta.total_venta,
+            descripcion=f"Venta {venta.numero_comprobante} - Cliente: {venta.idcliente.razonsocial}",
             estado=1
         )
         
-        print(f"✅ Movimiento de caja creado: Ingreso S/ {instance.total_venta} - Venta #{instance.idventa}")
+        print(f"✅ SIGNAL: Movimiento de caja creado - Ingreso S/ {venta.total_venta} (Venta #{venta.idventa})")
+    
+    # Ejecutar después de que termine la transacción
+    transaction.on_commit(crear_movimiento_caja)

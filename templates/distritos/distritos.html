@@ -1,0 +1,422 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="fas fa-location-crosshairs me-2"></i>Distritos
+    </h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Distrito
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Distrito</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de distritos</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable" style="width: 100%;">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col" style="width: 8%;">#</th>
+                <th scope="col" style="width: 30%;">Distrito</th>
+                <th scope="col" style="width: 30%;">Provincia</th>
+                <th scope="col" style="width: 17%;">Región</th>
+                <th scope="col" class="text-center" style="width: 15%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for distrito_registro in distritos_registros %}
+              <tr>
+                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                <td>{{ distrito_registro.nombre_distrito }}</td>
+                <td>{{ distrito_registro.id_provincia.nombre_provincia }}</td>
+                <td>{{ distrito_registro.id_provincia.id_region.nombre_region }}</td>
+                <td class="text-center">
+                  <a type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                    data-bs-target="#myModal2{{ distrito_registro.id_distrito }}" title="Editar">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </a>
+
+                  <a href="{% url 'distritosEliminar' id=distrito_registro.id_distrito %}" class="btn btn-sm btn-outline-danger eliminar"
+                    onclick="return confirmarEliminar('{{ distrito_registro.id_distrito }}', this)" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ distrito_registro.id_distrito }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Distrito</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarDistrito{{ distrito_registro.id_distrito }}" action="{% url 'editarDistritos' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Nombre del Distrito <span class="text-danger">*</span></label>
+                          <input type="text" name="nameDistrito" value="{{ distrito_registro.nombre_distrito }}" class="form-control rounded-pill" required>
+                          <input type="hidden" name="idDistrito" value="{{ distrito_registro.id_distrito }}">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Región <span class="text-danger">*</span></label>
+                          <select name="idRegionEdit{{ distrito_registro.id_distrito }}" class="form-select rounded-pill region-select-edit" data-distrito-id="{{ distrito_registro.id_distrito }}" required>
+                            <option value="">Seleccione una región</option>
+                            {% for region in regiones_registros %}
+                            <option value="{{ region.id_region }}" {% if region.id_region == distrito_registro.id_provincia.id_region.id_region %}selected{% endif %}>
+                              {{ region.nombre_region }}
+                            </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Provincia <span class="text-danger">*</span></label>
+                          <select name="idProvincia" id="provinciaEdit{{ distrito_registro.id_distrito }}" class="form-select rounded-pill" required>
+                            <option value="">Seleccione una provincia</option>
+                            {% for provincia in provincias_registros %}
+                            {% if provincia.id_region.id_region == distrito_registro.id_provincia.id_region.id_region %}
+                            <option value="{{ provincia.id_provincia }}" {% if provincia.id_provincia == distrito_registro.id_provincia.id_provincia %}selected{% endif %}>
+                              {{ provincia.nombre_provincia }}
+                            </option>
+                            {% endif %}
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ distrito_registro.id_distrito }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Distrito</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarDistrito" action="{% url 'agregarDistritos' %}" method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre del Distrito <span class="text-danger">*</span></label>
+              <input type="text" name="nameDistritoAgregar" class="form-control rounded-pill" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Región <span class="text-danger">*</span></label>
+              <select id="regionAgregar" class="form-select rounded-pill" required>
+                <option value="">Seleccione una región</option>
+                {% for region in regiones_registros %}
+                <option value="{{ region.id_region }}">{{ region.nombre_region }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Provincia <span class="text-danger">*</span></label>
+              <select name="idProvinciaAgregar" id="provinciaAgregar" class="form-select rounded-pill" required>
+                <option value="">Primero seleccione una región</option>
+              </select>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+  /* Mejoras visuales para la tabla */
+  .datatable {
+    font-size: 0.9rem;
+  }
+  
+  .datatable thead th {
+    background-color: #212529 !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    padding: 12px 8px;
+  }
+  
+  .datatable tbody td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    font-size: 0.875rem;
+  }
+  
+  .datatable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  /* Botones de acciones */
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+  
+  /* Espaciado del DataTable */
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+  }
+  
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+  }
+  
+  /* Select de paginación */
+  .dataTables_length select {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+  }
+  
+  /* Input de búsqueda */
+  .dataTables_filter input {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    margin-left: 10px;
+  }
+  
+  /* Select dentro de modales */
+  .form-select {
+    padding: 8px 12px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .datatable {
+      font-size: 0.8rem;
+    }
+    
+    .datatable thead th,
+    .datatable tbody td {
+      padding: 8px 4px;
+    }
+  }
+</style>
+
+<script>
+$(document).ready(function(){
+  // Cargar provincias al seleccionar región en modal AGREGAR
+  $('#regionAgregar').change(function(){
+    var idRegion = $(this).val();
+    if(idRegion){
+      $.ajax({
+        url: "{% url 'obtenerProvinciasPorRegion' %}",
+        type: "GET",
+        data: { id_region: idRegion },
+        success: function(data){
+          $('#provinciaAgregar').html('<option value="">Seleccione una provincia</option>');
+          $.each(data, function(index, provincia){
+            $('#provinciaAgregar').append('<option value="'+provincia.id_provincia+'">'+provincia.nombre_provincia+'</option>');
+          });
+        }
+      });
+    } else {
+      $('#provinciaAgregar').html('<option value="">Primero seleccione una región</option>');
+    }
+  });
+
+  // Cargar provincias al seleccionar región en modales EDITAR
+  $('.region-select-edit').change(function(){
+    var idRegion = $(this).val();
+    var distritoId = $(this).data('distrito-id');
+    if(idRegion){
+      $.ajax({
+        url: "{% url 'obtenerProvinciasPorRegion' %}",
+        type: "GET",
+        data: { id_region: idRegion },
+        success: function(data){
+          $('#provinciaEdit'+distritoId).html('<option value="">Seleccione una provincia</option>');
+          $.each(data, function(index, provincia){
+            $('#provinciaEdit'+distritoId).append('<option value="'+provincia.id_provincia+'">'+provincia.nombre_provincia+'</option>');
+          });
+        }
+      });
+    } else {
+      $('#provinciaEdit'+distritoId).html('<option value="">Primero seleccione una región</option>');
+    }
+  });
+
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarDistrito')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarDistritos' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Distrito guardado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'distritos' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el distrito',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarDistrito' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Distrito editado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'distritos' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el distrito',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // DataTable inicialización
+  if ($.fn.DataTable.isDataTable('.datatable')) {
+    $('.datatable').DataTable().destroy();
+  }
+  
+  $('.datatable').DataTable({
+    "language": {
+      "decimal": "",
+      "emptyTable": "No hay información",
+      "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+      "infoEmpty": "Mostrando 0 to 0 of 0 registros",
+      "infoFiltered": "(Filtrado de _MAX_ total registros)",
+      "infoPostFix": "",
+      "thousands": ",",
+      "lengthMenu": "Mostrar _MENU_ registros",
+      "loadingRecords": "Cargando...",
+      "processing": "Procesando...",
+      "search": "Buscar:",
+      "zeroRecords": "Sin resultados encontrados",
+      "paginate": {
+        "first": "Primero",
+        "last": "Último",
+        "next": "Siguiente",
+        "previous": "Anterior"
+      }
+    },
+    "pageLength": 10,
+    "lengthMenu": [[5, 10, 25, 50, 100], [5, 10, 25, 50, 100]],
+    "responsive": true,
+    "order": [[1, 'asc']],
+    "columnDefs": [
+      { 
+        "targets": 4,
+        "orderable": false,
+        "searchable": false
+      },
+      {
+        "targets": 0,
+        "width": "8%"
+      }
+    ],
+    "autoWidth": false
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar este distrito?',
+    text: 'Esta acción cambiará el estado del distrito',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'distritos' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}

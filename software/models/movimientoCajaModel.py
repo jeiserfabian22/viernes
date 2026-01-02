@@ -2,6 +2,7 @@ from django.db import models
 from software.models.cajaModel import Caja
 from software.models.UsuarioModel import Usuario
 from software.models.VentasModel import Ventas
+from software.models.AperturaCierreCajaModel import AperturaCierreCaja
 
 
 class MovimientoCaja(models.Model):
@@ -13,6 +14,7 @@ class MovimientoCaja(models.Model):
     id_movimiento_caja = models.AutoField(primary_key=True)
     id_caja = models.ForeignKey(Caja, on_delete=models.RESTRICT, db_column='id_caja', related_name='movimientos')
     idusuario = models.ForeignKey(Usuario, on_delete=models.RESTRICT, db_column='idusuario', related_name='movimientos_caja')
+    id_movimiento = models.ForeignKey( AperturaCierreCaja, on_delete=models.SET_NULL, db_column='id_movimiento', related_name='movimientos_caja', null=True, blank=True)
     
     # Relación opcional con venta (para ingresos por venta)
     idventa = models.ForeignKey(Ventas, on_delete=models.SET_NULL, db_column='idventa', related_name='movimientos_caja', null=True, blank=True)
@@ -25,7 +27,7 @@ class MovimientoCaja(models.Model):
     estado = models.IntegerField(default=1, db_column='estado')
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'movimientos_caja'
         ordering = ['-fecha_movimiento']
     

@@ -1,0 +1,491 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+        <i class="fas fa-boxes-stacked me-2"></i>Almacenes
+    </h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Almacén
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Almacenes</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de almacenes</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable" style="width: 100%;">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col" style="width: 5%;">#</th>
+                <th scope="col" style="width: 20%;">Almacén</th>
+                <th scope="col" style="width: 10%;">Código</th>
+                <th scope="col" style="width: 18%;">Sucursal</th>
+                <th scope="col" style="width: 15%;">Empresa</th>
+                <th scope="col" style="width: 10%;">Capacidad</th>
+                <th scope="col" style="width: 12%;">Descripción</th>
+                <th scope="col" class="text-center" style="width: 10%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for almacen_registro in almacenes_registros %}
+              <tr>
+                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                <td>{{ almacen_registro.nombre_almacen }}</td>
+                <td>{{ almacen_registro.codigo_almacen }}</td>
+                <td>{{ almacen_registro.id_sucursal.nombre_sucursal }}</td>
+                <td>{{ almacen_registro.id_sucursal.idempresa.razonsocial }}</td>
+                <td class="text-center">
+                  {% if almacen_registro.capacidad_maxima %}
+                    {{ almacen_registro.capacidad_maxima }}
+                  {% else %}
+                    <span class="text-muted">N/A</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if almacen_registro.descripcion %}
+                    {{ almacen_registro.descripcion|truncatewords:5 }}
+                  {% else %}
+                    <span class="text-muted">Sin descripción</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <a type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                    data-bs-target="#myModal2{{ almacen_registro.id_almacen }}" title="Editar">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </a>
+
+                  <a href="{% url 'almacenesEliminar' id=almacen_registro.id_almacen %}" class="btn btn-sm btn-outline-danger eliminar"
+                    onclick="return confirmarEliminar('{{ almacen_registro.id_almacen }}', this)" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ almacen_registro.id_almacen }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Almacén</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarAlmacen{{ almacen_registro.id_almacen }}" action="{% url 'editarAlmacenes' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="idAlmacen" value="{{ almacen_registro.id_almacen }}">
+                        
+                        <div class="row">
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Nombre del Almacén <span class="text-danger">*</span></label>
+                            <input type="text" name="nameAlmacen" value="{{ almacen_registro.nombre_almacen }}" class="form-control rounded-pill" required>
+                          </div>
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Código <span class="text-danger">*</span></label>
+                            <input type="text" name="codigoAlmacen" value="{{ almacen_registro.codigo_almacen }}" class="form-control rounded-pill" required>
+                          </div>
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Empresa <span class="text-danger">*</span></label>
+                            <select name="idEmpresaEdit{{ almacen_registro.id_almacen }}" class="form-select rounded-pill empresa-select-edit" data-almacen-id="{{ almacen_registro.id_almacen }}" required>
+                              <option value="">Seleccione una empresa</option>
+                              {% for empresa in empresas_registros %}
+                              <option value="{{ empresa.idempresa }}" {% if empresa.idempresa == almacen_registro.id_sucursal.idempresa.idempresa %}selected{% endif %}>
+                                {{ empresa.razonsocial }}
+                              </option>
+                              {% endfor %}
+                            </select>
+                          </div>
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Sucursal <span class="text-danger">*</span></label>
+                            <select name="idSucursal" id="sucursalEdit{{ almacen_registro.id_almacen }}" class="form-select rounded-pill" required>
+                              <option value="">Seleccione una sucursal</option>
+                              {% for sucursal in sucursales_registros %}
+                              {% if sucursal.idempresa.idempresa == almacen_registro.id_sucursal.idempresa.idempresa %}
+                              <option value="{{ sucursal.id_sucursal }}" {% if sucursal.id_sucursal == almacen_registro.id_sucursal.id_sucursal %}selected{% endif %}>
+                                {{ sucursal.nombre_sucursal }}
+                              </option>
+                              {% endif %}
+                              {% endfor %}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Capacidad Máxima</label>
+                          <input type="number" name="capacidadMaxima" value="{{ almacen_registro.capacidad_maxima|default:'' }}" class="form-control rounded-pill" min="0">
+                          <small class="text-muted">Opcional: capacidad máxima del almacén</small>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Descripción</label>
+                          <textarea name="descripcion" class="form-control" rows="3">{{ almacen_registro.descripcion|default:'' }}</textarea>
+                          <small class="text-muted">Opcional: descripción del almacén</small>
+                        </div>
+
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ almacen_registro.id_almacen }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Almacén</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarAlmacen" action="{% url 'agregarAlmacenes' %}" method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Nombre del Almacén <span class="text-danger">*</span></label>
+                <input type="text" name="nameAlmacenAgregar" class="form-control rounded-pill" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Código <span class="text-danger">*</span></label>
+                <input type="text" name="codigoAlmacenAgregar" class="form-control rounded-pill" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Empresa <span class="text-danger">*</span></label>
+                <select id="empresaAgregar" class="form-select rounded-pill" required>
+                  <option value="">Seleccione una empresa</option>
+                  {% for empresa in empresas_registros %}
+                  <option value="{{ empresa.idempresa }}">{{ empresa.razonsocial }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Sucursal <span class="text-danger">*</span></label>
+                <select name="idSucursalAgregar" id="sucursalAgregar" class="form-select rounded-pill" required>
+                  <option value="">Primero seleccione una empresa</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Capacidad Máxima</label>
+              <input type="number" name="capacidadMaximaAgregar" class="form-control rounded-pill" min="0">
+              <small class="text-muted">Opcional: capacidad máxima del almacén</small>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Descripción</label>
+              <textarea name="descripcionAgregar" class="form-control" rows="3"></textarea>
+              <small class="text-muted">Opcional: descripción del almacén</small>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+  /* Mejoras visuales para la tabla */
+  .datatable {
+    font-size: 0.85rem;
+  }
+  
+  .datatable thead th {
+    background-color: #212529 !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    padding: 12px 8px;
+  }
+  
+  .datatable tbody td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+  }
+  
+  .datatable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  /* Botones de acciones */
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+  
+  /* Espaciado del DataTable */
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+  }
+  
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+  }
+  
+  /* Select de paginación */
+  .dataTables_length select {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+  }
+  
+  /* Input de búsqueda */
+  .dataTables_filter input {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    margin-left: 10px;
+  }
+  
+  /* Select dentro de modales */
+  .form-select {
+    padding: 8px 12px;
+  }
+  
+  /* Textarea */
+  .form-control[rows] {
+    border-radius: 10px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .datatable {
+      font-size: 0.75rem;
+    }
+    
+    .datatable thead th,
+    .datatable tbody td {
+      padding: 8px 4px;
+    }
+  }
+</style>
+
+<script>
+$(document).ready(function(){
+  // MODAL AGREGAR - Cargar sucursales al seleccionar empresa
+  $('#empresaAgregar').change(function(){
+    var idEmpresa = $(this).val();
+    if(idEmpresa){
+      $.ajax({
+        url: "{% url 'obtenerSucursalesPorEmpresa' %}",
+        type: "GET",
+        data: { id_empresa: idEmpresa },
+        success: function(data){
+          $('#sucursalAgregar').html('<option value="">Seleccione una sucursal</option>');
+          $.each(data, function(index, sucursal){
+            $('#sucursalAgregar').append('<option value="'+sucursal.id_sucursal+'">'+sucursal.nombre_sucursal+'</option>');
+          });
+        }
+      });
+    } else {
+      $('#sucursalAgregar').html('<option value="">Primero seleccione una empresa</option>');
+    }
+  });
+
+  // MODALES EDITAR - Cargar sucursales al seleccionar empresa
+  $('.empresa-select-edit').change(function(){
+    var idEmpresa = $(this).val();
+    var almacenId = $(this).data('almacen-id');
+    if(idEmpresa){
+      $.ajax({
+        url: "{% url 'obtenerSucursalesPorEmpresa' %}",
+        type: "GET",
+        data: { id_empresa: idEmpresa },
+        success: function(data){
+          $('#sucursalEdit'+almacenId).html('<option value="">Seleccione una sucursal</option>');
+          $.each(data, function(index, sucursal){
+            $('#sucursalEdit'+almacenId).append('<option value="'+sucursal.id_sucursal+'">'+sucursal.nombre_sucursal+'</option>');
+          });
+        }
+      });
+    } else {
+      $('#sucursalEdit'+almacenId).html('<option value="">Primero seleccione una empresa</option>');
+    }
+  });
+
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarAlmacen')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarAlmacenes' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Almacén guardado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'almacenes' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el almacén',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarAlmacen' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Almacén editado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'almacenes' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el almacén',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // DataTable inicialización
+  if ($.fn.DataTable.isDataTable('.datatable')) {
+    $('.datatable').DataTable().destroy();
+  }
+  
+  $('.datatable').DataTable({
+    "language": {
+      "decimal": "",
+      "emptyTable": "No hay información",
+      "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+      "infoEmpty": "Mostrando 0 to 0 of 0 registros",
+      "infoFiltered": "(Filtrado de _MAX_ total registros)",
+      "infoPostFix": "",
+      "thousands": ",",
+      "lengthMenu": "Mostrar _MENU_ registros",
+      "loadingRecords": "Cargando...",
+      "processing": "Procesando...",
+      "search": "Buscar:",
+      "zeroRecords": "Sin resultados encontrados",
+      "paginate": {
+        "first": "Primero",
+        "last": "Último",
+        "next": "Siguiente",
+        "previous": "Anterior"
+      }
+    },
+    "pageLength": 10,
+    "lengthMenu": [[5, 10, 25, 50, 100], [5, 10, 25, 50, 100]],
+    "responsive": true,
+    "order": [[1, 'asc']],
+    "columnDefs": [
+      { 
+        "targets": 7,
+        "orderable": false,
+        "searchable": false
+      },
+      {
+        "targets": 0,
+        "width": "5%"
+      }
+    ],
+    "autoWidth": false
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar este almacén?',
+    text: 'Esta acción cambiará el estado del almacén',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'almacenes' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}

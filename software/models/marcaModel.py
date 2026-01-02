@@ -6,5 +6,5 @@ class Marca(models.Model):
     nombremarca = models.CharField(max_length=50)
     estado = models.IntegerField()
     class Meta:
-        managed = False
+        managed = True
         db_table = 'marca'

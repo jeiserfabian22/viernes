@@ -8,6 +8,7 @@ class Unidades(models.Model):
     estado = models.BooleanField(default=False, verbose_name="Estado", help_text="Indica si la unidad está activa (True) o desactivada (False)")
 
     class Meta:
+        managed = True
         db_table = 'unidades'  # Define la tabla en la base de datos
         verbose_name = "Unidad"
         verbose_name_plural = "Unidades"

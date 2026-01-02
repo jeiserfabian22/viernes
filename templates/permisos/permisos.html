@@ -1,162 +1,558 @@
 {% extends 'plantilla/base.html' %}
+{% load url_filters %}  <!--⭐ AGREGAR ESTA LÍNEA -->
+
 {% block main %}
 <main id="main" class="main">
-  <div class="pagetitle">
-    <h1>Permisos</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-        <li class="breadcrumb-item active">Permisos</li>
-      </ol>
-    </nav>
-  </div><!-- End Page Title -->
-
-  <section class="section dashboard">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Permisos</h5>
-            <button type="" class="btn btn-success"  data-bs-toggle="modal"
-              data-bs-target="#myModaAgregar">Agregar permiso
-            </button>
-              
-              <table class="table datatable">
-                <thead>
-                  <tr>
-
-                    <th scope="col">CODIGO</th>
-                    <th scope="col">Tipo usuario</th>
-                    <th scope="col">Permisos</th>
-                    <th scope="col">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for tipo_usuario, permisos2 in permisos_por_tipo_usuario %}
-                    <tr>
-              
-                        <td>{{ forloop.counter }}</td>
-                        <td>{{ tipo_usuario }}</td>
-                        <td>
-                            {% for permiso in permisos2 %}
-                                {{ permiso.idmodulo.nombremodulo }}{% if not forloop.last %}, {% endif %}
-                            {% endfor %}
-                        </td>
-                    <td>
-                      <a type="button" id="btnEditar" class="btn" data-bs-toggle="modal" data-bs-target="#myModal2{{permisos2.0.idtipousuario.idtipousuario}} ">
-                        <i class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;"></i>
-                      </a>
-                      <a href="{% url 'eliminarPermiso' id=permisos2.0.idtipousuario.idtipousuario %}" class="eliminar"
-                       >
-                        <i class="fa-solid fa-trash fa-2xl" style="color: #f71b02;"></i>
-                      </a>
-                    </td>
-                     <!-- Modales de editar -->
-                     <div class="modal fade" id="myModal2{{permisos2.0.idtipousuario.idtipousuario}}" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-                      <div class="modal-dialog" role="document">
-                        <div class="modal-content">
-                          <div class="modal-header">
-                            <h4 class="modal-title">Editar categoria</h4>
-                            <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
-                              <span aria-hidden="true">&times;</span>
-                            </button>
-                          </div>
-                          <div class="modal-body">
-                            <form id="formEditarCategoria {{permisos2.0.idtipousuario.idtipousuario}}" action="{% url 'editarCategorias' %}" method="post" enctype="multipart/form-data">
-                              <p>{{permisos2.0.idtipousuario.idtipousuario}}</p>
-                              {% csrf_token %}
-                              <div class="form-group">
-                                <label for="nombreProducto2"><strong>Nombre</strong></label>
-                                <input type="text" name="nameCategoria" value="{{ categorias_registro.nomcategoria }}" class="form-control">
-                                <input type="hidden" name="idCategoria" value="{{ categorias_registro.idcategoria }}">
-                              </div>
-                              <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary btn-editar" data-id="{{ categorias_registro.idcategoria }}">Guardar</button>
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                              </div>
-                            </form>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                      <!-- fin del modal editar -->
-                  </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-              
-             
-              
-
-
-            <!-- Modal de Agregar -->
-            <div class="modal" id="myModaAgregar">
-              <div class="modal-dialog">
-                <div class="modal-content">
-
-                  <!-- Cabecera del modal -->
-                  <div class="modal-header">
-                    <h4 class="modal-title">Crear permiso</h4>
-                    <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
-                  </div>
-
-                  <!-- Contenido del modal De editar-->
-                  <div class="modal-body">
-
-                    <!-- inicio de form -->
-
-                    <form id="formAgregarCategoria" action="{% url 'agregaPermiso' %}" method="post" enctype="multipart/form-data">
-                      {% csrf_token %}
-                      <h5 for="nombreProducto2">Selecciones el tipo de usuario</h5><br>
-                      <select name="tipoUsuario" id="tipoUsuario" class="form-control">
-                        <option value="">Seleccione el tipo de usuario</option>
-                        {% for tipoUsuario in tipoUsuarios %}
-                        <option value="{{tipoUsuario.idtipousuario}}">{{tipoUsuario.nombretipousuario}}</option>
-                        {% endfor %}
-                      </select>
-                      <br>
-                      <h5 for="nombreProducto2">Selecciones los permisos</h5>
-                      <br>
-
-                      {% for modulo in modulos %}
-                      <input class="form-check-input" type="checkbox" value=" {{modulo.idmodulo}}" id=" {{modulo.idmodulo}}" name="permisosTu[idmodulo][]">
-                      <label class="form-check-label" for=" {{modulo.idmodulo}}">
-                        {{modulo.nombremodulo}}
-                      </label><br>
-                      {% endfor %}
-                      <div style="display:flex; margin-left:140px;">
-                          <div class="modal-footer">
-                              <button type="submit" class="btn btn-success" id="agregar">Agregar</button>
-                          </div>
-                          <div class="modal-footer">
-                              <button type="button" id="btn-info" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                          </div>
-                      </div>
-                    </form>
-                  
-
-                  <!-- fin del form -->
-
-                </div>
-
-                <!-- Pie del modal -->
-
-              </div>
-            </div>
-
-            <!-- Fin del modal agregar-->
-
-          </div>
-        </div>
-
-      </div>
+    <!-- Encabezado -->
+    <div class="pagetitle d-flex justify-content-between align-items-center">
+        <h1 class="fw-bold text-primary mb-1"> 
+          <i class="bi bi-lock-fill me-2"></i>Permisos 
+        </h1>
+        <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+            <i class="fa-solid fa-circle-plus me-2"></i>Agregar Permiso
+        </button>
     </div>
-  </section>
 
-</main><!-- End #main -->
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item active">Permisos</li>
+        </ol>
+    </nav>
 
+    <!-- Contenido -->
+    <section class="section dashboard mt-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title">Gestión de Permisos por Tipo de Usuario</h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle datatable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Tipo de Usuario</th>
+                                <th scope="col">Permisos Asignados</th>
+                                <th scope="col" class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tipo_usuario, permisos2 in permisos_por_tipo_usuario %}
+                            <tr>
+                                <td class="fw-semibold">{{ forloop.counter }}</td>
+                                <td>
+                                    <span class="badge bg-primary fs-6">{{ tipo_usuario }}</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for permiso in permisos2 %}
+                                            <span class="badge bg-info text-dark">
+                                                <i class="fa-solid fa-key me-1"></i>{{ permiso.idmodulo.nombremodulo }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill me-1" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#myModal2{{ permisos2.0.idtipousuario.idtipousuario }}" 
+                                                title="Editar permisos">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </button>
+                                        
+                                        <!-- ⭐ BOTÓN ELIMINAR CON ID ENCRIPTADO -->
+                                        <a href="#" class="btn btn-sm btn-outline-danger rounded-pill eliminar" 
+                                           data-eid="{{ permisos2.0.idtipousuario.idtipousuario|eid }}" 
+                                           data-nombre="{{ tipo_usuario }}" 
+                                           onclick="confirmarEliminar(event, this)" 
+                                           title="Eliminar permisos">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Modal Editar (sin cambios) -->
+                            <div class="modal fade" id="myModal2{{ permisos2.0.idtipousuario.idtipousuario }}" tabindex="-1">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content rounded-3 shadow-lg">
+                                        <div class="modal-header bg-primary text-white">
+                                            <h5 class="modal-title">
+                                                <i class="fa-solid fa-user-shield me-2"></i>Editar Permisos: {{ tipo_usuario }}
+                                            </h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <form id="formEditarPermiso{{ permisos2.0.idtipousuario.idtipousuario }}" action="{% url 'editarPermiso' %}" method="post">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="idTipoUsuario" value="{{ permisos2.0.idtipousuario.idtipousuario }}">
+                                                
+                                                <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+                                                    <i class="fa-solid fa-info-circle me-3 fs-4"></i>
+                                                    <div>
+                                                        <strong>Tipo de Usuario:</strong> {{ tipo_usuario }}
+                                                    </div>
+                                                </div>
+
+                                                <h6 class="fw-bold mb-3">Seleccione los módulos permitidos:</h6>
+                                                
+                                                <div class="row px-3">
+                                                    {% for modulo in modulos %}
+                                                    <div class="col-md-6 mb-2">
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" value="{{ modulo.idmodulo }}" 
+                                                                   id="editModulo{{ permisos2.0.idtipousuario.idtipousuario }}_{{ modulo.idmodulo }}" 
+                                                                   name="permisosEdit[idmodulo][]"
+                                                                   {% for permiso in permisos2 %}
+                                                                       {% if permiso.idmodulo.idmodulo == modulo.idmodulo %}checked{% endif %}
+                                                                   {% endfor %}>
+                                                            <label class="form-check-label" for="editModulo{{ permisos2.0.idtipousuario.idtipousuario }}_{{ modulo.idmodulo }}">
+                                                                <i class="fa-solid fa-cube me-1"></i>{{ modulo.nombremodulo }}
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+
+                                                <div class="modal-footer border-0 mt-4">
+                                                    <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar-permiso" data-form-id="formEditarPermiso{{ permisos2.0.idtipousuario.idtipousuario }}">
+                                                        <i class="fa-solid fa-save me-2"></i>Guardar Cambios
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Modal Agregar (sin cambios) -->
+<div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-3 shadow-lg">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fa-solid fa-shield-halved me-2"></i>Crear Nuevo Permiso
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarPermiso" action="{% url 'agregaPermiso' %}" method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">
+                            <i class="fa-solid fa-users me-2"></i>Tipo de Usuario
+                        </label>
+                        <select name="tipoUsuario" id="tipoUsuario" class="form-select rounded-pill" required>
+                            <option value="">Seleccione el tipo de usuario</option>
+                            {% for tipoUsuario in tipoUsuarios %}
+                            <option value="{{ tipoUsuario.idtipousuario }}">{{ tipoUsuario.nombretipousuario }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <h6 class="fw-bold mb-3">
+                        <i class="fa-solid fa-list-check me-2"></i>Seleccione los permisos
+                    </h6>
+
+                    <div class="row px-3">
+                        {% for modulo in modulos %}
+                        <div class="col-md-6 mb-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="{{ modulo.idmodulo }}" 
+                                       id="modulo{{ modulo.idmodulo }}" name="permisosTu[idmodulo][]">
+                                <label class="form-check-label" for="modulo{{ modulo.idmodulo }}">
+                                    <i class="fa-solid fa-cube me-1"></i>{{ modulo.nombremodulo }}
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="modal-footer border-0 mt-4">
+                        <button type="button" class="btn btn-success rounded-pill px-4" id="btnAgregarPermiso">
+                            <i class="fa-solid fa-plus-circle me-2"></i>Agregar Permiso
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
-<script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
+<!-- Estilos (sin cambios) -->
+<style>
+    .btn-group {
+        display: flex;
+        gap: 5px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 94, 255, 0.3);
+    }
+    
+    .btn-outline-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(247, 27, 2, 0.3);
+    }
+    
+    .form-check {
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        transition: background-color 0.2s ease;
+        margin-left: 1.5rem;
+    }
+    
+    .form-check:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+    }
+    
+    .form-check-input {
+        margin-left: -1.5rem;
+    }
+    
+    .form-check-input:checked {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+    
+    .form-check-label {
+        margin-left: 0.25rem;
+        cursor: pointer;
+    }
+    
+    .badge {
+        padding: 0.5em 0.75em;
+        font-weight: 500;
+    }
+    
+    .card {
+        border-radius: 15px;
+        overflow: hidden;
+    }
+    
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.05);
+        transition: background-color 0.3s ease;
+    }
+    
+    @media (max-width: 768px) {
+        .btn-group {
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .btn-sm {
+            width: 100%;
+            min-width: 80px;
+        }
+        
+        .badge {
+            font-size: 0.7rem;
+        }
+    }
+</style>
+
+<script>
+    // Función para obtener el token CSRF
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    // Inicializar DataTable
+    $(document).ready(function() {
+        if ($.fn.DataTable) {
+            $('.datatable').DataTable({
+                language: {
+                    url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+                },
+                pageLength: 10,
+                lengthMenu: [5, 10, 25, 50],
+                responsive: true,
+                order: [[0, 'asc']]
+            });
+        }
+    });
+
+    // Agregar permiso (sin cambios)
+    $('#btnAgregarPermiso').click(function() {
+        var formData = new FormData($('#formAgregarPermiso')[0]);
+        var tipoUsuario = $('#tipoUsuario').val();
+        var checkboxes = $('input[name="permisosTu[idmodulo][]"]:checked');
+        
+        if (!tipoUsuario) {
+            Swal.fire({
+                title: 'Advertencia',
+                text: 'Debe seleccionar un tipo de usuario',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            return false;
+        }
+        
+        if (checkboxes.length === 0) {
+            Swal.fire({
+                title: 'Advertencia',
+                text: 'Debe seleccionar al menos un permiso',
+                icon: 'warning',
+                confirmButtonText: 'OK'
+            });
+            return false;
+        }
+        
+        $.ajax({
+            type: 'POST',
+            url: "{% url 'agregaPermiso' %}",
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            success: function(response) {
+                Swal.fire({
+                    title: 'Permiso agregado exitosamente',
+                    icon: 'success',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: '¡Ok!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = "{% url 'permisos' %}";
+                    }
+                });
+            },
+            error: function(response) {
+                Swal.fire({
+                    title: 'Error al guardar el permiso',
+                    text: response.responseJSON ? response.responseJSON.error : response.responseText,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        });
+        return false;
+    });
+
+    // Resto del código de editar permiso (sin cambios)...
+    var estadoInicialPermisos = {};
+
+    $(document).on('shown.bs.modal', '.modal', function() {
+        var modalId = $(this).attr('id');
+        
+        if (modalId && modalId.startsWith('myModal2')) {
+            estadoInicialPermisos[modalId] = [];
+            
+            $(this).find('input[name="permisosEdit[idmodulo][]"]:checked').each(function() {
+                estadoInicialPermisos[modalId].push($(this).val());
+            });
+            
+            console.log('✅ MODAL ABIERTO:', modalId);
+            console.log('✅ Estado inicial guardado:', estadoInicialPermisos[modalId].length, 'permisos');
+        }
+    });
+
+    $(document).on('click', '.btn-editar-permiso', function() {
+        var formId = $(this).data('form-id');
+        var form = $('#' + formId);
+        var formData = new FormData(form[0]);
+        var modalId = form.closest('.modal').attr('id');
+        
+        var permisosActuales = [];
+        form.find('input[name="permisosEdit[idmodulo][]"]:checked').each(function() {
+            permisosActuales.push($(this).val());
+        });
+        
+        var permisosOriginales = estadoInicialPermisos[modalId] || [];
+        
+        var numOriginal = permisosOriginales.length;
+        var numActual = permisosActuales.length;
+        
+        var permisosAgregados = permisosActuales.filter(p => !permisosOriginales.includes(p));
+        var permisosEliminados = permisosOriginales.filter(p => !permisosActuales.includes(p));
+        
+        let mensaje = '';
+        let titulo = '';
+        let icono = 'question';
+        
+        if (numActual === 0 && numOriginal > 0) {
+            titulo = '⚠️ ¿Está seguro?';
+            mensaje = 'Has deseleccionado todos los permisos. Esto eliminará todos los permisos de este tipo de usuario.';
+            icono = 'warning';
+        } else if (permisosAgregados.length > 0 && permisosEliminados.length === 0) {
+            titulo = '✅ ¿Confirmar cambios?';
+            mensaje = `Has agregado ${permisosAgregados.length} permiso(s). Esto agregará los nuevos permisos a este tipo de usuario.`;
+            icono = 'info';
+        } else if (permisosEliminados.length > 0 && permisosAgregados.length === 0) {
+            titulo = '⚠️ ¿Confirmar cambios?';
+            mensaje = `Has eliminado ${permisosEliminados.length} permiso(s). Esto quitará los permisos deseleccionados de este tipo de usuario.`;
+            icono = 'warning';
+        } else if (permisosAgregados.length > 0 && permisosEliminados.length > 0) {
+            titulo = '🔄 ¿Confirmar cambios?';
+            mensaje = `Has agregado ${permisosAgregados.length} y eliminado ${permisosEliminados.length} permiso(s). Esto actualizará los permisos de este tipo de usuario.`;
+            icono = 'info';
+        } else if (permisosAgregados.length === 0 && permisosEliminados.length === 0 && numOriginal > 0) {
+            Swal.fire({
+                title: 'Sin cambios',
+                text: 'No has realizado ningún cambio en los permisos.',
+                icon: 'info',
+                confirmButtonText: 'OK'
+            });
+            return false;
+        } else {
+            titulo = '🔄 ¿Confirmar cambios?';
+            mensaje = 'Actualizará los permisos de este tipo de usuario.';
+            icono = 'info';
+        }
+        
+        Swal.fire({
+            title: titulo,
+            text: mensaje,
+            icon: icono,
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, continuar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                enviarEdicion(form, formData);
+            }
+        });
+        
+        return false;
+    });
+    
+    function enviarEdicion(form, formData) {
+        $.ajax({
+            type: 'POST',
+            url: form.attr('action'),
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-CSRFToken': csrftoken
+            },
+            success: function(response) {
+                Swal.fire({
+                    title: 'Permiso editado exitosamente',
+                    icon: 'success',
+                    confirmButtonColor: '#3085d6',
+                    confirmButtonText: '¡Ok!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = "{% url 'permisos' %}";
+                    }
+                });
+            },
+            error: function(response) {
+                Swal.fire({
+                    title: 'Error al editar el permiso',
+                    text: response.responseJSON ? response.responseJSON.error : response.responseText,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+            }
+        });
+    }
+
+    // ⭐ FUNCIÓN ELIMINAR ACTUALIZADA CON ID ENCRIPTADO
+    function confirmarEliminar(event, enlace) {
+        event.preventDefault(); // Prevenir navegación
+        
+        const eid = $(enlace).data('eid');  // ⭐ Obtener ID encriptado
+        const nombre = $(enlace).data('nombre');
+        
+        console.log('🗑️ Eliminando permisos con ID encriptado:', eid);
+        
+        Swal.fire({
+            title: '¿Seguro que quieres eliminar estos permisos?',
+            html: `<p>Se eliminarán todos los permisos de: <strong>${nombre}</strong></p>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Eliminando...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // ⭐ AJAX con ID encriptado
+                $.ajax({
+                    type: 'GET',
+                    url: `/cfg/prm/del/${eid}/`,  // ⭐ URL con eid
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    success: function(response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Eliminado',
+                            text: 'Los permisos han sido eliminados correctamente',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            window.location.href = "{% url 'permisos' %}";
+                        });
+                    },
+                    error: function(response) {
+                        Swal.fire({
+                            title: 'Error al eliminar el permiso',
+                            text: response.responseJSON?.error || response.responseText,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                });
+            }
+        });
+        return false;
+    }
 </script>
 {% endblock %}

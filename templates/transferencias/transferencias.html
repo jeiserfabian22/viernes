@@ -1,0 +1,674 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="bi bi-arrow-left-right me-2"></i>Transferencias entre Sucursales
+    </h1>
+    {% if es_admin %}
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevaTransferencia">
+      <i class="bi bi-plus-circle me-2"></i>Nueva Transferencia
+    </button>
+    {% endif %}
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Transferencias</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de Transferencias</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Fecha</th>
+                <th scope="col">Origen</th>
+                <th scope="col">Destino</th>
+                <th scope="col">Solicitante</th>
+                <th scope="col">N° Guía</th>
+                <th scope="col" class="text-center">Estado</th>
+                <th scope="col" class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for trans in transferencias %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>{{ trans.fecha_transferencia|date:"d/m/Y" }}</td>
+                <td>
+                  <small class="text-muted">{{ trans.id_almacen_origen.id_sucursal.nombre_sucursal }}</small><br>
+                  {{ trans.id_almacen_origen.nombre_almacen }}
+                </td>
+                <td>
+                  <small class="text-muted">{{ trans.id_almacen_destino.id_sucursal.nombre_sucursal }}</small><br>
+                  {{ trans.id_almacen_destino.nombre_almacen }}
+                </td>
+                <td>{{ trans.idusuario_solicita.nombrecompleto }}</td>
+                <td>{{ trans.numero_guia|default:"---" }}</td>
+                <td class="text-center">
+                  {% if trans.estado == 'pendiente' %}
+                    <span class="badge bg-warning text-dark">Pendiente</span>
+                  {% elif trans.estado == 'confirmada' %}
+                    <span class="badge bg-success">Confirmada</span>
+                  {% else %}
+                    <span class="badge bg-danger">Rechazada</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalDetalle{{ trans.id_transferencia }}">
+                    <i class="bi bi-eye"></i>
+                  </button>
+                  
+                  {% if trans.estado == 'pendiente' and es_admin %}
+                  <button type="button" class="btn btn-sm btn-success" onclick="confirmarTransferencia({{ trans.id_transferencia }})">
+                    <i class="bi bi-check-circle"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-danger" onclick="rechazarTransferencia({{ trans.id_transferencia }})">
+                    <i class="bi bi-x-circle"></i>
+                  </button>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="8" class="text-center text-muted">No hay transferencias registradas</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modales de Detalle -->
+  {% for trans in transferencias %}
+  <div class="modal fade" id="modalDetalle{{ trans.id_transferencia }}" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title">Detalle de Transferencia #{{ trans.id_transferencia }}</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <p><strong>Origen:</strong> {{ trans.id_almacen_origen.nombre_almacen }}</p>
+              <p><small class="text-muted">{{ trans.id_almacen_origen.id_sucursal.nombre_sucursal }}</small></p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Destino:</strong> {{ trans.id_almacen_destino.nombre_almacen }}</p>
+              <p><small class="text-muted">{{ trans.id_almacen_destino.id_sucursal.nombre_sucursal }}</small></p>
+            </div>
+          </div>
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <p><strong>Fecha:</strong> {{ trans.fecha_transferencia|date:"d/m/Y" }}</p>
+              <p><strong>Solicitante:</strong> {{ trans.idusuario_solicita.nombrecompleto }}</p>
+            </div>
+            <div class="col-md-6">
+              <p><strong>Estado:</strong> 
+                {% if trans.estado == 'pendiente' %}
+                  <span class="badge bg-warning text-dark">Pendiente</span>
+                {% elif trans.estado == 'confirmada' %}
+                  <span class="badge bg-success">Confirmada</span>
+                {% else %}
+                  <span class="badge bg-danger">Rechazada</span>
+                {% endif %}
+              </p>
+              {% if trans.estado == 'confirmada' %}
+              <p><strong>Confirmada por:</strong> {{ trans.idusuario_confirma.nombrecompleto }}</p>
+              <p><strong>Fecha confirmación:</strong> {{ trans.fecha_confirmacion|date:"d/m/Y H:i" }}</p>
+              {% endif %}
+            </div>
+          </div>
+          
+          {% if trans.numero_guia %}
+          <p><strong>N° Guía:</strong> {{ trans.numero_guia }}</p>
+          {% endif %}
+          
+          {% if trans.observaciones %}
+          <p><strong>Observaciones:</strong> {{ trans.observaciones }}</p>
+          {% endif %}
+          
+          <hr>
+          
+          <h6 class="fw-bold">Productos Transferidos:</h6>
+          <table class="table table-bordered table-sm">
+            <thead class="table-light">
+              <tr>
+                <th>Tipo</th>
+                <th>Producto</th>
+                <th>Detalle</th>
+                <th>Cantidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for detalle in trans.detalles.all %}
+              <tr>
+                {% if detalle.id_vehiculo %}
+                  <td><span class="badge bg-success">Vehículo</span></td>
+                  <td>{{ detalle.id_vehiculo.idproducto.nomproducto }}</td>
+                  <td>
+                    <small>Motor: {{ detalle.id_vehiculo.serie_motor }}</small><br>
+                    <small>Chasis: {{ detalle.id_vehiculo.serie_chasis }}</small>
+                  </td>
+                {% elif detalle.id_repuesto_comprado %}
+                  <td><span class="badge bg-primary">Repuesto</span></td>
+                  <td>{{ detalle.id_repuesto_comprado.id_repuesto.nombre }}</td>
+                  <td><small>Código: {{ detalle.id_repuesto_comprado.codigo_barras }}</small></td>
+                {% endif %}
+                <td>{{ detalle.cantidad }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Modal Nueva Transferencia -->
+  {% if es_admin %}
+  <div class="modal fade" id="modalNuevaTransferencia" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-arrow-left-right me-2"></i>Nueva Transferencia
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formNuevaTransferencia" action="{% url 'nueva_transferencia' %}" method="post">
+            {% csrf_token %}
+            
+            <!-- CABECERA -->
+            <div class="card mb-3">
+              <div class="card-header bg-light">
+                <h6 class="mb-0 fw-bold">Datos de la Transferencia</h6>
+              </div>
+              <div class="card-body">
+                <div class="row g-3">
+                  <!-- Almacén Origen -->
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">Almacén Origen (Sucursal Principal) <span class="text-danger">*</span></label>
+                    <select name="id_almacen_origen" id="id_almacen_origen" class="form-select" required>
+                      <option value="">-- Seleccionar --</option>
+                      {% for almacen in almacenes_principal %}
+                      <option value="{{ almacen.id_almacen }}">{{ almacen.nombre_almacen }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  
+                  <!-- Almacén Destino -->
+                  <div class="col-md-6">
+                    <label class="form-label fw-semibold">Almacén Destino <span class="text-danger">*</span></label>
+                    <select name="id_almacen_destino" id="id_almacen_destino" class="form-select" required>
+                      <option value="">-- Seleccionar --</option>
+                      {% for almacen in almacenes %}
+                        {% if not almacen.id_sucursal.es_principal %}
+                        <option value="{{ almacen.id_almacen }}">
+                          {{ almacen.nombre_almacen }} ({{ almacen.id_sucursal.nombre_sucursal }})
+                        </option>
+                        {% endif %}
+                      {% endfor %}
+                    </select>
+                  </div>
+                  
+                  <!-- Fecha -->
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">Fecha Transferencia <span class="text-danger">*</span></label>
+                    <input type="date" name="fecha_transferencia" class="form-control" value="2025-10-31" required>
+                  </div>
+                  
+                  <!-- N° Guía -->
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">N° Guía (opcional)</label>
+                    <input type="text" name="numero_guia" class="form-control" placeholder="Ej: G-001-2025">
+                  </div>
+                  
+                  <!-- Observaciones -->
+                  <div class="col-md-12">
+                    <label class="form-label fw-semibold">Observaciones</label>
+                    <textarea name="observaciones" class="form-control" rows="2" placeholder="Ingrese observaciones adicionales (opcional)"></textarea>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- DETALLE -->
+            <div class="card mb-3">
+              <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">Productos a Transferir</h6>
+                <button type="button" class="btn btn-sm btn-primary" onclick="cargarStockOrigen()">
+                  <i class="bi bi-arrow-clockwise me-1"></i>Cargar Stock Disponible
+                </button>
+              </div>
+              <div class="card-body">
+                <!-- Selector de productos -->
+                <div class="row mb-3" id="selectorProductos" style="display:none;">
+                  <div class="col-md-12">
+                    <label class="form-label fw-semibold">Seleccionar Producto del Stock:</label>
+                    <div class="row">
+                      <div class="col-md-3">
+                        <select id="tipo_producto" class="form-select">
+                          <option value="">-- Tipo --</option>
+                          <option value="vehiculo">Vehículo</option>
+                          <option value="repuesto">Repuesto</option>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <select id="producto_seleccionado" class="form-select" disabled>
+                          <option value="">Primero seleccione el tipo</option>
+                        </select>
+                      </div>
+                      <div class="col-md-2">
+                        <input type="number" id="cantidad_transferir" class="form-control" value="1" min="1" disabled>
+                      </div>
+                      <div class="col-md-1">
+                        <button type="button" class="btn btn-success w-100" onclick="agregarItemTransferencia()" disabled id="btnAgregarItem">
+                          <i class="bi bi-plus"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Tabla de productos -->
+                <div class="table-responsive">
+                  <table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Tipo</th>
+                        <th>Producto</th>
+                        <th>Detalle</th>
+                        <th>Stock Disp.</th>
+                        <th>Cantidad</th>
+                        <th>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody id="tbodyTransferencia">
+                      <tr>
+                        <td colspan="6" class="text-center text-muted">
+                          Seleccione un almacén origen y cargue el stock disponible
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <input type="hidden" name="items_count" id="items_count_transferencia" value="0">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="btnGuardarTransferencia">
+                <i class="bi bi-save me-2"></i>Guardar Transferencia
+              </button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<!-- DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+// Variables globales
+let stockDisponible = {
+  vehiculos: [],
+  repuestos: []
+};
+let itemCounterTransferencia = 0;
+
+// Inicializar DataTable
+$(document).ready(function() {
+  if ($('.datatable').length) {
+    $('.datatable').DataTable({
+      language: {
+        url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+      },
+      pageLength: 10,
+      order: [[0, 'desc']]
+    });
+  }
+});
+
+// Cargar stock del almacén origen
+function cargarStockOrigen() {
+  const idAlmacenOrigen = $('#id_almacen_origen').val();
+  
+  if (!idAlmacenOrigen) {
+    Swal.fire('Error', 'Debe seleccionar un almacén origen primero', 'warning');
+    return;
+  }
+  
+  Swal.fire({
+    title: 'Cargando stock...',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+  
+  $.ajax({
+    url: '/api/obtener-stock-almacen/',
+    method: 'GET',
+    data: { id_almacen: idAlmacenOrigen },
+    success: function(data) {
+      stockDisponible.vehiculos = data.vehiculos || [];
+      stockDisponible.repuestos = data.repuestos || [];
+      
+      $('#selectorProductos').show();
+      $('#tipo_producto').prop('disabled', false);
+      
+      Swal.close();
+      
+      if (stockDisponible.vehiculos.length === 0 && stockDisponible.repuestos.length === 0) {
+        Swal.fire('Atención', 'No hay stock disponible en este almacén', 'info');
+      } else {
+        Swal.fire('Éxito', `Stock cargado: ${stockDisponible.vehiculos.length} vehículos, ${stockDisponible.repuestos.length} repuestos`, 'success');
+      }
+    },
+    error: function(xhr) {
+      Swal.fire('Error', 'No se pudo cargar el stock del almacén', 'error');
+      console.error(xhr);
+    }
+  });
+}
+
+// Cambiar tipo de producto
+$('#tipo_producto').change(function() {
+  const tipo = $(this).val();
+  const $select = $('#producto_seleccionado');
+  
+  $select.empty().append('<option value="">-- Seleccionar --</option>');
+  
+  if (tipo === 'vehiculo') {
+    stockDisponible.vehiculos.forEach(function(veh) {
+      $select.append(`
+        <option value="${veh.id_vehiculo}" data-tipo="vehiculo" data-stock="${veh.cantidad_disponible}" 
+                data-nombre="${veh.nombre}" data-motor="${veh.serie_motor}" data-chasis="${veh.serie_chasis}">
+          ${veh.nombre} - Motor: ${veh.serie_motor} (Stock: ${veh.cantidad_disponible})
+        </option>
+      `);
+    });
+    $select.prop('disabled', false);
+  } else if (tipo === 'repuesto') {
+    stockDisponible.repuestos.forEach(function(rep) {
+      $select.append(`
+        <option value="${rep.id_repuesto_comprado}" data-tipo="repuesto" data-stock="${rep.cantidad_disponible}"
+                data-nombre="${rep.nombre}" data-codigo="${rep.codigo_barras}">
+          ${rep.nombre} - Código: ${rep.codigo_barras} (Stock: ${rep.cantidad_disponible})
+        </option>
+      `);
+    });
+    $select.prop('disabled', false);
+  } else {
+    $select.prop('disabled', true);
+  }
+  
+  $('#cantidad_transferir').val(1).prop('disabled', true);
+  $('#btnAgregarItem').prop('disabled', true);
+});
+
+// Seleccionar producto
+$('#producto_seleccionado').change(function() {
+  const selected = $(this).find(':selected');
+  const stock = parseInt(selected.data('stock')) || 0;
+  
+  if (stock > 0) {
+    $('#cantidad_transferir').prop('disabled', false).attr('max', stock);
+    $('#btnAgregarItem').prop('disabled', false);
+  } else {
+    $('#cantidad_transferir').prop('disabled', true);
+    $('#btnAgregarItem').prop('disabled', true);
+  }
+});
+
+// Agregar item a la transferencia
+function agregarItemTransferencia() {
+  const $selected = $('#producto_seleccionado').find(':selected');
+  const tipo = $selected.data('tipo');
+  const id = $selected.val();
+  const nombre = $selected.data('nombre');
+  const stockDisp = parseInt($selected.data('stock')) || 0;
+  const cantidad = parseInt($('#cantidad_transferir').val()) || 1;
+  
+  if (!tipo || !id) {
+    Swal.fire('Error', 'Debe seleccionar un producto', 'warning');
+    return;
+  }
+  
+  if (cantidad > stockDisp) {
+    Swal.fire('Error', `Stock insuficiente. Disponible: ${stockDisp}`, 'warning');
+    return;
+  }
+  
+  itemCounterTransferencia++;
+  $('#items_count_transferencia').val(itemCounterTransferencia);
+  
+  let detalle = '';
+  let inputsHidden = `
+    <input type="hidden" name="tipo_item_${itemCounterTransferencia}" value="${tipo}">
+    <input type="hidden" name="cantidad_${itemCounterTransferencia}" value="${cantidad}">
+  `;
+  
+  if (tipo === 'vehiculo') {
+    const motor = $selected.data('motor');
+    const chasis = $selected.data('chasis');
+    detalle = `<small>Motor: ${motor}<br>Chasis: ${chasis}</small>`;
+    inputsHidden += `<input type="hidden" name="id_vehiculo_${itemCounterTransferencia}" value="${id}">`;
+  } else {
+    const codigo = $selected.data('codigo');
+    detalle = `<small>Código: ${codigo}</small>`;
+    inputsHidden += `<input type="hidden" name="id_repuesto_${itemCounterTransferencia}" value="${id}">`;
+  }
+  
+  const badge = tipo === 'vehiculo' ? 'bg-success' : 'bg-primary';
+  const label = tipo === 'vehiculo' ? 'Vehículo' : 'Repuesto';
+  
+  // Limpiar mensaje inicial si existe
+  if ($('#tbodyTransferencia tr td[colspan]').length) {
+    $('#tbodyTransferencia').empty();
+  }
+  
+  const fila = `
+    <tr id="item_trans_${itemCounterTransferencia}">
+      <td><span class="badge ${badge}">${label}</span></td>
+      <td>${nombre}</td>
+      <td>${detalle}</td>
+      <td>${stockDisp}</td>
+      <td>${cantidad}</td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarItemTransferencia(${itemCounterTransferencia})">
+          <i class="bi bi-trash"></i>
+        </button>
+        ${inputsHidden}
+      </td>
+    </tr>
+  `;
+  
+  $('#tbodyTransferencia').append(fila);
+  
+  // Resetear formulario
+  $('#tipo_producto').val('');
+  $('#producto_seleccionado').empty().append('<option value="">Primero seleccione el tipo</option>').prop('disabled', true);
+  $('#cantidad_transferir').val(1).prop('disabled', true);
+  $('#btnAgregarItem').prop('disabled', true);
+}
+
+// Eliminar item
+function eliminarItemTransferencia(id) {
+  $(`#item_trans_${id}`).remove();
+  
+  // Si no quedan items, mostrar mensaje
+  if ($('#tbodyTransferencia tr').length === 0) {
+    $('#tbodyTransferencia').html(`
+      <tr>
+        <td colspan="6" class="text-center text-muted">No hay productos agregados</td>
+      </tr>
+    `);
+  }
+}
+
+// Guardar transferencia
+$('#btnGuardarTransferencia').click(function(e) {
+  e.preventDefault();
+  
+  const itemsCount = parseInt($('#items_count_transferencia').val()) || 0;
+  
+  if (itemsCount === 0) {
+    Swal.fire('Error', 'Debe agregar al menos un producto a la transferencia', 'warning');
+    return;
+  }
+  
+  Swal.fire({
+    title: 'Guardando transferencia...',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
+    }
+  });
+  
+  let formData = new FormData($('#formNuevaTransferencia')[0]);
+  
+  $.ajax({
+    url: $('#formNuevaTransferencia').attr('action'),
+    method: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(res) {
+      if (res.ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Transferencia registrada',
+          text: res.message,
+          confirmButtonColor: '#198754'
+        }).then(() => {
+          window.location.reload();
+        });
+      } else {
+        Swal.fire('Error', res.error, 'error');
+      }
+    },
+    error: function(xhr) {
+      console.error(xhr);
+      let errorMsg = 'Error al guardar la transferencia';
+      
+      try {
+        const response = JSON.parse(xhr.responseText);
+        errorMsg = response.error || errorMsg;
+      } catch(e) {}
+      
+      Swal.fire('Error', errorMsg, 'error');
+    }
+  });
+});
+
+// Confirmar transferencia
+function confirmarTransferencia(id) {
+  Swal.fire({
+    title: '¿Confirmar transferencia?',
+    text: 'El stock se actualizará automáticamente',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, confirmar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#198754',
+    cancelButtonColor: '#6c757d'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        url: `/transferencias/confirmar/${id}/`,
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function(res) {
+          if (res.ok) {
+            Swal.fire('Confirmada', res.message, 'success').then(() => {
+              window.location.reload();
+            });
+          } else {
+            Swal.fire('Error', res.error, 'error');
+          }
+        },
+        error: function(xhr) {
+          Swal.fire('Error', 'No se pudo confirmar la transferencia', 'error');
+        }
+      });
+    }
+  });
+}
+
+// Rechazar transferencia
+function rechazarTransferencia(id) {
+  Swal.fire({
+    title: '¿Rechazar transferencia?',
+    text: 'Esta acción no se puede deshacer',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Sí, rechazar',
+    cancelButtonText: 'Cancelar',
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        url: `/transferencias/rechazar/${id}/`,
+        method: 'POST',
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function(res) {
+          if (res.ok) {
+            Swal.fire('Rechazada', res.message, 'success').then(() => {
+              window.location.reload();
+            });
+          } else {
+            Swal.fire('Error', res.error, 'error');
+          }
+        },
+        error: function(xhr) {
+          Swal.fire('Error', 'No se pudo rechazar la transferencia', 'error');
+        }
+      });
+    }
+  });
+}
+</script>
+
+<style>
+  .table td {
+    vertical-align: middle;
+  }
+</style>
+{% endblock %}

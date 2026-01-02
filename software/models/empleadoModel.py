@@ -8,5 +8,5 @@ class Empleado(models.Model):
     direccion = models.CharField(max_length=75, blank=True, null=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'empleado'

@@ -11,9 +11,9 @@ class CompraDetalle(models.Model):
     idcompra = models.ForeignKey(Compras, on_delete=models.DO_NOTHING, db_column='idcompra', related_name='compradetalle',null=True, blank=True)
     cantidad = models.IntegerField()
     precio_compra = models.DecimalField(max_digits=10, decimal_places=2)
-    precio_venta = models.DecimalField(max_digits=10, decimal_places=2)
+    precio_venta = models.DecimalField(max_digits=10, decimal_places=2, default=0.00 )
     subtotal = models.FloatField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'compra_detalle'

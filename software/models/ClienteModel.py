@@ -1,20 +1,41 @@
+
 from django.db import models
 from software.models.Tipo_entidadModel import TipoEntidad
-from software.models.TipoclienteModel import Tipocliente
 
 class Cliente(models.Model):
     idcliente = models.AutoField(primary_key=True)
-    idtipocliente = models.ForeignKey(Tipocliente, on_delete=models.DO_NOTHING, db_column='idtipocliente', related_name='clientes')
-    numdoc = models.CharField(max_length=25)
-    razonsocial = models.CharField(max_length=255)
-    telefono = models.CharField(max_length=10)
-    direccion = models.CharField(max_length=255, blank=True, null=True)
-    estado = models.IntegerField()
-    id_tipo_entidad = models.ForeignKey(TipoEntidad, on_delete=models.DO_NOTHING, db_column='id_tipo_entidad', related_name='clientes')
+    numdoc = models.CharField(max_length=25, unique=True, verbose_name="Número de Documento")
+    razonsocial = models.CharField(max_length=255, verbose_name="Razón Social/Nombre Completo")
+    direccion = models.CharField(max_length=255, blank=True, null=True, verbose_name="Dirección")
+    estado = models.IntegerField(default=1, verbose_name="Estado")
+    id_tipo_entidad = models.ForeignKey(
+        TipoEntidad, 
+        on_delete=models.DO_NOTHING, 
+        db_column='id_tipo_entidad', 
+        related_name='clientes',
+        verbose_name="Tipo de Entidad"
+    )
+    telefono = models.CharField(max_length=10, blank=True, null=True, verbose_name="Teléfono")
+    nombre_comercial_cliente = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nombre Comercial")
     
     class Meta:
-        managed = False
+        managed = True  
         db_table = 'clientes'
-
+        verbose_name = 'Cliente'
+        verbose_name_plural = 'Clientes'
+    
     def __str__(self):
         return self.razonsocial
+    
+    @property
+    def tipo_documento(self):
+        """Determina el tipo de documento basado en la longitud"""
+        if len(self.numdoc) == 8:
+            return 'DNI'
+        elif len(self.numdoc) == 11:
+            return 'RUC'
+        else:
+            return 'OTRO'
+        
+
+

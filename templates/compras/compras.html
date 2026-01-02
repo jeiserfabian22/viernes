@@ -1,13 +1,23 @@
 {% extends 'plantilla/base.html' %}
+{% load url_filters %}
 {% block main %}
 <main id="main" class="main">
 
   <!-- Encabezado -->
   <div class="pagetitle d-flex justify-content-between align-items-center">
-    <h1 class="fw-bold text-primary">Compras</h1>
+    <h1 class="fw-bold text-primary">
+      <i class="fas fa-cart-plus me-2"></i>Compras
+    </h1>
+    <!-- ✅ VALIDACIÓN: Solo mostrar botón si es sucursal principal -->
+    {% if es_sucursal_principal %}
     <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarCompra">
       <i class="fa-solid fa-circle-plus me-2"></i>Registrar Compra
     </button>
+    {% else %}
+    <button type="button" class="btn btn-secondary rounded-pill shadow-sm" disabled title="Solo la sucursal principal puede realizar compras">
+      <i class="fa-solid fa-ban me-2"></i>Compras (Solo Sucursal Principal)
+    </button>
+    {% endif %}
   </div>
 
   <nav aria-label="breadcrumb" class="mt-2">
@@ -44,10 +54,39 @@
                 <td>{{ c.fechacompra|date:"d/m/Y" }}</td>
                 <td><span class="badge bg-success">S/. {{ c.total_compra }}</span></td>
                 <td class="text-center">
-                  <button type="button" class="btn btn-sm btn-light border shadow-sm"
-                          data-bs-toggle="modal" data-bs-target="#detalleModal{{ c.idcompra }}">
-                    <i class="fa-solid fa-eye text-info"></i>
-                  </button>
+                  <div class="btn-group" role="group">
+                    <!-- Ver detalles -->
+                    <button type="button" class="btn btn-sm btn-info" title="Ver detalles"
+                            data-bs-toggle="modal" data-bs-target="#detalleModal{{ c.idcompra }}">
+                      <i class="fa-solid fa-eye"></i>
+                    </button>
+                    
+                    <!-- Editar -->
+                    {% if c.id_forma_pago.id_forma_pago == 2 %}
+                      <!-- Compra a crédito: botón bloqueado -->
+                      <button type="button" class="btn btn-sm btn-secondary" title="No se pueden editar compras a crédito" disabled>
+                        <i class="fa-solid fa-lock"></i>
+                      </button>
+                    {% else %}
+                      <!-- Compra al contado: editable -->
+                      <button type="button" class="btn btn-sm btn-primary" title="Editar compra"
+                              onclick="editarCompra('{{ c.idcompra|eid }}')">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    {% endif %}
+                    
+                    <!-- Eliminar - Solo Admin -->
+                    {% if es_admin %}
+                    <button type="button" class="btn btn-sm btn-danger" title="Eliminar compra"
+                            onclick="eliminarCompra('{{ c.idcompra|eid }}', '{{ c.numcorrelativo }}')">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-sm btn-secondary" title="Sin permisos para eliminar" disabled>
+                      <i class="fa-solid fa-lock"></i>
+                    </button>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -58,45 +97,183 @@
         <!-- Modales de detalle -->
         {% for c in compras_registros %} 
         <div class="modal fade" id="detalleModal{{ c.idcompra }}" tabindex="-1">
-          <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content rounded-3 shadow-lg">
-              <div class="modal-header bg-info text-white">
-                <h5 class="modal-title">Detalles de Compra {{ c.numcorrelativo }}</h5>
+              <div class="modal-header bg-gradient-info text-white">
+                <div>
+                  <h5 class="modal-title mb-1">
+                    <i class="fa-solid fa-file-invoice me-2"></i>Detalle de Compra #{{ c.numcorrelativo }}
+                  </h5>
+                  <small class="opacity-75">ID Compra: {{ c.idcompra }}</small>
+                </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
               </div>
-              <div class="modal-body">
-                <p><b>Proveedor:</b> {{ c.idproveedor.razonsocial }}</p>
-                <p><b>Fecha:</b> {{ c.fechacompra|date:"d/m/Y" }}</p>
-                <table class="table table-bordered table-sm">
-                  <thead class="table-light">
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Detalle</th>
-                      <th>Cantidad</th>
-                      <th>Compra</th>
-                      <th>Venta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for d in c.compradetalle_set.all %}
-                    <tr>
-                      {% if d.id_vehiculo %}
-                        <td>Vehículo</td>
-                        <td>{{ d.id_vehiculo.idproducto.nomproducto }} - Motor: {{ d.id_vehiculo.serie_motor }}</td>
-                      {% elif d.id_repuesto_comprado %}
-                        <td>Repuesto</td>
-                        <td>{{ d.id_repuesto_comprado.descripcion }} ({{ d.id_repuesto_comprado.codigo_barras }})</td>
-                      {% endif %}
-                      <td>{{ d.cantidad }}</td>
-                      <td>S/. {{ d.precio_compra|floatformat:2 }}</td>
-                      <td>S/. {{ d.precio_venta|floatformat:2 }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+              
+              <div class="modal-body p-4">
+                <!-- Información General -->
+                <div class="card border-0 bg-light mb-4">
+                  <div class="card-body">
+                    <h6 class="text-primary fw-bold mb-3">
+                      <i class="fa-solid fa-circle-info me-2"></i>Información General
+                    </h6>
+                    <div class="row">
+                      <div class="col-md-6 mb-2">
+                        <strong class="text-muted">Proveedor:</strong><br>
+                        <span class="fs-6">{{ c.idproveedor.razonsocial }}</span>
+                      </div>
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">Fecha Compra:</strong><br>
+                        <span class="fs-6">{{ c.fechacompra|date:"d/m/Y" }}</span>
+                      </div>
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">N° Correlativo:</strong><br>
+                        <span class="badge bg-secondary fs-6">{{ c.numcorrelativo }}</span>
+                      </div>
+                    </div>
+                    <div class="row mt-2">
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">Tipo Comprobante:</strong><br>
+                        <span class="badge bg-info">{{ c.idtipocliente.nomtipocliente }}</span>
+                      </div>
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">Forma de Pago:</strong><br>
+                        <span class="badge bg-primary">{{ c.id_forma_pago.nombre }}</span>
+                      </div>
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">Tipo de Pago:</strong><br>
+                        <!-- ✅ CORRECCIÓN: Usar método del modelo -->
+                        <span class="badge {{ c.get_tipo_pago_badge_class }}">{{ c.get_tipo_pago_display }}</span>
+                      </div>
+                      <div class="col-md-3 mb-2">
+                        <strong class="text-muted">Sucursal:</strong><br>
+                        {% if c.id_sucursal %}
+                          <span class="badge bg-dark">{{ c.id_sucursal.nombre_sucursal }}</span>
+                        {% else %}
+                          <span class="text-muted">-</span>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Detalle de Productos -->
+                <h6 class="text-primary fw-bold mb-3">
+                  <i class="fa-solid fa-box-open me-2"></i>Productos / Repuestos
+                </h6>
+                <div class="table-responsive">
+                  <table class="table table-hover table-bordered align-middle">
+                    <thead class="table-dark">
+                      <tr>
+                        <th style="width: 5%;" class="text-center">#</th>
+                        <th style="width: 10%;">Tipo</th>
+                        <th style="width: 35%;">Detalle</th>
+                        <th style="width: 10%;" class="text-center">Cantidad</th>
+                        <th style="width: 15%;" class="text-end">Precio Compra</th>
+                        <th style="width: 15%;" class="text-end">Precio Venta</th>
+                        <th style="width: 10%;" class="text-end">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for d in c.compradetalle.all %}
+                      <tr>
+                        <td class="text-center fw-bold">{{ forloop.counter }}</td>
+                        {% if d.id_vehiculo %}
+                          <td><span class="badge bg-primary">Vehículo</span></td>
+                          <td>
+                            <strong>{{ d.id_vehiculo.idproducto.nomproducto }}</strong><br>
+                            <small class="text-muted">
+                              <i class="fa-solid fa-cog me-1"></i>Motor: {{ d.id_vehiculo.serie_motor|default:"-" }}<br>
+                              <i class="fa-solid fa-car me-1"></i>Chasis: {{ d.id_vehiculo.serie_chasis|default:"-" }}<br>
+                              {% if d.id_vehiculo.placas %}
+                                <i class="fa-solid fa-id-card me-1"></i>Placas: {{ d.id_vehiculo.placas }}<br>
+                              {% endif %}
+                              <span class="badge badge-sm bg-secondary">{{ d.id_vehiculo.idestadoproducto.nombreestadoproducto }}</span>
+                            </small>
+                          </td>
+                        {% elif d.id_repuesto_comprado %}
+                          <td><span class="badge bg-success">Repuesto</span></td>
+                          <td>
+                            <strong>{{ d.id_repuesto_comprado.id_repuesto.nombre }}</strong><br>
+                            <small class="text-muted">
+                              {% if d.id_repuesto_comprado.codigo_barras %}
+                                <i class="fa-solid fa-barcode me-1"></i>Código: {{ d.id_repuesto_comprado.codigo_barras }}<br>
+                              {% endif %}
+                              {% if d.id_repuesto_comprado.modelo %}
+                                <i class="fa-solid fa-tag me-1"></i>Modelo: {{ d.id_repuesto_comprado.modelo }}<br>
+                              {% endif %}
+                              {% if d.id_repuesto_comprado.descripcion %}
+                                <i class="fa-solid fa-comment me-1"></i>{{ d.id_repuesto_comprado.descripcion }}
+                              {% endif %}
+                            </small>
+                          </td>
+                        {% endif %}
+                        <td class="text-center">
+                          <span class="badge bg-info">{{ d.cantidad }}</span>
+                        </td>
+                        <td class="text-end">S/. {{ d.precio_compra|floatformat:2 }}</td>
+                        <td class="text-end">S/. {{ d.precio_venta|floatformat:2 }}</td>
+                        <td class="text-end fw-bold">S/. {{ d.subtotal|floatformat:2 }}</td>
+                      </tr>
+                      {% endfor %}
+                      <tr class="table-light">
+                        <td colspan="6" class="text-end fw-bold fs-5">TOTAL COMPRA:</td>
+                        <td class="text-end fw-bold text-success fs-5">S/. {{ c.total_compra|floatformat:2 }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Cuotas (si es a crédito) -->
+                {% if c.cuota.exists %}
+                <div class="mt-4">
+                  <h6 class="text-primary fw-bold mb-3">
+                    <i class="fa-solid fa-calendar-days me-2"></i>Plan de Cuotas
+                  </h6>
+                  <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                      <thead class="table-warning">
+                        <tr>
+                          <th class="text-center">Cuota</th>
+                          <th>Fecha Vencimiento</th>
+                          <th class="text-end">Monto</th>
+                          <th class="text-end">Interés</th>
+                          <th class="text-end">Total</th>
+                          <th class="text-end">Adelanto</th>
+                          <th class="text-center">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for cuota in c.cuota.all %}
+                        <tr>
+                          <td class="text-center fw-bold">{{ cuota.numero_cuota }}</td>
+                          <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                          <td class="text-end">S/. {{ cuota.monto|floatformat:2 }}</td>
+                          <td class="text-end">S/. {{ cuota.interes|floatformat:2 }}</td>
+                          <td class="text-end fw-bold">S/. {{ cuota.total|floatformat:2 }}</td>
+                          <td class="text-end">
+                            {% if cuota.monto_adelanto > 0 %}
+                              <span class="badge bg-success">S/. {{ cuota.monto_adelanto|floatformat:2 }}</span>
+                            {% else %}
+                              -
+                            {% endif %}
+                          </td>
+                          <td class="text-center">
+                            <span class="badge bg-warning">Pendiente</span>
+                          </td>
+                        </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                {% endif %}
+
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+              
+              <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">
+                  <i class="fa-solid fa-xmark me-2"></i>Cerrar
+                </button>
               </div>
             </div>
           </div>
@@ -122,15 +299,29 @@
 
             <!-- CABECERA -->
             <div class="row mb-3">
+              <!--CAMPO CON BÚSQUEDA: PROVEEDOR -->
               <div class="col-md-4">
-                <label class="form-label">Proveedor</label>
-                <select name="proveedor" class="form-select" required>
-                  <option value="">-- Seleccione --</option>
-                  {% for p in proveedor %}
-                    <option value="{{ p.idproveedor }}">{{ p.razonsocial }}</option>
-                  {% endfor %}
-                </select>
+                <label class="form-label">Proveedor <span class="text-danger">*</span></label>
+                <div class="input-group input-group-proveedor">
+                  <div class="autocomplete-wrapper flex-grow-1">
+                    <input type="text" 
+                           id="proveedor_search" 
+                           class="form-control autocomplete-input autocomplete-with-arrow" 
+                           placeholder="Buscar proveedor..." 
+                           autocomplete="off"
+                           required>
+                    <button type="button" class="autocomplete-arrow" onclick="toggleAutocomplete('proveedor_search', 'proveedor_results')">
+                      <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <input type="hidden" name="proveedor" id="proveedor_id">
+                    <div class="autocomplete-results" id="proveedor_results"></div>
+                  </div>
+                  <button type="button" class="btn btn-success btn-add-proveedor" data-bs-toggle="modal" data-bs-target="#modalAgregarProveedorCompra" title="Agregar nuevo proveedor">
+                    <i class="fa-regular fa-user"></i>
+                  </button>
+                </div>
               </div>
+              
               <div class="col-md-4">
                 <label class="form-label">Forma de Pago</label>
                 <select name="forma_pago" id="forma_pago" class="form-select" required>
@@ -202,14 +393,21 @@
             <!-- Vehículo -->
             <div id="formVehiculo" class="mt-3" style="display:none;">
               <div class="row mb-2">
+                <!-- ⭐ CAMPO CON BÚSQUEDA: VEHÍCULO/PRODUCTO -->
                 <div class="col-md-4">
-                  <label class="form-label">Nombre</label>
-                  <select id="veh_nombre" class="form-select">
-                    <option value="">-- Seleccione --</option>
-                    {% for produc in producto %}
-                      <option value="{{ produc.idproducto }}">{{ produc.nomproducto }}</option>
-                    {% endfor %}
-                  </select>
+                  <label class="form-label">Nombre del Vehículo <span class="text-danger">*</span></label>
+                  <div class="autocomplete-wrapper">
+                    <input type="text" 
+                           id="vehiculo_search" 
+                           class="form-control autocomplete-input autocomplete-with-arrow" 
+                           placeholder="Buscar vehículo..." 
+                           autocomplete="off">
+                    <button type="button" class="autocomplete-arrow" onclick="toggleAutocomplete('vehiculo_search', 'vehiculo_results')">
+                      <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <input type="hidden" id="veh_nombre" name="veh_nombre">
+                    <div class="autocomplete-results" id="vehiculo_results"></div>
+                  </div>
                 </div>
                 <div class="col-md-4">
                   <label>Serie Motor</label>
@@ -230,7 +428,11 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div class="col-md-8" id="veh_imperfecciones_container" style="display:none;">
+                <div class="col-md-4" id="veh_placas_container" style="display:none;">
+                  <label>Placas</label>
+                  <input type="text" id="veh_placas" class="form-control">
+                </div>
+                <div class="col-md-4" id="veh_imperfecciones_container" style="display:none;">
                   <label>Imperfecciones</label>
                   <textarea id="veh_imperfecciones" class="form-control"></textarea>
                 </div>
@@ -240,20 +442,31 @@
             <!-- Repuesto -->
             <div id="formRepuesto" class="mt-3" style="display:none;">
               <div class="row mb-2">
-                <div class="col-md-4">
-                  <label class="form-label">Nombre</label>
-                  <select id="rep_nombre" class="form-select">
-                    <option value="">-- Seleccione --</option>
-                    {% for repues in catalogo_repuestos %}
-                      <option value="{{ repues.id_repuesto }}">{{ repues.nombre }}</option>
-                    {% endfor %}
-                  </select>
+                <!-- ⭐ CAMPO CON BÚSQUEDA: REPUESTO -->
+                <div class="col-md-3">
+                  <label class="form-label">Nombre del Repuesto <span class="text-danger">*</span></label>
+                  <div class="autocomplete-wrapper">
+                    <input type="text" 
+                           id="repuesto_search" 
+                           class="form-control autocomplete-input autocomplete-with-arrow" 
+                           placeholder="Buscar repuesto..." 
+                           autocomplete="off">
+                    <button type="button" class="autocomplete-arrow" onclick="toggleAutocomplete('repuesto_search', 'repuesto_results')">
+                      <i class="bi bi-chevron-down"></i>
+                    </button>
+                    <input type="hidden" id="rep_nombre" name="rep_nombre">
+                    <div class="autocomplete-results" id="repuesto_results"></div>
+                  </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                   <label>Código de Barras</label>
                   <input type="text" id="rep_codigo" class="form-control">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
+                  <label>Modelo</label>
+                  <input type="text" id="rep_modelo" class="form-control">
+                </div>
+                <div class="col-md-3">
                   <label>Descripción (opcional)</label>
                   <input type="text" id="rep_descripcion" class="form-control" placeholder="Ej: Observaciones...">
                 </div>
@@ -329,14 +542,14 @@
           <div class="row mb-3">
             <div class="col-md-3">
               <label class="form-label">Cantidad de Cuotas</label>
-              <input type="number" id="credito_cuotas" name="credito_cuotas" class="form-control" value="4" min="1" required>
+              <input type="number" id="credito_cuotas" name="credito_cuotas" class="form-control" value="4" min="1" max="36" required>
             </div>
             <div class="col-md-3">
               <label class="form-label">Tasa de Interés (%)</label>
               <input type="number" id="credito_tasa" name="credito_tasa" class="form-control" value="0" step="0.1" min="0" required>
             </div>
             <div class="col-md-3">
-              <label class="form-label">Monto Adelanto (S/.)</label>
+              <label class="form-label">Monto Adelanto (S/)</label>
               <input type="number" id="monto_adelanto" name="monto_adelanto" class="form-control" value="0" step="0.01" min="0" placeholder="0.00">
               <small class="text-muted">Se resta del total antes de dividir</small>
             </div>
@@ -413,6 +626,170 @@
     </div>
   </div>
 
+  <!--MODAL AGREGAR PROVEEDOR DESDE COMPRAS-->
+  <div class="modal fade" id="modalAgregarProveedorCompra" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Agregar Nuevo Proveedor</h5>
+          <button type="button" class="btn-close btn-close-white" onclick="cerrarModalProveedor()"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Alerta de información TokenPeru -->
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-circle-info me-2"></i>
+            <strong>Autocompletado:</strong> Ingrese el DNI (8 dígitos) o RUC (11 dígitos) y los datos se completarán automáticamente.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+
+          <!-- Alerta de carga -->
+          <div class="alert alert-primary d-none" id="alertCargandoCompra" role="alert">
+            <div class="d-flex align-items-center">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+              <div>Consultando documento en RENIEC/SUNAT...</div>
+            </div>
+          </div>
+
+          <!-- Alerta de error -->
+          <div class="alert alert-danger d-none" id="alertErrorCompra" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-2"></i>
+            <span id="mensajeErrorCompra"></span>
+          </div>
+
+          <!-- Alerta de éxito -->
+          <div class="alert alert-success d-none" id="alertExitoCompra" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i>
+            <span id="mensajeExitoCompra"></span>
+          </div>
+
+          <form id="formAgregarProveedorCompra">
+            {% csrf_token %}
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Tipo de Entidad <span class="text-danger">*</span></label>
+                <select name="tipoEntidadProveedor" id="tipoEntidadProveedorCompra" class="form-select rounded-pill" required>
+                  <option value="">Seleccione...</option>
+                  {% comment %}
+                  NOTA: Necesitas agregar 'tipos_entidad' al contexto de la vista de compras
+                  En comprasView.py, en la función compras(), agrega:
+                  
+                  from software.models.Tipo_entidadModel import TipoEntidad
+                  tipos_entidad = TipoEntidad.objects.filter(estado=1)
+                  
+                  Y en el contexto (data):
+                  'tipos_entidad': tipos_entidad,
+                  {% endcomment %}
+                  
+                  {% for tipo in tipos_entidad %}
+                    <option value="{{ tipo.id_tipo_entidad }}">{{ tipo.tipo_entidad }}</option>
+                  {% empty %}
+                    <option value="1">Persona Natural</option>
+                    <option value="6">Persona Jurídica</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">
+                  Número de Documento <span class="text-danger">*</span>
+                  <span id="badgeTipoDocCompra" class="badge bg-secondary ms-2" style="display: none;"></span>
+                </label>
+                <div class="input-group">
+                  <input type="text" name="numdocProveedor" id="numdocProveedorCompra" class="form-control rounded-start" maxlength="11" placeholder="DNI (8) o RUC (11)" required>
+                  <button class="btn btn-primary rounded-end" type="button" id="btnConsultarDocCompra" title="Consultar documento">
+                    <i class="fa-solid fa-search"></i>
+                  </button>
+                </div>
+                <small class="text-muted">Presione Enter o el botón de búsqueda</small>
+              </div>
+            </div>
+
+            <!-- Info adicional RUC (oculto inicialmente) -->
+            <div class="row d-none" id="infoRucCompra">
+              <div class="col-md-12 mb-3">
+                <div class="alert alert-light border" role="alert">
+                  <strong>Estado SUNAT:</strong> <span id="estadoSunatCompra" class="badge"></span>
+                  <strong class="ms-3">Condición:</strong> <span id="condicionSunatCompra"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
+                <input type="text" name="razonsocialProveedor" id="razonsocialProveedorCompra" class="form-control rounded-pill" maxlength="255" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Nombre Comercial</label>
+                <input type="text" name="nombreComercialProveedor" id="nombreComercialProveedorCompra" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-semibold">
+                  Departamento
+                  <i class="fa-solid fa-info-circle text-muted" title="Se completa automáticamente con RUC"></i>
+                </label>
+                <input type="text" name="departamentoProveedor" id="departamentoProveedorCompra" class="form-control rounded-pill" maxlength="100">
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-semibold">
+                  Provincia
+                  <i class="fa-solid fa-info-circle text-muted" title="Se completa automáticamente con RUC"></i>
+                </label>
+                <input type="text" name="provinciaProveedor" id="provinciaProveedorCompra" class="form-control rounded-pill" maxlength="100">
+              </div>
+
+              <div class="col-md-4 mb-3">
+                <label class="form-label fw-semibold">
+                  Distrito
+                  <i class="fa-solid fa-info-circle text-muted" title="Se completa automáticamente con RUC"></i>
+                </label>
+                <input type="text" name="distritoProveedor" id="distritoProveedorCompra" class="form-control rounded-pill" maxlength="100">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Teléfono</label>
+                <input type="text" name="telefonoProveedor" id="telefonoProveedorCompra" class="form-control rounded-pill" maxlength="30">
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Correo Electrónico</label>
+                <input type="email" name="emailProveedor" id="emailProveedorCompra" class="form-control rounded-pill" maxlength="255" placeholder="ejemplo@correo.com">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Dirección</label>
+                <input type="text" name="direccionProveedor" id="direccionProveedorCompra" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="btnGuardarProveedorCompra">
+                <i class="fa-solid fa-save me-2"></i>Guardar Proveedor
+              </button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="cerrarModalProveedor()">
+                <i class="fa-solid fa-xmark me-2"></i>Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <!-- jQuery -->
@@ -429,6 +806,383 @@
 <script>
 let itemIndex = 0;
 let total = 0;
+
+//DATOS PARA AUTOCOMPLETE
+const proveedoresData = [
+  {% for p in proveedor %}
+    { id: {{ p.idproveedor }}, text: "{{ p.razonsocial|escapejs }}" },
+  {% endfor %}
+];
+
+const vehiculosData = [
+  {% for produc in producto %}
+    { id: {{ produc.idproducto }}, text: "{{ produc.nomproducto|escapejs }}" },
+  {% endfor %}
+];
+
+const repuestosData = [
+  {% for repues in catalogo_repuestos %}
+    { id: {{ repues.id_repuesto }}, text: "{{ repues.nombre|escapejs }}" },
+  {% endfor %}
+];
+
+//FUNCIÓN AUTOCOMPLETE GENÉRICA
+function setupAutocomplete(inputId, resultsId, data, hiddenId) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const hidden = document.getElementById(hiddenId);
+  
+  if (!input) return;
+
+  input.addEventListener('input', function() {
+    const value = this.value.toLowerCase();
+    results.innerHTML = '';
+    
+    if (value.length < 1) {
+      results.style.display = 'none';
+      hidden.value = '';
+      return;
+    }
+    
+    const filtered = data.filter(item => 
+      item.text.toLowerCase().includes(value)
+    );
+    
+    if (filtered.length === 0) {
+      results.innerHTML = '<div class="autocomplete-item no-results">No se encontraron resultados</div>';
+      results.style.display = 'block';
+      return;
+    }
+    
+    filtered.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      div.textContent = item.text;
+      div.addEventListener('click', function() {
+        input.value = item.text;
+        hidden.value = item.id;
+        results.style.display = 'none';
+      });
+      results.appendChild(div);
+    });
+    
+    results.style.display = 'block';
+  });
+  
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      const arrow = input.parentElement.querySelector('.autocomplete-arrow');
+      if (arrow && !arrow.contains(e.target)) {
+        results.style.display = 'none';
+      }
+    }
+  });
+
+  // Limpiar al cambiar
+  input.addEventListener('focus', function() {
+    if (this.value && !hidden.value) {
+      this.value = '';
+    }
+  });
+}
+
+//FUNCIÓN PARA ABRIR/CERRAR CON LA FLECHA
+function toggleAutocomplete(inputId, resultsId) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  
+  // Determinar qué datos usar según el input
+  let data = [];
+  let hiddenId = '';
+  
+  if (inputId === 'proveedor_search') {
+    data = proveedoresData;
+    hiddenId = 'proveedor_id';
+  } else if (inputId === 'vehiculo_search') {
+    data = vehiculosData;
+    hiddenId = 'veh_nombre';
+  } else if (inputId === 'repuesto_search') {
+    data = repuestosData;
+    hiddenId = 'rep_nombre';
+  }
+  
+  // Si ya está abierto, cerrar
+  if (results.style.display === 'block') {
+    results.style.display = 'none';
+    return;
+  }
+  
+  // Mostrar todos los elementos
+  results.innerHTML = '';
+  data.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    div.textContent = item.text;
+    div.addEventListener('click', function(e) {
+      e.stopPropagation(); 
+      input.value = item.text;
+      document.getElementById(hiddenId).value = item.id;
+      results.style.display = 'none'; 
+    });
+    results.appendChild(div);
+  });
+  
+  results.style.display = 'block';
+  input.focus();
+}
+
+//FUNCIÓN PARA CERRAR MODAL DE PROVEEDOR Y VOLVER AL MODAL DE COMPRA
+function cerrarModalProveedor() {
+  const modalProveedor = bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedorCompra'));
+  if (modalProveedor) {
+    modalProveedor.hide();
+  }
+  
+  // Limpiar formulario
+  document.getElementById('formAgregarProveedorCompra').reset();
+  limpiarCamposProveedor();
+  
+  // Reabrir modal de compra después de un momento
+  setTimeout(() => {
+    const modalCompra = new bootstrap.Modal(document.getElementById('modalAgregarCompra'));
+    modalCompra.show();
+  }, 300);
+}
+
+//FUNCIÓN PARA CONSULTAR DOCUMENTO EN TOKENPERU (DESDE COMPRAS)
+async function consultarDocumentoTokenPeruCompra(numero) {
+  const alertCargando = $('#alertCargandoCompra');
+  const alertError = $('#alertErrorCompra');
+  const alertExito = $('#alertExitoCompra');
+  
+  // Validar longitud
+  if (numero.length !== 8 && numero.length !== 11) {
+    return;
+  }
+
+  // Mostrar loading
+  alertCargando.removeClass('d-none');
+  alertError.addClass('d-none');
+  alertExito.addClass('d-none');
+  
+  try {
+    const response = await fetch(`/api/autocompletar-proveedor/?numero=${numero}`);
+    const data = await response.json();
+    
+    alertCargando.addClass('d-none');
+    
+    if (data.success) {
+      // Autocompletar campos
+      $('#razonsocialProveedorCompra').val(data.razonsocial).addClass('campo-autocompletado');
+      $('#direccionProveedorCompra').val(data.direccion || '').addClass('campo-autocompletado');
+      $('#nombreComercialProveedorCompra').val(data.nombre_comercial || '').addClass('campo-autocompletado');
+      $('#departamentoProveedorCompra').val(data.departamento || '').addClass('campo-autocompletado');
+      $('#provinciaProveedorCompra').val(data.provincia || '').addClass('campo-autocompletado');
+      $('#distritoProveedorCompra').val(data.distrito || '').addClass('campo-autocompletado');
+      $('#tipoEntidadProveedorCompra').val(data.id_tipo_entidad);
+      
+      if (data.tipo === 'RUC') {
+        // Mostrar info SUNAT
+        $('#infoRucCompra').removeClass('d-none');
+        $('#estadoSunatCompra').text(data.estado || 'N/A')
+          .removeClass('bg-success bg-danger')
+          .addClass(data.estado === 'ACTIVO' ? 'bg-success' : 'bg-danger');
+        $('#condicionSunatCompra').text(data.condicion || 'N/A');
+        
+        // Badge RUC
+        $('#badgeTipoDocCompra').text('RUC').removeClass('bg-secondary bg-info').addClass('bg-info').show();
+        
+        // Validar estado
+        if (data.estado !== 'ACTIVO') {
+          alertExito.removeClass('d-none');
+          $('#mensajeExitoCompra').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}<br><small class="text-warning">⚠️ Advertencia: El RUC no está ACTIVO en SUNAT</small>`);
+        } else {
+          alertExito.removeClass('d-none');
+          $('#mensajeExitoCompra').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}`);
+        }
+      } else {
+        // DNI
+        $('#infoRucCompra').addClass('d-none');
+        $('#badgeTipoDocCompra').text('DNI').removeClass('bg-secondary bg-info').addClass('bg-secondary').show();
+        
+        alertExito.removeClass('d-none');
+        $('#mensajeExitoCompra').html(`<strong>DNI encontrado:</strong> ${data.razonsocial}`);
+      }
+      
+      // Remover animación después de 600ms
+      setTimeout(() => {
+        $('.campo-autocompletado').removeClass('campo-autocompletado');
+      }, 600);
+      
+    } else {
+      // Error de API
+      alertError.removeClass('d-none');
+      $('#mensajeErrorCompra').text(data.error || 'No se encontró el documento');
+      limpiarCamposProveedor();
+    }
+  } catch (error) {
+    alertCargando.addClass('d-none');
+    alertError.removeClass('d-none');
+    $('#mensajeErrorCompra').text('Error de conexión. Intente nuevamente.');
+    console.error('Error:', error);
+  }
+}
+
+// Función para limpiar campos del proveedor
+function limpiarCamposProveedor() {
+  $('#razonsocialProveedorCompra').val('');
+  $('#nombreComercialProveedorCompra').val('');
+  $('#direccionProveedorCompra').val('');
+  $('#departamentoProveedorCompra').val('');
+  $('#provinciaProveedorCompra').val('');
+  $('#distritoProveedorCompra').val('');
+  $('#infoRucCompra').addClass('d-none');
+  $('#badgeTipoDocCompra').hide();
+}
+
+//INICIALIZAR EVENTOS DEL MODAL DE PROVEEDOR
+document.addEventListener('DOMContentLoaded', function() {
+  
+  // Detectar tipo de documento al escribir
+  $('#numdocProveedorCompra').on('input', function() {
+    const valor = this.value.replace(/[^0-9]/g, '');
+    this.value = valor; // Solo números
+    
+    const badge = $('#badgeTipoDocCompra');
+    if (valor.length === 8) {
+      badge.text('DNI').removeClass('bg-info').addClass('bg-secondary').show();
+      $('#tipoEntidadProveedorCompra').val(1);
+    } else if (valor.length === 11) {
+      badge.text('RUC').removeClass('bg-secondary').addClass('bg-info').show();
+      $('#tipoEntidadProveedorCompra').val(6);
+    } else {
+      badge.hide();
+    }
+  });
+  
+  // Consultar al presionar Enter
+  $('#numdocProveedorCompra').on('keypress', function(e) {
+    if (e.which === 13) { // Enter
+      e.preventDefault();
+      const numero = $(this).val().trim();
+      if (numero.length === 8 || numero.length === 11) {
+        consultarDocumentoTokenPeruCompra(numero);
+      }
+    }
+  });
+  
+  // Consultar al hacer clic en el botón
+  $('#btnConsultarDocCompra').on('click', function() {
+    const numero = $('#numdocProveedorCompra').val().trim();
+    if (numero.length === 8 || numero.length === 11) {
+      consultarDocumentoTokenPeruCompra(numero);
+    } else {
+      Swal.fire({
+        title: 'Documento inválido',
+        text: 'Ingrese un DNI (8 dígitos) o RUC (11 dígitos)',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+  
+  //GUARDAR NUEVO PROVEEDOR
+  $('#btnGuardarProveedorCompra').on('click', function() {
+    const form = $('#formAgregarProveedorCompra')[0];
+    
+    // Validar formulario
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    
+    // Mostrar loading
+    Swal.fire({
+      title: 'Guardando proveedor...',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      willOpen: () => {
+        Swal.showLoading();
+      }
+    });
+    
+    const formData = new FormData(form);
+    
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregar_proveedor' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function(response) {
+        Swal.close();
+        
+        // Obtener datos del proveedor recién creado
+        const numdoc = $('#numdocProveedorCompra').val();
+        const razonsocial = $('#razonsocialProveedorCompra').val();
+        
+        Swal.fire({
+          title: '¡Proveedor guardado!',
+          text: 'El proveedor se ha registrado correctamente',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        }).then(() => {
+          // Cerrar modal de proveedor
+          const modalProveedor = bootstrap.Modal.getInstance(document.getElementById('modalAgregarProveedorCompra'));
+          if (modalProveedor) {
+            modalProveedor.hide();
+          }
+          
+          //ACTUALIZAR LA LISTA DE PROVEEDORES Y SELECCIONAR EL NUEVO
+          // Agregar el nuevo proveedor al array de datos
+          $.ajax({
+            url: '/api/obtener-ultimo-proveedor/',  // Necesitarás crear este endpoint
+            method: 'GET',
+            success: function(nuevoProveedor) {
+              // Agregar al array de datos
+              proveedoresData.push({
+                id: nuevoProveedor.id,
+                text: nuevoProveedor.razonsocial
+              });
+              
+              // Seleccionar automáticamente el nuevo proveedor
+              $('#proveedor_search').val(nuevoProveedor.razonsocial);
+              $('#proveedor_id').val(nuevoProveedor.id);
+              
+              // Reabrir modal de compra
+              setTimeout(() => {
+                const modalCompra = new bootstrap.Modal(document.getElementById('modalAgregarCompra'));
+                modalCompra.show();
+              }, 300);
+            },
+            error: function() {
+              // Si falla, refrescar la página para actualizar los datos
+              window.location.reload();
+            }
+          });
+        });
+      },
+      error: function(xhr) {
+        Swal.fire({
+          title: 'Error al guardar',
+          text: xhr.responseText || 'Ocurrió un error al guardar el proveedor',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+  });
+});
+
+//INICIALIZAR AUTOCOMPLETES
+document.addEventListener('DOMContentLoaded', function() {
+  setupAutocomplete('proveedor_search', 'proveedor_results', proveedoresData, 'proveedor_id');
+  setupAutocomplete('vehiculo_search', 'vehiculo_results', vehiculosData, 'veh_nombre');
+  setupAutocomplete('repuesto_search', 'repuesto_results', repuestosData, 'rep_nombre');
+});
 
 document.getElementById("tipo_item").addEventListener("change", function() {
   const tipo = this.value;
@@ -462,8 +1216,8 @@ function agregarDetalle() {
   let extraInputs = "";
 
   if (tipo === "vehiculo") {
-    const vehiculoSelect = document.getElementById("veh_nombre");
-    const idProducto = vehiculoSelect.value;
+    const idProducto = document.getElementById("veh_nombre").value;
+    const vehiculoInput = document.getElementById("vehiculo_search");
     
     if (!idProducto) {
       Swal.fire("Error", "Debe seleccionar un producto", "warning");
@@ -472,11 +1226,12 @@ function agregarDetalle() {
       return;
     }
     
-    nombre = vehiculoSelect.options[vehiculoSelect.selectedIndex].text;
+    nombre = vehiculoInput.value;
     const serieMotor = document.getElementById("veh_motor").value.trim();
     const serieChasis = document.getElementById("veh_chasis").value.trim();
     const estadoProd = document.getElementById("veh_estado").value;
     const imperfecciones = document.getElementById("veh_imperfecciones").value.trim();
+    const placas = document.getElementById("veh_placas").value.trim();
 
     if (!estadoProd) {
       Swal.fire("Error", "Debe seleccionar el estado del producto", "warning");
@@ -491,17 +1246,20 @@ function agregarDetalle() {
       <input type="hidden" name="serie_chasis_${itemIndex}" value="${serieChasis}">
       <input type="hidden" name="idestadoproducto_${itemIndex}" value="${estadoProd}">
       <input type="hidden" name="imperfecciones_${itemIndex}" value="${imperfecciones}">
+      <input type="hidden" name="placas_${itemIndex}" value="${placas}">
     `;
     
-    vehiculoSelect.value = "";
+    vehiculoInput.value = "";
+    document.getElementById("veh_nombre").value = "";
     document.getElementById("veh_motor").value = "";
     document.getElementById("veh_chasis").value = "";
     document.getElementById("veh_estado").value = "";
     document.getElementById("veh_imperfecciones").value = "";
+    document.getElementById("veh_placas").value = "";
     
   } else if (tipo === "repuesto") {
-    const repuestoSelect = document.getElementById("rep_nombre");
-    const idRepuesto = repuestoSelect.value;
+    const idRepuesto = document.getElementById("rep_nombre").value;
+    const repuestoInput = document.getElementById("repuesto_search");
     
     if (!idRepuesto) {
       Swal.fire("Error", "Debe seleccionar un repuesto", "warning");
@@ -510,18 +1268,22 @@ function agregarDetalle() {
       return;
     }
     
-    nombre = repuestoSelect.options[repuestoSelect.selectedIndex].text;
+    nombre = repuestoInput.value;
     const codigoRep = document.getElementById("rep_codigo").value.trim();
+    const modeloRep = document.getElementById("rep_modelo").value.trim();
     const descripcionLibre = document.getElementById("rep_descripcion").value.trim();
 
     extraInputs = `
       <input type="hidden" name="id_repuesto_${itemIndex}" value="${idRepuesto}">
       <input type="hidden" name="descripcion_${itemIndex}" value="${descripcionLibre}">
       <input type="hidden" name="codigo_barras_${itemIndex}" value="${codigoRep}">
+      <input type="hidden" name="modelo_${itemIndex}" value="${modeloRep}">
     `;
     
-    repuestoSelect.value = "";
+    repuestoInput.value = "";
+    document.getElementById("rep_nombre").value = "";
     document.getElementById("rep_codigo").value = "";
+    document.getElementById("rep_modelo").value = "";
     document.getElementById("rep_descripcion").value = "";
   }
 
@@ -567,11 +1329,25 @@ function eliminarDetalle(index, subtotal) {
   document.getElementById("totalGeneral").innerText = total.toFixed(2);
 }
 
-// ⭐ NUEVO: Guardar compra con verificación de caja
+//VALIDACIÓN JAVASCRIPT: Verificar sucursal principal
+const esSucursalPrincipal = {{ es_sucursal_principal|yesno:"true,false" }};
+
+//NUEVO: Guardar compra con verificación de caja
 $("#guardarCompra").click(function (e) {
   e.preventDefault();
   
-  // ⭐ VERIFICAR CAJA ANTES DE TODO
+  //VERIFICAR SI ES SUCURSAL PRINCIPAL
+  if (!esSucursalPrincipal) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Acceso Denegado',
+      text: 'Solo la sucursal principal puede realizar compras.',
+      confirmButtonColor: '#dc3545'
+    });
+    return;
+  }
+
+  //VERIFICAR CAJA ANTES DE TODO
   const tieneCajaAbierta = {{ tiene_caja_abierta|yesno:"true,false" }};
   
   if (!tieneCajaAbierta) {
@@ -659,7 +1435,7 @@ $("#guardarCompra").click(function (e) {
           window.location.href = "{% url 'compras' %}";
         });
       } else {
-        // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+        //VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
         if (res.necesita_aperturar || res.codigo === 'CAJA_REQUERIDA') {
           Swal.fire({
             icon: 'warning',
@@ -707,7 +1483,7 @@ $("#guardarCompra").click(function (e) {
         }
       }
       
-      // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+      //VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
       if (necesitaAperturar) {
         Swal.fire({
           icon: 'warning',
@@ -738,21 +1514,28 @@ $("#guardarCompra").click(function (e) {
   });
 });
 
-// Resto de eventos DOM
+//Resto de eventos DOM
 document.addEventListener("DOMContentLoaded", function () {
   const estadoSelect = document.getElementById("veh_estado");
   const imperfeccionesContainer = document.getElementById("veh_imperfecciones_container");
+  const placasContainer = document.getElementById("veh_placas_container");
   const imperfeccionesField = document.getElementById("veh_imperfecciones");
+  const placasField = document.getElementById("veh_placas");
 
   function toggleImperfecciones() {
     const selectedValue = estadoSelect.value;
     if (selectedValue === "2") {
       imperfeccionesContainer.style.display = "block";
+      placasContainer.style.display = "block";
       imperfeccionesField.required = true;
+      placasField.required = true;
     } else {
       imperfeccionesContainer.style.display = "none";
+      placasContainer.style.display = "none";
       imperfeccionesField.required = false;
+      placasField.required = false;
       imperfeccionesField.value = "";
+      placasField.value = "";
     }
   }
 
@@ -796,118 +1579,155 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-// Función para generar las cuotas - CON FECHAS EDITABLES
+
+//FUNCIÓN GENERAR CUOTAS
 function generarCuotas() {
-  let cuotas = parseInt(document.getElementById("credito_cuotas").value) || 1;
-  let tasa = parseFloat(document.getElementById("credito_tasa").value) || 0;
-  let totalCompra = parseFloat(document.getElementById("totalGeneral").innerText) || 0;
-  let tipoPeriodo = document.getElementById("tipo_periodo").value;
-  let montoAdelanto = parseFloat(document.getElementById("monto_adelanto").value) || 0;
-
-  if (totalCompra <= 0) {
-    Swal.fire("Error", "Debes agregar productos antes de configurar las cuotas", "warning");
+  //OBTENER VALORES
+  const totalCompra = parseFloat(document.getElementById("totalGeneral").innerText) || 0;
+  const cantidadCuotas = parseInt(document.getElementById("credito_cuotas").value) || 0;
+  const tasaInteres = parseFloat(document.getElementById("credito_tasa").value) || 0;
+  const montoAdelanto = parseFloat(document.getElementById("monto_adelanto").value) || 0;
+  const tipoPeriodo = document.getElementById("tipo_periodo").value;
+  
+  //VALIDACIONES
+  if (totalCompra === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Total requerido',
+      text: 'Debe agregar productos antes de configurar las cuotas',
+      confirmButtonColor: '#ffc107'
+    });
     return;
   }
-
+  
+  if (cantidadCuotas < 1 || cantidadCuotas > 36) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Cantidad inválida',
+      text: 'La cantidad de cuotas debe estar entre 1 y 36',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
   if (montoAdelanto >= totalCompra) {
-    Swal.fire("Error", "El monto de adelanto no puede ser mayor o igual al total de la compra", "warning");
+    Swal.fire({
+      icon: 'warning',
+      title: 'Adelanto inválido',
+      text: 'El monto del adelanto debe ser menor al total de la compra',
+      confirmButtonColor: '#ffc107'
+    });
     return;
   }
-
-  let totalAFinanciar = totalCompra - montoAdelanto;
-  let importe = totalAFinanciar / cuotas;
-  let interes = importe * (tasa / 100);
-  let totalCuota = importe + interes;
-
-  let tbody = document.getElementById("tablaCuotas");
-  tbody.innerHTML = "";
-  document.querySelectorAll(".cuota-hidden").forEach(e => e.remove());
-
-  if (tipoPeriodo === "meses") {
-    let mes = parseInt(document.getElementById("credito_mes").value);
-    let diaMes = parseInt(document.getElementById("credito_dia_mes").value) || 15;
+  
+  //CALCULAR MONTO A FINANCIAR
+  const montoFinanciar = totalCompra - montoAdelanto;
+  
+  //CALCULAR MONTO POR CUOTA (sin interés)
+  const montoCuotaBase = montoFinanciar / cantidadCuotas;
+  
+  //CALCULAR INTERÉS POR CUOTA
+  const tasaDecimal = tasaInteres / 100;
+  const interesCuota = montoCuotaBase * tasaDecimal;
+  
+  //TOTAL POR CUOTA (capital + interés)
+  const totalCuota = montoCuotaBase + interesCuota;
+  
+  //GENERAR FECHAS
+  const fechas = [];
+  let fechaActual = new Date();
+  
+  if (tipoPeriodo === 'meses') {
+    const mes = parseInt(document.getElementById('credito_mes').value) || 1;
+    const dia = parseInt(document.getElementById('credito_dia_mes').value) || 15;
+    const anio = fechaActual.getFullYear();
     
-    if (diaMes < 1 || diaMes > 31) {
-      Swal.fire("Error", "El día debe estar entre 1 y 31", "warning");
-      return;
-    }
-
-    let hoy = new Date();
-    let anioInicio = hoy.getFullYear();
-    let mesActual = hoy.getMonth() + 1;
-    let diaActual = hoy.getDate();
+    // Primera cuota
+    fechaActual = new Date(anio, mes - 1, dia);
     
-    if (mes < mesActual || (mes === mesActual && diaMes <= diaActual)) {
-      anioInicio++;
-    }
-
-    for (let i = 0; i < cuotas; i++) {
-      let mesActualCuota = mes + i;
-      let anioCuota = anioInicio;
-      
-      while (mesActualCuota > 12) {
-        mesActualCuota -= 12;
-        anioCuota++;
-      }
-      
-      let fechaVencimiento = `${anioCuota}-${String(mesActualCuota).padStart(2, '0')}-${String(diaMes).padStart(2, '0')}`;
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${i + 1}</td>
-          <td>
-            <input type="date" name="fecha_vencimiento_${i + 1}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
-          </td>
-          <td>${importe.toFixed(2)}</td>
-          <td>${interes.toFixed(2)}</td>
-          <td>${totalCuota.toFixed(2)}</td>
-        </tr>
-      `;
-
-      let adelantoRegistro = (i === 0) ? montoAdelanto : 0;
-
-      document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
-        <input type="hidden" class="cuota-hidden" name="numero_cuota_${i + 1}" value="${i + 1}">
-        <input type="hidden" class="cuota-hidden" name="monto_${i + 1}" value="${importe.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="tasa_${i + 1}" value="${tasa.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="interes_${i + 1}" value="${interes.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="total_${i + 1}" value="${totalCuota.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i + 1}" value="${adelantoRegistro.toFixed(2)}">
-      `);
+    // Si la fecha ya pasó, usar el próximo mes
+    if (fechaActual < new Date()) {
+      fechaActual.setMonth(fechaActual.getMonth() + 1);
     }
   } else {
-    let dias = parseInt(document.getElementById("credito_dias").value) || 30;
-    let fecha = new Date();
-
-    for (let i = 1; i <= cuotas; i++) {
-      fecha.setDate(fecha.getDate() + dias);
-      let fechaVencimiento = fecha.toISOString().slice(0, 10);
-
-      tbody.innerHTML += `
-        <tr>
-          <td>${i}</td>
-          <td>
-            <input type="date" name="fecha_vencimiento_${i}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
-          </td>
-          <td>${importe.toFixed(2)}</td>
-          <td>${interes.toFixed(2)}</td>
-          <td>${totalCuota.toFixed(2)}</td>
-        </tr>
-      `;
-
-      let adelantoRegistro = (i === 1) ? montoAdelanto : 0;
-
-      document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
-        <input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${i}">
-        <input type="hidden" class="cuota-hidden" name="monto_${i}" value="${importe.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="tasa_${i}" value="${tasa.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="interes_${i}" value="${interes.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="total_${i}" value="${totalCuota.toFixed(2)}">
-        <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i}" value="${adelantoRegistro.toFixed(2)}">
-      `);
+    // Por días
+    const dias = parseInt(document.getElementById('credito_dias').value) || 30;
+    fechaActual.setDate(fechaActual.getDate() + dias);
+  }
+  
+  //GENERAR TABLA DE CUOTAS
+  let tablaCuotas = '';
+  let totalFinanciado = 0;
+  let totalIntereses = 0;
+  
+  //LIMPIAR CUOTAS ANTERIORES
+  document.querySelectorAll('.cuota-hidden').forEach(e => e.remove());
+  
+  for (let i = 1; i <= cantidadCuotas; i++) {
+    const fechaVencimiento = new Date(fechaActual);
+    const fechaISO = fechaVencimiento.toISOString().split('T')[0];
+    const fechaFormateada = formatearFecha(fechaVencimiento);
+    
+    totalFinanciado += montoCuotaBase;
+    totalIntereses += interesCuota;
+    
+    //AGREGAR FILA A LA TABLA
+    tablaCuotas += `
+      <tr>
+        <td class="text-center"><strong>Cuota ${i}</strong></td>
+        <td class="text-center">
+          <input type="date" 
+                 id="fecha_cuota_visual_${i}"
+                 class="form-control form-control-sm fecha-cuota-editable" 
+                 value="${fechaISO}" 
+                 data-cuota="${i}"
+                 onchange="actualizarFechaCuota(${i})">
+        </td>
+        <td class="text-end">S/ ${montoCuotaBase.toFixed(2)}</td>
+        <td class="text-end ${tasaInteres > 0 ? 'text-danger' : ''}">S/ ${interesCuota.toFixed(2)}</td>
+        <td class="text-end fw-bold text-success">S/ ${totalCuota.toFixed(2)}</td>
+      </tr>
+    `;
+    
+    //✅ AGREGAR INPUTS OCULTOS CON LA FECHA
+    const adelantoRegistro = (i === 1) ? montoAdelanto : 0;
+    
+    document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
+      <input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${i}">
+      <input type="hidden" class="cuota-hidden" name="monto_${i}" value="${montoCuotaBase.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="tasa_${i}" value="${tasaInteres.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="interes_${i}" value="${interesCuota.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="total_${i}" value="${totalCuota.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" id="fecha_vencimiento_${i}" name="fecha_vencimiento_${i}" value="${fechaISO}">
+      <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i}" value="${adelantoRegistro.toFixed(2)}">
+    `);
+    
+    //CALCULAR SIGUIENTE FECHA
+    if (tipoPeriodo === 'meses') {
+      fechaActual.setMonth(fechaActual.getMonth() + 1);
+    } else {
+      const dias = parseInt(document.getElementById('credito_dias').value) || 30;
+      fechaActual.setDate(fechaActual.getDate() + dias);
     }
   }
-
+  
+  //AGREGAR TOTALES AL FINAL DE LA TABLA
+  const totalConIntereses = totalFinanciado + totalIntereses;
+  const diferenciaInteres = totalConIntereses - montoFinanciar;
+  
+  tablaCuotas += `
+    <tr class="table-light border-top border-2">
+      <td colspan="2" class="text-end fw-bold">TOTALES:</td>
+      <td class="text-end fw-bold">S/ ${totalFinanciado.toFixed(2)}</td>
+      <td class="text-end fw-bold ${tasaInteres > 0 ? 'text-danger' : ''}">S/ ${totalIntereses.toFixed(2)}</td>
+      <td class="text-end fw-bold text-success">S/ ${totalConIntereses.toFixed(2)}</td>
+    </tr>
+  `;
+  
+  //MOSTRAR EN LA TABLA
+  document.getElementById('tablaCuotas').innerHTML = tablaCuotas;
+  
+  //AGREGAR DATOS GENERALES
   const adelantoExistente = document.getElementById("formCompra").querySelector('[name="monto_adelanto_general"]');
   if (adelantoExistente) {
     adelantoExistente.remove();
@@ -919,17 +1739,87 @@ function generarCuotas() {
   const cuotasInput = document.getElementById("formCompra").querySelector('[name="credito_cuotas"]');
   if (!cuotasInput) {
     document.getElementById("formCompra").insertAdjacentHTML("beforeend", `
-      <input type="hidden" class="cuota-hidden" name="credito_cuotas" value="${cuotas}">
+      <input type="hidden" class="cuota-hidden" name="credito_cuotas" value="${cantidadCuotas}">
     `);
   }
   
-  Swal.fire({
-    icon: "success",
-    title: "Cuotas generadas",
-    text: `Se generaron ${cuotas} cuotas correctamente`,
-    timer: 1500,
-    showConfirmButton: false
-  });
+  //MOSTRAR RESUMEN VISUAL
+  mostrarResumenCuotasCompra(totalCompra, montoAdelanto, montoFinanciar, totalConIntereses, diferenciaInteres, cantidadCuotas);
+}
+
+// ✅ NUEVA FUNCIÓN: Actualizar fecha cuando el usuario la cambia
+function actualizarFechaCuota(numeroCuota) {
+  const fechaVisual = document.getElementById(`fecha_cuota_visual_${numeroCuota}`).value;
+  const fechaOculta = document.getElementById(`fecha_vencimiento_${numeroCuota}`);
+  
+  if (fechaOculta) {
+    fechaOculta.value = fechaVisual;
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Fecha actualizada',
+      text: `Cuota ${numeroCuota} reprogramada para ${fechaVisual}`,
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true
+    });
+  }
+}
+
+//FUNCIÓN MOSTRAR RESUMEN DE CUOTAS
+function mostrarResumenCuotasCompra(totalCompra, adelanto, montoFinanciar, totalConIntereses, intereses, numCuotas) {
+  //CREAR O ACTUALIZAR RESUMEN
+  let resumen = document.getElementById('resumenCuotasCompra');
+  
+  if (!resumen) {
+    // Crear resumen si no existe
+    const tabla = document.getElementById('tablaCuotas').parentElement;
+    tabla.insertAdjacentHTML('beforebegin', `
+      <div id="resumenCuotasCompra" class="alert alert-info mb-3">
+        <div class="row">
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-shopping-cart me-2"></i>Total Compra:</strong><br>
+            <span class="fs-5 text-primary" id="resumen_total_compra">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-hand-holding-dollar me-2"></i>Adelanto:</strong><br>
+            <span class="fs-5 text-success" id="resumen_adelanto_compra">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-calendar-days me-2"></i>A Financiar (${numCuotas} cuotas):</strong><br>
+            <span class="fs-5 text-warning" id="resumen_financiar_compra">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-percent me-2"></i>Total + Intereses:</strong><br>
+            <span class="fs-5 text-danger" id="resumen_con_intereses_compra">S/ 0.00</span>
+            <br><small class="text-muted" id="resumen_diferencia_compra">(+S/ 0.00 en intereses)</small>
+          </div>
+        </div>
+      </div>
+    `);
+    resumen = document.getElementById('resumenCuotasCompra');
+  }
+  
+  //ACTUALIZAR VALORES
+  document.getElementById('resumen_total_compra').textContent = `S/ ${totalCompra.toFixed(2)}`;
+  document.getElementById('resumen_adelanto_compra').textContent = `S/ ${adelanto.toFixed(2)}`;
+  document.getElementById('resumen_financiar_compra').textContent = `S/ ${montoFinanciar.toFixed(2)}`;
+  document.getElementById('resumen_con_intereses_compra').textContent = `S/ ${totalConIntereses.toFixed(2)}`;
+  document.getElementById('resumen_diferencia_compra').textContent = `(+S/ ${intereses.toFixed(2)} en intereses)`;
+  
+  //ACTUALIZAR NÚMERO DE CUOTAS EN EL TEXTO
+  resumen.querySelector('strong:nth-of-type(3)').innerHTML = `<i class="fa-solid fa-calendar-days me-2"></i>A Financiar (${numCuotas} cuotas):`;
+}
+
+
+//FUNCIÓN FORMATEAR FECHA
+function formatearFecha(fecha) {
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const anio = fecha.getFullYear();
+  return `${dia}/${mes}/${anio}`;
 }
 
 function guardarYCerrarCuotas() {
@@ -963,6 +1853,298 @@ function cerrarModalCuotas() {
     modalInstance.show();
   }
 }
+
+//FUNCIÓN PARA EDITAR COMPRA
+//⭐ FUNCIÓN PARA EDITAR COMPRA (CON ID ENCRIPTADO)
+function editarCompra(eid) {
+  console.log('🔍 Editando compra con ID encriptado:', eid);
+  
+  // Cerrar modal de detalle si está abierto
+  const modalesDetalle = document.querySelectorAll('[id^="detalleModal"]');
+  modalesDetalle.forEach(modal => {
+    const instance = bootstrap.Modal.getInstance(modal);
+    if (instance) {
+      instance.hide();
+    }
+  });
+  
+  Swal.fire({
+    title: 'Cargando datos...',
+    html: 'Por favor espere',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    willOpen: () => {
+      Swal.showLoading();
+    }
+  });
+  
+  $.ajax({
+    url: `/api/cmp/get/${eid}/`,  // ✅ RUTA CORRECTA PARA OBTENER DATOS
+    method: 'GET',
+    success: function(data) {
+      console.log('✅ Respuesta recibida:', data);
+      
+      if (data.success) {
+        Swal.close();
+        
+        //LIMPIAR FORMULARIO
+        $('#formCompra')[0].reset();
+        $('#tablaDetalles').html('');
+        itemIndex = 0;
+        total = 0;
+        $('#totalGeneral').text('0.00');
+        $('#items_count').val('0');
+        
+        //CARGAR DATOS GENERALES
+        $('#proveedor_search').val(data.compra.proveedor_nombre);
+        $('#proveedor_id').val(data.compra.idproveedor);
+        $('select[name="tipo_cliente"]').val(data.compra.idtipocliente);
+        $('input[name="numcorrelativo"]').val(data.compra.numcorrelativo);
+        $('input[name="fechacompra"]').val(data.compra.fechacompra);
+        $('#forma_pago').val(data.compra.id_forma_pago).trigger('change');
+        
+        if (data.compra.id_tipo_pago) {
+          $('#tipo_pago').val(data.compra.id_tipo_pago);
+        }
+        
+        //CARGAR DETALLES
+        data.detalles.forEach(function(d) {
+          itemIndex++;
+          $('#items_count').val(itemIndex);
+          
+          let nombre = '';
+          let tipo = d.tipo;
+          let extraInputs = '';
+          let subtotal = d.cantidad * d.precio_compra;
+          total += subtotal;
+          
+          if (tipo === 'vehiculo') {
+            nombre = d.nombre;
+            extraInputs = `
+              <input type="hidden" name="idproducto_${itemIndex}" value="${d.id_producto}">
+              <input type="hidden" name="serie_motor_${itemIndex}" value="${d.serie_motor}">
+              <input type="hidden" name="serie_chasis_${itemIndex}" value="${d.serie_chasis}">
+              <input type="hidden" name="idestadoproducto_${itemIndex}" value="${d.estado_producto}">
+              <input type="hidden" name="imperfecciones_${itemIndex}" value="${d.imperfecciones}">
+              <input type="hidden" name="placas_${itemIndex}" value="${d.placas}">
+            `;
+          } else if (tipo === 'repuesto') {
+            nombre = d.nombre;
+            extraInputs = `
+              <input type="hidden" name="id_repuesto_${itemIndex}" value="${d.id_repuesto}">
+              <input type="hidden" name="descripcion_${itemIndex}" value="${d.descripcion}">
+              <input type="hidden" name="codigo_barras_${itemIndex}" value="${d.codigo_barras}">
+              <input type="hidden" name="modelo_${itemIndex}" value="${d.modelo}">
+            `;
+          }
+          
+          const fila = `
+            <tr id="fila_${itemIndex}">
+              <td>${tipo}</td>
+              <td>${nombre}</td>
+              <td>${d.cantidad}</td>
+              <td>${d.precio_compra.toFixed(2)}</td>
+              <td>${d.precio_venta.toFixed(2)}</td>
+              <td>${subtotal.toFixed(2)}</td>
+              <td>
+                <button type="button" class="btn btn-danger btn-sm" onclick="eliminarDetalle(${itemIndex}, ${subtotal})">Eliminar</button>
+              </td>
+              <td style="display:none">
+                <input type="hidden" name="tipo_item_${itemIndex}" value="${tipo}">
+                <input type="hidden" name="cantidad_${itemIndex}" value="${d.cantidad}">
+                <input type="hidden" name="precio_compra_${itemIndex}" value="${d.precio_compra}">
+                <input type="hidden" name="precio_venta_${itemIndex}" value="${d.precio_venta}">
+                ${extraInputs}
+              </td>
+            </tr>
+          `;
+          
+          $('#tablaDetalles').append(fila);
+        });
+        
+        $('#totalGeneral').text(total.toFixed(2));
+        
+        //CARGAR CUOTAS SI EXISTEN
+        if (data.cuotas && data.cuotas.length > 0) {
+          $('#tiene_cuotas').val('1');
+          $('#credito_cuotas').val(data.cuotas.length);
+          $('#credito_tasa').val(data.cuotas[0].tasa);
+          
+          $('.cuota-hidden').remove();
+          
+          data.cuotas.forEach(function(cuota, index) {
+            const i = index + 1;
+            $('#formCompra').append(`
+              <input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${cuota.numero_cuota}">
+              <input type="hidden" class="cuota-hidden" name="monto_${i}" value="${cuota.monto}">
+              <input type="hidden" class="cuota-hidden" name="tasa_${i}" value="${cuota.tasa}">
+              <input type="hidden" class="cuota-hidden" name="interes_${i}" value="${cuota.interes}">
+              <input type="hidden" class="cuota-hidden" name="total_${i}" value="${cuota.total}">
+              <input type="hidden" class="cuota-hidden" name="fecha_vencimiento_${i}" value="${cuota.fecha_vencimiento}">
+              <input type="hidden" class="cuota-hidden" name="monto_adelanto_${i}" value="${cuota.monto_adelanto}">
+            `);
+          });
+        }
+        
+        //⭐ CAMBIAR ACCIÓN DEL FORMULARIO CON ID ENCRIPTADO
+        console.log('📝 Configurando formulario para editar. ID encriptado:', eid);
+        $('#formCompra').attr('action', `/sys/cmp/upd/${eid}/`);  // ✅ ESTA SÍ ES CORRECTA
+        $('#modalAgregarCompra .modal-title').text('Editar Compra');
+        $('#guardarCompra').text('Actualizar Compra');
+        
+        // Abrir modal
+        const modalCompra = new bootstrap.Modal(document.getElementById('modalAgregarCompra'));
+        modalCompra.show();
+        
+        console.log('✅ Modal abierto correctamente');
+        
+        //RESTAURAR AL CERRAR EL MODAL
+        $('#modalAgregarCompra').on('hidden.bs.modal', function() {
+          $('#formCompra').attr('action', "{% url 'agregarCompras' %}");
+          $('#modalAgregarCompra .modal-title').text('Nueva Compra');
+          $('#guardarCompra').text('Guardar Compra');
+          $('#formCompra')[0].reset();
+          $('#tablaDetalles').html('');
+          itemIndex = 0;
+          total = 0;
+          $('#totalGeneral').text('0.00');
+          $('#items_count').val('0');
+          $('.cuota-hidden').remove();
+          $('#tiene_cuotas').val('0');
+        });
+      }
+    },
+    error: function(xhr) {
+      console.error('❌ Error al cargar compra:', xhr);
+      
+      Swal.fire({
+        title: 'Error',
+        text: xhr.responseJSON?.error || 'No se pudo cargar la compra',
+        icon: 'error',
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+}
+
+//FUNCIÓN PARA ELIMINAR COMPRA (CON VALIDACIÓN DE PERMISOS)
+function eliminarCompra(eid, numCorrelativo) {
+  console.log('🗑️ Eliminando compra con ID encriptado:', eid);
+  
+  //VERIFICAR PERMISOS (solo admin)
+  const esAdmin = {{ es_admin|yesno:"true,false" }};
+  
+  if (!esAdmin) {
+    Swal.fire({
+      title: 'Sin permisos',
+      html: `
+        <p>Solo los administradores pueden eliminar compras.</p>
+        <div class="alert alert-warning mt-3">
+          <i class="fa-solid fa-shield-halved me-2"></i>
+          Contacte con un administrador si necesita eliminar esta compra.
+        </div>
+      `,
+      icon: 'warning',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
+  Swal.fire({
+    title: '¿Eliminar compra?',
+    html: `
+      <p>¿Está seguro de eliminar la compra <strong>#${numCorrelativo}</strong>?</p>
+      <div class="alert alert-danger mt-3">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+        <strong>Advertencia:</strong> Esta acción cambiará el estado de la compra y quedará registrada en auditoría.
+      </div>
+      <div class="form-group mt-3 text-start">
+        <label class="form-label fw-bold">Motivo de eliminación: <span class="text-danger">*</span></label>
+        <textarea id="motivoEliminacion" class="form-control" rows="3" placeholder="Escriba el motivo (mínimo 10 caracteres)"></textarea>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: '<i class="fa-solid fa-trash me-2"></i>Sí, eliminar',
+    cancelButtonText: '<i class="fa-solid fa-xmark me-2"></i>Cancelar',
+    preConfirm: () => {
+      const motivo = document.getElementById('motivoEliminacion').value.trim();
+      if (!motivo || motivo.length < 10) {
+        Swal.showValidationMessage('Debe ingresar un motivo de al menos 10 caracteres');
+        return false;
+      }
+      return { motivo: motivo };
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Mostrar loading
+      Swal.fire({
+        title: 'Eliminando compra...',
+        html: 'Por favor espere',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        willOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // Enviar petición AJAX para eliminar
+      $.ajax({
+        url: `/sys/cmp/del/${eid}/`,
+        method: 'POST',
+        data: {
+          'csrfmiddlewaretoken': '{{ csrf_token }}',
+          'motivo': result.value.motivo
+        },
+        success: function(response) {
+          Swal.fire({
+            title: '¡Eliminada!',
+            html: `
+              <p>La compra ha sido eliminada correctamente</p>
+              <small class="text-muted">La acción ha sido registrada en auditoría</small>
+            `,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            window.location.reload();
+          });
+        },
+        error: function(xhr) {
+          let errorMsg = 'No se pudo eliminar la compra';
+          
+          if (xhr.responseJSON) {
+            errorMsg = xhr.responseJSON.error || errorMsg;
+            
+            if (xhr.responseJSON.codigo === 'SIN_PERMISOS') {
+              Swal.fire({
+                title: 'Sin permisos',
+                text: errorMsg,
+                icon: 'warning',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#ffc107'
+              });
+              return;
+            }
+          }
+          
+          Swal.fire({
+            title: 'Error',
+            text: errorMsg,
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        }
+      });
+    }
+  });
+}
+
 </script>
 
 <style>
@@ -1000,5 +2182,343 @@ function cerrarModalCuotas() {
   input[readonly] {
     background-color: #e9ecef;
   }
+
+  /*ESTILOS AUTOCOMPLETE MODERNO */
+  .autocomplete-wrapper {
+    position: relative;
+  }
+
+  .autocomplete-input {
+    width: 100%;
+  }
+
+  /* Input con flecha */
+  .autocomplete-with-arrow {
+    padding-right: 40px;
+  }
+
+  /* Botón flecha */
+  .autocomplete-arrow {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 5px 8px;
+    color: #6c757d;
+    transition: color 0.2s;
+    z-index: 10;
+  }
+
+  .autocomplete-arrow:hover {
+    color: #495057;
+  }
+
+  .autocomplete-arrow i {
+    font-size: 14px;
+  }
+
+  .autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    max-height: 250px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    display: none;
+  }
+
+  .autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+  }
+
+  .autocomplete-item:last-child {
+    border-bottom: none;
+  }
+
+  .autocomplete-item:hover {
+    background-color: #e9f5ff;
+  }
+
+  .autocomplete-item.no-results {
+    color: #6c757d;
+    cursor: default;
+    font-style: italic;
+  }
+
+  .autocomplete-item.no-results:hover {
+    background-color: white;
+  }
+
+  /* Mejorar el scroll del autocomplete */
+  .autocomplete-results::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .autocomplete-results::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 4px;
+  }
+
+  .autocomplete-results::-webkit-scrollbar-thumb {
+    background: #adb5bd;
+    border-radius: 4px;
+  }
+
+  .autocomplete-results::-webkit-scrollbar-thumb:hover {
+    background: #6c757d;
+  }
+
+  /*ESTILOS PARA BOTÓN AGREGAR PROVEEDOR */
+  .input-group .autocomplete-wrapper {
+    position: relative;
+    flex: 1 1 auto;
+  }
+
+  .input-group-proveedor {
+    gap: 20px; /* Espacio entre el campo y el botón */
+  }
+
+  .btn-add-proveedor {
+    border-radius: 0.375rem !important; /* Bordes redondeados independientes */
+    padding: 0.375rem 0.75rem;
+    min-width: 42px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn-add-proveedor:hover {
+    background-color: #157347;
+    border-color: #146c43;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+  }
+
+  .btn-add-proveedor:active {
+    transform: translateY(0);
+  }
+
+  /* Ajuste para que el input tenga bordes redondeados completos */
+  .input-group-proveedor .autocomplete-input {
+    border-radius: 0.375rem !important;
+  }
+
+  /* Animación para campos autocompletados */
+  .campo-autocompletado {
+    animation: highlightField 0.6s ease;
+  }
+
+  @keyframes highlightField {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: #d1f2eb; }
+  }
+
+  /*ESTILOS PARA MODAL DE DETALLES MEJORADO */
+  .bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  }
+
+  .modal-xl {
+    max-width: 1200px;
+  }
+
+  .modal-body .card {
+    border-radius: 10px;
+  }
+
+  .badge-sm {
+    font-size: 0.75rem;
+    padding: 0.25em 0.6em;
+  }
+
+  /* Tabla de detalles */
+  .table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.2s;
+  }
+
+  /* Mejorar scrollbar del modal */
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+  }
+
+  .modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+  /* Iconos en la tabla */
+  .table tbody td i {
+    opacity: 0.7;
+  }
+
+  /* Responsive para modal */
+  @media (max-width: 768px) {
+    .modal-xl {
+      max-width: 95%;
+    }
+    
+    .table {
+      font-size: 0.85rem;
+    }
+  }
+
+  /*ESTILOS PARA BOTONES DE ACCIÓN EN LA TABLA */
+  .btn-group .btn {
+    border-radius: 0;
+  }
+
+  .btn-group .btn:first-child {
+    border-top-left-radius: 0.25rem;
+    border-bottom-left-radius: 0.25rem;
+  }
+
+  .btn-group .btn:last-child {
+    border-top-right-radius: 0.25rem;
+    border-bottom-right-radius: 0.25rem;
+  }
+
+  .btn-group .btn-info {
+    background-color: #17a2b8;
+    border-color: #17a2b8;
+    color: white;
+  }
+
+  .btn-group .btn-info:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+  }
+
+  .btn-group .btn-primary:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+  }
+
+  .btn-group .btn-danger:hover {
+    background-color: #bb2d3b;
+    border-color: #b02a37;
+  }
+
+  #resumenCuotasCompra {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-left: 5px solid #2196f3;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* MODAL DE CUOTAS MEJORADO */
+
+#resumenCuotasCompra strong {
+  color: #1565c0;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+#resumenCuotasCompra .fs-5 {
+  font-weight: 700;
+  display: block;
+}
+
+#resumenCuotasCompra .row > div {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+}
+
+#resumenCuotasCompra .row > div:last-child {
+  border-right: none;
+}
+
+/* Inputs de fecha editables en la tabla */
+.fecha-cuota-editable {
+  border: 2px solid #0dcaf0;
+  background-color: #e0f7ff;
+  font-weight: 600;
+  text-align: center;
+}
+
+.fecha-cuota-editable:focus {
+  border-color: #0a9fc7;
+  box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+}
+
+/* Tabla de cuotas mejorada */
+#tablaCuotas tr {
+  transition: background-color 0.2s ease;
+}
+
+#tablaCuotas tr:hover {
+  background-color: #f0f8ff;
+}
+
+#tablaCuotas td {
+  vertical-align: middle;
+  padding: 0.75rem;
+}
+
+#tablaCuotas .table-light {
+  background-color: #e3f2fd !important;
+  font-size: 1.1rem;
+}
+
+/* Iconos en el resumen */
+#resumenCuotasCompra i {
+  color: #1976d2;
+}
+
+/* Animación al generar cuotas */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#resumenCuotasCompra {
+  animation: fadeInUp 0.5s ease;
+}
+
+#tablaCuotas tr {
+  animation: fadeInUp 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #resumenCuotasCompra .row > div {
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+  }
+  
+  #resumenCuotasCompra .row > div:last-child {
+    border-bottom: none;
+  }
+}
+
 </style>
 {% endblock %}

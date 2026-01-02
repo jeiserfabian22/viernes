@@ -1,30 +1,17 @@
 from datetime import datetime
 from decimal import Decimal
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
-from software.models.comprasModel import Compras
-from software.models.ProveedoresModel import Proveedores
-from software.models.TipoclienteModel import Tipocliente
-from software.models.ProductoModel import Producto
-from software.models.categoriaModel import Categoria
-from software.models.compradetalleModel import CompraDetalle
-from software.models.VentasModel import Ventas
-from software.models.VentaDetalleModel import VentaDetalle
+from django.shortcuts import get_object_or_404, render
 from software.models.UsuarioModel import Usuario
-from software.models.UnidadesModel import Unidades
 from software.models.TipousuarioModel import Tipousuario
 from software.models.TipodocumentoModel import Tipodocumento
 from software.models.TipoclienteModel import Tipocliente
-from software.models.ProveedoresModel import Proveedores
-from software.models.NumserieModel import Numserie
+from software.models.ProveedoresModel import Proveedor
 from software.models.ModulosModel import Modulos
 from software.models.empresaModel import Empresa
 from software.models.empleadoModel import Empleado
-
 from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
-from software.models.detallecategoriaxunidadesModel import Detallecategoriaxunidades
 from software.models.departamentosModel import Departamentos
-from software.models.codigocorreoModel import CodigoCorreo
 from django.db import connection
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
@@ -35,25 +22,48 @@ from software.utils.encryption_utils import EncryptionManager, PasswordManager
 
 def usuarios(request):
     id2 = request.session.get('idtipousuario')
-    if id2:
-        permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-        usuarios_db = Usuario.objects.filter(estado=1)
-        
-        # Descifrar correos para mostrarlos en la vista
-        usuarios = []
-        for usuario in usuarios_db:
-            usuario.correo_descifrado = EncryptionManager.decrypt_email(usuario.correo)
-            usuarios.append(usuario)
-        
-        tipoUsuarios = Tipousuario.objects.filter(estado=1)
-        data = {
-            'usuarios': usuarios,
-            'tipoUsuarios': tipoUsuarios,
-            'permisos': permisos
-        }
-        return render(request, 'usuarios/usuarios.html', data)
-    else:
+    if not id2:
         return HttpResponse("<h1>No tiene acceso señor</h1>")
+    
+    permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
+    
+    # FILTRAR USUARIOS POR SUCURSAL
+    idusuario = request.session.get('idusuario')
+    id_sucursal = request.session.get('id_sucursal')
+    es_admin = (id2 == 1)
+    
+    if es_admin and id_sucursal:
+        usuarios_db = Usuario.objects.filter(
+            estado=1,
+            id_sucursal_id=id_sucursal
+        ).select_related('idtipousuario', 'id_sucursal', 'idempresa')
+    elif not es_admin:
+        try:
+            usuario_actual = Usuario.objects.get(idusuario=idusuario)
+            usuarios_db = Usuario.objects.filter(
+                estado=1,
+                id_sucursal=usuario_actual.id_sucursal
+            ).select_related('idtipousuario', 'id_sucursal', 'idempresa')
+        except Usuario.DoesNotExist:
+            usuarios_db = []
+    else:
+        usuarios_db = []
+    
+    # Descifrar correos para mostrarlos en la vista
+    usuarios = []
+    for usuario in usuarios_db:
+        usuario.correo_descifrado = EncryptionManager.decrypt_email(usuario.correo)
+        usuarios.append(usuario)
+    
+    tipoUsuarios = Tipousuario.objects.filter(estado=1)
+    
+    data = {
+        'usuarios': usuarios,
+        'tipoUsuarios': tipoUsuarios,
+        'permisos': permisos,
+        'es_admin': es_admin,
+    }
+    return render(request, 'usuarios/usuarios.html', data)
 
 
 def agregar(request):
@@ -70,6 +80,26 @@ def agregar(request):
             if not all([nombreUsuario, correoUsuario, contrasenaUsuario, tipoUsuario, celularUsuario, dniUsuario]):
                 return JsonResponse({"error": "Todos los campos son requeridos"}, status=400)
 
+            # OBTENER SUCURSAL DEL USUARIO QUE CREA
+            idusuario_session = request.session.get('idusuario')
+            id_sucursal_session = request.session.get('id_sucursal')
+            
+            # Validar que tenga sucursal seleccionada
+            if not id_sucursal_session:
+                return JsonResponse({
+                    "error": "Debe seleccionar una sucursal en el modal de configuración antes de crear usuarios."
+                }, status=400)
+
+            # OBTENER LA EMPRESA DE LA SUCURSAL
+            try:
+                from software.models.sucursalesModel import Sucursales
+                sucursal = Sucursales.objects.get(id_sucursal=id_sucursal_session)
+                id_empresa = sucursal.idempresa_id
+            except Sucursales.DoesNotExist:
+                return JsonResponse({
+                    "error": "La sucursal seleccionada no existe."
+                }, status=400)
+
             # Cifrar el correo electrónico
             correo_cifrado = EncryptionManager.encrypt_email(correoUsuario)
             if not correo_cifrado:
@@ -83,17 +113,25 @@ def agregar(request):
             # Traer la instancia de tipo usuario
             getTipoUsuario = get_object_or_404(Tipousuario, idtipousuario=tipoUsuario)
 
-            # Crear el usuario con datos cifrados
+            # Crear el usuario CON SUCURSAL Y EMPRESA
             usuario = Usuario.objects.create(
                 nombrecompleto=nombreUsuario,
-                correo=correo_cifrado,  # Correo cifrado
-                contrasena=contrasena_hasheada,  # Contraseña hasheada
+                correo=correo_cifrado,
+                contrasena=contrasena_hasheada,
                 idtipousuario=getTipoUsuario,
                 celular=celularUsuario,
                 dni=dniUsuario,
+                id_sucursal_id=id_sucursal_session,
+                idempresa_id=id_empresa,
                 estado=1
             )
             usuario.save()
+            
+            print(f"✅ USUARIO CREADO:")
+            print(f"   - ID: {usuario.idusuario}")
+            print(f"   - Nombre: {usuario.nombrecompleto}")
+            print(f"   - Sucursal: {sucursal.nombre_sucursal}")
+            print(f"   - Empresa ID: {id_empresa}")
             
             return JsonResponse({
                 "message": "Usuario agregado exitosamente",
@@ -101,6 +139,8 @@ def agregar(request):
             }, status=201)
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return JsonResponse({"error": f"Error al crear usuario: {str(e)}"}, status=400)
 
     return JsonResponse({"error": "Método no permitido"}, status=405)
@@ -124,6 +164,13 @@ def editar(request):
             # Obtener el usuario existente
             usuario = get_object_or_404(Usuario, idusuario=idUsuario)
             
+            # VALIDACIÓN: Solo se puede editar usuarios de la misma sucursal
+            id_sucursal_session = request.session.get('id_sucursal')
+            if usuario.id_sucursal_id != id_sucursal_session:
+                return JsonResponse({
+                    "error": "No tiene permisos para editar este usuario de otra sucursal."
+                }, status=403)
+            
             # Traer la instancia de tipo usuario
             getTipoUsuario = get_object_or_404(Tipousuario, idtipousuario=tipoUsuario)
 
@@ -136,14 +183,12 @@ def editar(request):
             # Verificar si el correo cambió
             correo_actual_descifrado = EncryptionManager.decrypt_email(usuario.correo)
             if correo_actual_descifrado != correoUsuario:
-                # Cifrar el nuevo correo
                 correo_cifrado = EncryptionManager.encrypt_email(correoUsuario)
                 if not correo_cifrado:
                     return JsonResponse({"error": "Error al cifrar el correo electrónico"}, status=400)
                 usuario.correo = correo_cifrado
             
             # Verificar si la contraseña cambió
-            # Si la contraseña recibida no está hasheada (no empieza con pbkdf2_), hashearla
             if contrasenaUsuario and not contrasenaUsuario.startswith('pbkdf2_'):
                 contrasena_hasheada = PasswordManager.hash_password(contrasenaUsuario)
                 if not contrasena_hasheada:
@@ -158,20 +203,54 @@ def editar(request):
             }, status=200)
             
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             return JsonResponse({"error": f"Error al editar usuario: {str(e)}"}, status=400)
 
     return JsonResponse({"error": "Método no permitido"}, status=405)
 
 
-def eliminar(request, id):
+# ⭐ ACTUALIZADO: Usar eid
+def eliminar(request, eid):
+    """
+    Eliminar usuario (soft delete) - CON ID ENCRIPTADO
+    """
     if request.method == "GET":
         try:
-            usuario = get_object_or_404(Usuario, idusuario=id)
+            from software.utils.url_encryptor import decrypt_id
+            
+            # ⭐ DESENCRIPTAR ID
+            idusuario = decrypt_id(eid)
+            if not idusuario:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'URL inválida'
+                }, status=400)
+            
+            # Obtener el usuario
+            usuario = get_object_or_404(Usuario, idusuario=idusuario)
+            
+            # Soft delete
             usuario.estado = 0
             usuario.save()
-            return JsonResponse({"message": "Usuario eliminado exitosamente"}, status=200)
+            
+            print(f"🗑️ Usuario eliminado: {usuario.nombrecompleto} (ID: {idusuario})")
+            
+            return JsonResponse({
+                "message": f"Usuario {usuario.nombrecompleto} eliminado exitosamente"
+            }, status=200)
+            
+        except Usuario.DoesNotExist:
+            return JsonResponse({
+                "error": "Usuario no encontrado"
+            }, status=404)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            print(f"❌ Error al eliminar usuario: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                "error": str(e)
+            }, status=400)
 
     return JsonResponse({"error": "Método no permitido"}, status=405)
 
@@ -179,21 +258,13 @@ def eliminar(request, id):
 def login_usuario(correo_plano, contrasena_plana):
     """
     Función auxiliar para validar el login de un usuario
-    Args:
-        correo_plano (str): Correo en texto plano
-        contrasena_plana (str): Contraseña en texto plano
-    Returns:
-        Usuario o None
     """
     try:
-        # Buscar todos los usuarios activos
         usuarios = Usuario.objects.filter(estado=1)
         
         for usuario in usuarios:
-            # Descifrar el correo de cada usuario
             correo_descifrado = EncryptionManager.decrypt_email(usuario.correo)
             
-            # Si el correo coincide, verificar la contraseña
             if correo_descifrado == correo_plano:
                 if PasswordManager.verify_password(contrasena_plana, usuario.contrasena):
                     return usuario
@@ -202,3 +273,8 @@ def login_usuario(correo_plano, contrasena_plana):
     except Exception as e:
         print(f"Error en login: {e}")
         return None
+    
+
+
+
+    

@@ -9,5 +9,5 @@ class TipoEntidad(models.Model):
     estado = models.IntegerField(default=1) 
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'tipo_entidad'

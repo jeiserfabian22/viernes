@@ -6,5 +6,5 @@ class Detalletipoigvxdepartamento(models.Model):
     iddepartamentos = models.CharField(max_length=11, db_collation='latin1_swedish_ci', db_comment='\t')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'detalletipoigvxdepartamento'

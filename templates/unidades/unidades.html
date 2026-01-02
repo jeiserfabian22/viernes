@@ -1,4 +1,5 @@
 {% extends 'plantilla/base.html' %}
+{% load url_filters %}  <!--⭐ AGREGAR ESTA LÍNEA -->
 
 {% block main %}
 <main id="main" class="main">
@@ -7,11 +8,11 @@
     <h1>Unidades</h1>
     <nav>
       <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
         <li class="breadcrumb-item active">Unidades</li>
       </ol>
     </nav>
-  </div><!-- End Page Title -->
+  </div>
 
   <section class="section dashboard">
     <div class="row">
@@ -20,7 +21,6 @@
           <div class="card-body">
             <h5 class="card-title">Lista de Unidades</h5> 
 
-            <!-- Tabla con DataTables -->
             <div class="table-responsive">
               <table class="table table-hover align-middle datatable">
                 <thead class="table-dark">
@@ -47,17 +47,21 @@
                     </td>
                     <td class="text-center">
                       {% if unidad.estado == 1 %}
-                        <!-- Botón desactivar -->
-                        <a href="{% url 'unidadesDesactivo' id=unidad.idunidad %}" 
-                          class="btn btn-sm btn-danger"
-                          onclick="return desactivar('{{ unidad.idunidad }}', this)">
+                        <!-- ⭐ Botón desactivar CON ID ENCRIPTADO -->
+                        <a href="#" 
+                           class="btn btn-sm btn-danger"
+                           data-eid="{{ unidad.idunidad|eid }}"
+                           data-nombre="{{ unidad.abrunidad }}"
+                           onclick="desactivar(event, this)">
                           Desactivar
                         </a>
                       {% else %}
-                        <!-- Botón activar -->
-                        <a href="{% url 'unidadesActivo' id=unidad.idunidad %}" 
-                          class="btn btn-sm btn-primary"
-                          onclick="return activar('{{ unidad.idunidad }}', this)">
+                        <!-- ⭐ Botón activar CON ID ENCRIPTADO -->
+                        <a href="#" 
+                           class="btn btn-sm btn-primary"
+                           data-eid="{{ unidad.idunidad|eid }}"
+                           data-nombre="{{ unidad.abrunidad }}"
+                           onclick="activar(event, this)">
                           Activar
                         </a>
                       {% endif %}
@@ -67,7 +71,6 @@
                 </tbody>
               </table>
             </div>
-            <!-- End Tabla -->
 
           </div>
         </div>
@@ -75,7 +78,7 @@
     </div>
   </section>
 
-</main><!-- End #main -->
+</main>
 
 <!-- DataTables + Bootstrap 5 -->
 <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
@@ -94,40 +97,71 @@
     });
   });
 
-// Activar unidad
-  function activar(id, enlace) {
-    let url = $(enlace).attr("href");
+  // ⭐ FUNCIÓN ACTIVAR ACTUALIZADA CON ID ENCRIPTADO
+  function activar(event, enlace) {
+    event.preventDefault(); // Prevenir navegación
+    
+    const eid = $(enlace).data('eid');  // ⭐ Obtener ID encriptado
+    const nombre = $(enlace).data('nombre');
+    
+    console.log('✅ Activando unidad con ID encriptado:', eid);
+    
     Swal.fire({
       title: '¿Desea activar esta unidad?',
+      html: `<p class="text-muted">${nombre}</p>`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#198754',
       cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí',
+      confirmButtonText: 'Sí, activar',
       cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
+        // Mostrar loading
+        Swal.fire({
+          title: 'Activando...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        
+        // ⭐ AJAX con ID encriptado
         $.ajax({
           type: "GET",
-          url: url,
-          data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+          url: `/cat/und/on/${eid}/`,  // ⭐ URL con eid
+          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
           success: function(response) {
-            if(response.status === 'success') {
+            if (response.status === 'success') {
               let fila = $(enlace).closest('tr');
               fila.find('td:nth-child(4)').html('<span class="badge bg-success">Unidad activa</span>');
               fila.find('td:nth-child(5)').html(`
-                <a href="{% url 'unidadesDesactivo' id=0 %}`.replace("0", id) + `" 
+                <a href="#" 
                    class="btn btn-sm btn-danger"
-                   onclick="return desactivar('${id}', this)">
+                   data-eid="${eid}"
+                   data-nombre="${nombre}"
+                   onclick="desactivar(event, this)">
                   Desactivar
                 </a>
               `);
+              
+              Swal.fire({
+                icon: 'success',
+                title: 'Activado',
+                text: response.message || 'Unidad activada correctamente',
+                timer: 2000,
+                showConfirmButton: false
+              });
             } else {
               Swal.fire('Error', response.message, 'error');
             }
           },
-          error: function() {
-            Swal.fire('Error', 'No se pudo procesar la solicitud.', 'error');
+          error: function(xhr) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: xhr.responseJSON?.message || 'No se pudo procesar la solicitud.'
+            });
           }
         });
       }
@@ -135,40 +169,71 @@
     return false;
   }
 
-  // Desactivar unidad
-  function desactivar(id, enlace) {
-    let url = $(enlace).attr("href");
+  // ⭐ FUNCIÓN DESACTIVAR ACTUALIZADA CON ID ENCRIPTADO
+  function desactivar(event, enlace) {
+    event.preventDefault(); // Prevenir navegación
+    
+    const eid = $(enlace).data('eid');  // ⭐ Obtener ID encriptado
+    const nombre = $(enlace).data('nombre');
+    
+    console.log('⚠️ Desactivando unidad con ID encriptado:', eid);
+    
     Swal.fire({
       title: '¿Desea desactivar esta unidad?',
+      html: `<p class="text-muted">${nombre}</p>`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#d33',
       cancelButtonColor: '#6c757d',
-      confirmButtonText: 'Sí',
+      confirmButtonText: 'Sí, desactivar',
       cancelButtonText: 'Cancelar'
     }).then((result) => {
       if (result.isConfirmed) {
+        // Mostrar loading
+        Swal.fire({
+          title: 'Desactivando...',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+        
+        // ⭐ AJAX con ID encriptado
         $.ajax({
           type: "GET",
-          url: url,
-          data: {csrfmiddlewaretoken: '{{ csrf_token }}'},
+          url: `/cat/und/off/${eid}/`,  // ⭐ URL con eid
+          data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
           success: function(response) {
-            if(response.status === 'success') {
+            if (response.status === 'success') {
               let fila = $(enlace).closest('tr');
               fila.find('td:nth-child(4)').html('<span class="badge bg-danger">Unidad desactivada</span>');
               fila.find('td:nth-child(5)').html(`
-                <a href="{% url 'unidadesActivo' id=0 %}`.replace("0", id) + `" 
+                <a href="#" 
                    class="btn btn-sm btn-primary"
-                   onclick="return activar('${id}', this)">
+                   data-eid="${eid}"
+                   data-nombre="${nombre}"
+                   onclick="activar(event, this)">
                   Activar
                 </a>
               `);
+              
+              Swal.fire({
+                icon: 'success',
+                title: 'Desactivado',
+                text: response.message || 'Unidad desactivada correctamente',
+                timer: 2000,
+                showConfirmButton: false
+              });
             } else {
               Swal.fire('Error', response.message, 'error');
             }
           },
-          error: function() {
-            Swal.fire('Error', 'No se pudo procesar la solicitud.', 'error');
+          error: function(xhr) {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: xhr.responseJSON?.message || 'No se pudo procesar la solicitud.'
+            });
           }
         });
       }

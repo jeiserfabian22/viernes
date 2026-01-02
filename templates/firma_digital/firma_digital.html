@@ -1,0 +1,892 @@
+{% extends 'plantilla/base.html' %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    <!-- Encabezado -->
+    <div class="pagetitle d-flex justify-content-between align-items-center">
+        <h1 class="fw-bold text-primary">
+            <i class="fas fa-file-signature me-2"></i>Firma Digital
+        </h1>
+        <div>
+            <!-- Botón Verificar Documento -->
+            <a href="{% url 'verificar_documento' %}" class="btn btn-info rounded-pill shadow-sm me-2" target="_blank">
+                <i class="fas fa-shield-check me-2"></i>Verificar Documento
+            </a>
+            <!-- Botón Firmar -->
+            <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#modalFirmarDocumento">
+                <i class="fas fa-plus-circle me-2"></i>Firmar Documento
+            </button>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item active">Firma Digital</li>
+        </ol>
+    </nav>
+
+    <!-- Información del Certificado -->
+    <section class="section dashboard mt-4">
+        <div class="row">
+            <!-- Card Certificado Digital -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-certificate text-success me-2"></i>
+                            Mi Certificado Digital
+                        </h5>
+                        {% if certificado and certificado.estado == 1 %}
+                        <div class="alert alert-success" role="alert">
+                            <i class="fas fa-check-circle me-2"></i>
+                            <strong>Certificado Activo</strong>
+                        </div>
+                        <table class="table table-sm">
+                            <tr>
+                                <td class="fw-bold" style="width: 40%;">Titular:</td>
+                                <td>{{ usuario.nombrecompleto }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Huella Digital:</td>
+                                <td><code class="text-primary">{{ certificado.huella_digital|slice:":24" }}...</code></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Fecha Creación:</td>
+                                <td>{{ certificado.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold">Válido hasta:</td>
+                                <td>{{ certificado.fecha_expiracion|date:"d/m/Y" }}</td>
+                            </tr>
+                        </table>
+                        {% else %}
+                        <div class="alert alert-warning" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Certificado no disponible. Contacte al administrador.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card Información -->
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm border-0 bg-light">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-info-circle text-primary me-2"></i>
+                            ¿Cómo funciona?
+                        </h5>
+                        <ol class="ps-3 mb-0">
+                            <li class="mb-2">Sube tu documento (PDF o Word)</li>
+                            <li class="mb-2">Dibuja tu firma en el canvas</li>
+                            <li class="mb-2">El sistema calcula un hash SHA-256 del documento</li>
+                            <li class="mb-2">Tu clave privada firma el hash criptográficamente</li>
+                            <li class="mb-2">Se genera un documento firmado con tu firma visual</li>
+                            <li class="mb-0">Descarga el documento protegido</li>
+                        </ol>
+                        <div class="alert alert-info mt-3 mb-0" role="alert">
+                            <small>
+                                <i class="fas fa-shield-alt me-1"></i>
+                                <strong>Seguridad:</strong> Cualquier modificación al documento invalidará la firma digital.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla de Documentos Firmados -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title">Mis Documentos Firmados</h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle datatable" style="width: 100%;">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col" style="width: 5%;">#</th>
+                                <th scope="col" style="width: 30%;">Documento</th>
+                                <th scope="col" style="width: 10%;">Tipo</th>
+                                <th scope="col" style="width: 15%;">Fecha Firma</th>
+                                <th scope="col" style="width: 20%;">Hash (SHA-256)</th>
+                                <th scope="col" style="width: 10%;">Estado</th>
+                                <th scope="col" class="text-center" style="width: 10%;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for doc in documentos_firmados %}
+                            <tr>
+                                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                                <td>
+                                    <i class="fas fa-file-{% if doc.tipo_documento == 'PDF' %}pdf text-danger{% else %}word text-primary{% endif %} me-2"></i>
+                                    {{ doc.nombre_original }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if doc.tipo_documento == 'PDF' %}danger{% else %}primary{% endif %}">
+                                        {{ doc.tipo_documento }}
+                                    </span>
+                                </td>
+                                <td>{{ doc.fecha_firma|date:"d/m/Y H:i" }}</td>
+                                <td>
+                                    <code class="text-muted" style="font-size: 0.8rem;">
+                                        {{ doc.hash_documento|slice:":16" }}...
+                                    </code>
+                                </td>
+                                <td>
+                                    {% if doc.verificado %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>Válido
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times-circle me-1"></i>Modificado
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'descargar_documento_firmado' doc.iddocumento %}" 
+                                       class="btn btn-sm btn-outline-primary" 
+                                       title="Descargar">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+                                    No hay documentos firmados
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modal Firmar Documento -->
+    <div class="modal fade" id="modalFirmarDocumento" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content rounded-3 shadow-lg">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-file-signature me-2"></i>Firmar Documento Digitalmente
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Alertas -->
+                    <div class="alert alert-info alert-dismissible fade show" role="alert">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Formatos permitidos:</strong> PDF y Word (DOCX). Tamaño máximo: 10MB.
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+
+                    <!-- Alerta de carga -->
+                    <div class="alert alert-primary d-none" id="alertProcesando" role="alert">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm me-2" role="status">
+                                <span class="visually-hidden">Procesando...</span>
+                            </div>
+                            <div>Procesando firma digital...</div>
+                        </div>
+                    </div>
+
+                    <!-- Alerta de error -->
+                    <div class="alert alert-danger d-none" id="alertErrorFirma" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <span id="mensajeErrorFirma"></span>
+                    </div>
+
+                    <form id="formFirmarDocumento" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <!-- Columna Izquierda: Documento -->
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="fas fa-file-upload me-2"></i>1. Seleccione el Documento
+                                </h6>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Documento <span class="text-danger">*</span></label>
+                                    <input type="file" 
+                                           class="form-control" 
+                                           id="documento" 
+                                           name="documento" 
+                                           accept=".pdf,.docx" 
+                                           required>
+                                    <small class="text-muted">
+                                        <i class="fas fa-check-circle text-success me-1"></i>PDF o DOCX
+                                    </small>
+                                </div>
+
+                                <!-- Preview del documento -->
+                                <div id="documentoInfo" class="d-none">
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">Información del Documento</h6>
+                                            <table class="table table-sm mb-0">
+                                                <tr>
+                                                    <td class="fw-bold" style="width: 40%;">Nombre:</td>
+                                                    <td id="docNombre"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="fw-bold">Tamaño:</td>
+                                                    <td id="docTamano"></td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="fw-bold">Tipo:</td>
+                                                    <td id="docTipo"></td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Columna Derecha: Firma -->
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-3">
+                                    <i class="fas fa-pen-fancy me-2"></i>2. Agregue su Firma
+                                </h6>
+                                
+                                <!-- Pestañas de opciones -->
+                                <ul class="nav nav-tabs mb-3" id="firmaTab" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="dibujar-tab" data-bs-toggle="tab" 
+                                                data-bs-target="#dibujar" type="button" role="tab">
+                                            <i class="fas fa-pen me-1"></i>Dibujar
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="subir-tab" data-bs-toggle="tab" 
+                                                data-bs-target="#subir" type="button" role="tab">
+                                            <i class="fas fa-upload me-1"></i>Subir Imagen
+                                        </button>
+                                    </li>
+                                </ul>
+                                
+                                <!-- Contenido de las pestañas -->
+                                <div class="tab-content" id="firmaTabContent">
+                                    <!-- Tab 1: Dibujar firma -->
+                                    <div class="tab-pane fade show active" id="dibujar" role="tabpanel">
+                                        <div class="firma-container">
+                                            <canvas id="canvasFirma" width="500" height="200"></canvas>
+                                        </div>
+                                        
+                                        <div class="firma-controls mt-2 d-flex justify-content-between">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnLimpiarFirma">
+                                                <i class="fas fa-eraser me-1"></i>Limpiar
+                                            </button>
+                                            <small class="text-muted">
+                                                <i class="fas fa-mouse me-1"></i>Dibuje con el mouse o dedo
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Tab 2: Subir firma -->
+                                    <div class="tab-pane fade" id="subir" role="tabpanel">
+                                        <div class="upload-firma-container">
+                                            <div class="upload-area" id="uploadArea">
+                                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                                <p class="mb-2">Haga clic o arrastre su firma aquí</p>
+                                                <small class="text-muted">PNG, JPG o JPEG • Máx. 2MB</small>
+                                                <input type="file" id="firmaImagen" accept="image/png,image/jpeg,image/jpg" style="display: none;">
+                                            </div>
+                                            
+                                            <!-- Preview de la firma subida -->
+                                            <div id="firmaPreview" class="firma-preview d-none mt-3">
+                                                <div class="text-center">
+                                                    <img id="firmaPreviewImg" src="" alt="Firma" style="max-width: 100%; max-height: 150px; border: 2px solid #e0e0e0; border-radius: 8px;">
+                                                    <div class="mt-2">
+                                                        <button type="button" class="btn btn-outline-danger btn-sm" id="btnEliminarFirma">
+                                                            <i class="fas fa-trash me-1"></i>Eliminar
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Input oculto para la firma (canvas o imagen) -->
+                                <input type="hidden" name="firma_canvas" id="firmaCanvas">
+                            </div>
+                        </div>
+
+                        <!-- Información de Seguridad -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card border-success">
+                                    <div class="card-body">
+                                        <h6 class="card-title text-success">
+                                            <i class="fas fa-shield-alt me-2"></i>Proceso de Firma Digital
+                                        </h6>
+                                        <div class="row">
+                                            <div class="col-md-3 text-center">
+                                                <i class="fas fa-file fa-2x text-primary mb-2"></i>
+                                                <p class="small mb-0">Documento Original</p>
+                                            </div>
+                                            <div class="col-md-3 text-center">
+                                                <i class="fas fa-arrow-right fa-2x text-muted mb-2"></i>
+                                                <p class="small mb-0">Hash SHA-256</p>
+                                            </div>
+                                            <div class="col-md-3 text-center">
+                                                <i class="fas fa-key fa-2x text-warning mb-2"></i>
+                                                <p class="small mb-0">Encriptación RSA</p>
+                                            </div>
+                                            <div class="col-md-3 text-center">
+                                                <i class="fas fa-file-signature fa-2x text-success mb-2"></i>
+                                                <p class="small mb-0">Documento Firmado</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer mt-3">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-success" id="btnFirmar">
+                                <i class="fas fa-signature me-2"></i>Firmar Documento
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+    /* Estilos del Canvas de Firma */
+    .firma-container {
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
+        background: white;
+        padding: 0;
+        overflow: hidden;
+        position: relative;
+        cursor: crosshair;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .firma-container canvas {
+        display: block;
+        width: 100%;
+        height: 200px;
+        touch-action: none;
+    }
+
+    .firma-container::after {
+        content: 'Firme aquí';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #ccc;
+        font-size: 1.2rem;
+        font-style: italic;
+        pointer-events: none;
+        opacity: 0.5;
+        transition: opacity 0.3s;
+    }
+
+    .firma-container.firmado::after {
+        opacity: 0;
+    }
+
+    /* Estilos de la tabla */
+    .datatable {
+        font-size: 0.9rem;
+    }
+
+    .datatable thead th {
+        background-color: #212529 !important;
+        color: white !important;
+        font-weight: 600;
+        text-align: center;
+        vertical-align: middle;
+        padding: 12px 8px;
+    }
+
+    .datatable tbody td {
+        vertical-align: middle;
+        padding: 10px 8px;
+    }
+
+    /* Badges */
+    .badge {
+        font-weight: 500;
+        padding: 5px 10px;
+    }
+
+    /* Cards */
+    .card {
+        transition: transform 0.2s;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+    }
+
+    /* Estilos para subir firma */
+    .upload-firma-container {
+        min-height: 200px;
+    }
+
+    .upload-area {
+        border: 3px dashed #e0e0e0;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+    }
+
+    .upload-area:hover {
+        border-color: #00bfa5;
+        background: #e8f5e9;
+    }
+
+    .upload-area.dragover {
+        border-color: #00897b;
+        background: #c8e6c9;
+    }
+
+    .firma-preview {
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+
+    /* Tabs personalizados */
+    .nav-tabs .nav-link {
+        color: #666;
+        border: none;
+        border-bottom: 3px solid transparent;
+        font-weight: 600;
+    }
+
+    .nav-tabs .nav-link:hover {
+        color: #00bfa5;
+        border-bottom: 3px solid #00bfa5;
+    }
+
+    .nav-tabs .nav-link.active {
+        color: #00796b;
+        border-bottom: 3px solid #00796b;
+        background: transparent;
+    }
+
+
+</style>
+
+
+<script>
+// ==================== CANVAS DE FIRMA DIGITAL ====================
+$(document).ready(function() {
+    const canvas = document.getElementById('canvasFirma');
+    const ctx = canvas.getContext('2d');
+    const firmaInput = document.getElementById('firmaCanvas');
+    const firmaContainer = document.querySelector('.firma-container');
+    
+    let dibujando = false;
+    let lastX = 0;
+    let lastY = 0;
+    let metodoFirma = 'canvas'; // 'canvas' o 'imagen'
+    
+    // ⭐ CONFIGURAR CANVAS CUANDO SE ABRE EL MODAL
+    $('#modalFirmarDocumento').on('shown.bs.modal', function() {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = 200;
+        
+        ctx.strokeStyle = '#004d40';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        console.log('✅ Canvas configurado:', canvas.width, 'x', canvas.height);
+    });
+    
+    // ========== EVENTOS DE MOUSE (CANVAS) ==========
+    canvas.addEventListener('mousedown', function(e) {
+        dibujando = true;
+        const rect = canvas.getBoundingClientRect();
+        lastX = e.clientX - rect.left;
+        lastY = e.clientY - rect.top;
+        firmaContainer.classList.add('firmado');
+        metodoFirma = 'canvas';
+    });
+    
+    canvas.addEventListener('mousemove', function(e) {
+        if (!dibujando) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        const currentY = e.clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        
+        lastX = currentX;
+        lastY = currentY;
+    });
+    
+    canvas.addEventListener('mouseup', function() {
+        if (dibujando) {
+            dibujando = false;
+            firmaInput.value = canvas.toDataURL('image/png');
+            console.log('✅ Firma dibujada capturada');
+        }
+    });
+    
+    canvas.addEventListener('mouseleave', function() {
+        if (dibujando) {
+            dibujando = false;
+            firmaInput.value = canvas.toDataURL('image/png');
+        }
+    });
+    
+    // ========== EVENTOS TÁCTILES (CANVAS) ==========
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        dibujando = true;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        lastX = touch.clientX - rect.left;
+        lastY = touch.clientY - rect.top;
+        firmaContainer.classList.add('firmado');
+        metodoFirma = 'canvas';
+    }, { passive: false });
+    
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        if (!dibujando) return;
+        
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const currentX = touch.clientX - rect.left;
+        const currentY = touch.clientY - rect.top;
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(currentX, currentY);
+        ctx.stroke();
+        
+        lastX = currentX;
+        lastY = currentY;
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        if (dibujando) {
+            dibujando = false;
+            firmaInput.value = canvas.toDataURL('image/png');
+        }
+    }, { passive: false });
+    
+    // ========== BOTÓN LIMPIAR CANVAS ==========
+    $('#btnLimpiarFirma').on('click', function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        firmaInput.value = '';
+        firmaContainer.classList.remove('firmado');
+        console.log('🗑️ Firma limpiada');
+    });
+    
+    // ========== SUBIR IMAGEN DE FIRMA ==========
+    const uploadArea = document.getElementById('uploadArea');
+    const firmaImagenInput = document.getElementById('firmaImagen');
+    const firmaPreview = document.getElementById('firmaPreview');
+    const firmaPreviewImg = document.getElementById('firmaPreviewImg');
+    
+    // Click en área de subida
+    uploadArea.addEventListener('click', () => {
+        firmaImagenInput.click();
+    });
+    
+    // Drag & Drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            procesarImagenFirma(files[0]);
+        }
+    });
+    
+    // Seleccionar archivo
+    firmaImagenInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            procesarImagenFirma(e.target.files[0]);
+        }
+    });
+    
+    // Procesar imagen de firma
+    function procesarImagenFirma(file) {
+        // Validar tipo
+        const tiposPermitidos = ['image/png', 'image/jpeg', 'image/jpg'];
+        if (!tiposPermitidos.includes(file.type)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Formato no válido',
+                text: 'Solo se permiten imágenes PNG, JPG o JPEG',
+                confirmButtonColor: '#28a745'
+            });
+            return;
+        }
+        
+        // Validar tamaño (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Archivo muy grande',
+                text: 'La imagen no debe superar los 2MB',
+                confirmButtonColor: '#28a745'
+            });
+            return;
+        }
+        
+        // Leer y mostrar preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            firmaPreviewImg.src = e.target.result;
+            firmaPreview.classList.remove('d-none');
+            uploadArea.style.display = 'none';
+            
+            // Guardar en input oculto
+            firmaInput.value = e.target.result;
+            metodoFirma = 'imagen';
+            
+            console.log('✅ Imagen de firma cargada');
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Eliminar firma subida
+    $('#btnEliminarFirma').on('click', function() {
+        firmaPreview.classList.add('d-none');
+        uploadArea.style.display = 'block';
+        firmaImagenInput.value = '';
+        firmaInput.value = '';
+        console.log('🗑️ Firma eliminada');
+    });
+    
+    // ========== CAMBIO DE PESTAÑAS ==========
+    $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
+        const targetTab = e.target.getAttribute('data-bs-target');
+        
+        if (targetTab === '#dibujar') {
+            // Al cambiar a dibujar, limpiar la imagen subida
+            firmaPreview.classList.add('d-none');
+            uploadArea.style.display = 'block';
+            firmaImagenInput.value = '';
+            
+            // Si había firma en canvas, mantenerla
+            if (metodoFirma === 'canvas' && firmaInput.value) {
+                // Mantener firma dibujada
+            } else {
+                firmaInput.value = '';
+            }
+        } else if (targetTab === '#subir') {
+            // Al cambiar a subir, limpiar el canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            firmaContainer.classList.remove('firmado');
+            
+            // Si había imagen subida, mantenerla
+            if (metodoFirma === 'imagen' && firmaInput.value) {
+                // Mantener imagen
+            } else {
+                firmaInput.value = '';
+            }
+        }
+    });
+});
+
+// ==================== PREVIEW DEL DOCUMENTO ====================
+$('#documento').on('change', function(e) {
+    const file = e.target.files[0];
+    
+    if (file) {
+        $('#docNombre').text(file.name);
+        $('#docTamano').text((file.size / 1024 / 1024).toFixed(2) + ' MB');
+        $('#docTipo').html(`<span class="badge bg-${file.name.endsWith('.pdf') ? 'danger' : 'primary'}">${file.name.split('.').pop().toUpperCase()}</span>`);
+        $('#documentoInfo').removeClass('d-none');
+        
+        console.log('📄 Documento seleccionado:', file.name);
+    }
+});
+
+// ==================== FIRMAR DOCUMENTO ====================
+$('#formFirmarDocumento').on('submit', function(e) {
+    e.preventDefault();
+    
+    const firma = $('#firmaCanvas').val();
+    const documento = $('#documento')[0].files[0];
+    
+    // Validar firma
+    if (!firma) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Firma requerida',
+            text: 'Por favor, dibuje su firma o suba una imagen',
+            confirmButtonColor: '#28a745'
+        });
+        return false;
+    }
+    
+    // Validar documento
+    if (!documento) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Documento requerido',
+            text: 'Por favor, seleccione un documento para firmar',
+            confirmButtonColor: '#28a745'
+        });
+        return false;
+    }
+    
+    // Validar tamaño (10MB)
+    if (documento.size > 10 * 1024 * 1024) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Archivo muy grande',
+            text: 'El documento no debe superar los 10MB',
+            confirmButtonColor: '#28a745'
+        });
+        return false;
+    }
+    
+    const btnFirmar = $('#btnFirmar');
+    const textoOriginal = btnFirmar.html();
+    btnFirmar.prop('disabled', true);
+    btnFirmar.html('<i class="fas fa-spinner fa-spin me-2"></i>Firmando...');
+    
+    $('#alertProcesando').removeClass('d-none');
+    $('#alertErrorFirma').addClass('d-none');
+    
+    const formData = new FormData(this);
+    
+    $.ajax({
+        type: 'POST',
+        url: '{% url "firmar_documento" %}',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            $('#alertProcesando').addClass('d-none');
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Documento Firmado!',
+                html: `
+                    <p>El documento ha sido firmado digitalmente.</p>
+                    <p class="mb-2"><strong>Código de Verificación:</strong></p>
+                    <code class="d-block p-2 bg-light rounded">${response.codigo_verificacion}</code>
+                `,
+                confirmButtonColor: '#28a745',
+                confirmButtonText: 'Aceptar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.reload();
+                }
+            });
+        },
+        error: function(xhr) {
+            $('#alertProcesando').addClass('d-none');
+            
+            let errorMsg = 'Error al firmar el documento';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg = xhr.responseJSON.error;
+            }
+            
+            $('#alertErrorFirma').removeClass('d-none');
+            $('#mensajeErrorFirma').text(errorMsg);
+            
+            btnFirmar.prop('disabled', false);
+            btnFirmar.html(textoOriginal);
+        }
+    });
+    
+    return false;
+});
+
+// ==================== LIMPIAR MODAL AL CERRAR ====================
+$('#modalFirmarDocumento').on('hidden.bs.modal', function() {
+    $('#formFirmarDocumento')[0].reset();
+    $('#documentoInfo').addClass('d-none');
+    $('#alertProcesando').addClass('d-none');
+    $('#alertErrorFirma').addClass('d-none');
+    
+    // Limpiar canvas
+    const canvas = document.getElementById('canvasFirma');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    $('#firmaCanvas').val('');
+    $('.firma-container').removeClass('firmado');
+    
+    // Limpiar imagen subida
+    $('#firmaPreview').addClass('d-none');
+    $('#uploadArea').show();
+    $('#firmaImagen').val('');
+    
+    // Volver al tab de dibujar
+    $('#dibujar-tab').tab('show');
+});
+
+// ==================== DATATABLE ====================
+$(document).ready(function() {
+    $('.datatable').DataTable({
+        language: {
+            "processing": "Procesando...",
+            "lengthMenu": "Mostrar _MENU_ registros",
+            "zeroRecords": "No se encontraron resultados",
+            "emptyTable": "Ningún dato disponible",
+            "info": "Mostrando del _START_ al _END_ de _TOTAL_ registros",
+            "infoEmpty": "Mostrando 0 registros",
+            "infoFiltered": "(filtrado de _MAX_ registros)",
+            "search": "Buscar:",
+            "paginate": {
+                "first": "Primero",
+                "last": "Último",
+                "next": "Siguiente",
+                "previous": "Anterior"
+            }
+        },
+        pageLength: 10,
+        order: [[3, 'desc']],
+        responsive: true
+    });
+});
+</script>
+
+{% endblock %}

@@ -19,6 +19,6 @@ class Producto(models.Model):
     idcolor = models.ForeignKey(Color, on_delete=models.DO_NOTHING, db_column='idcolor', related_name='productos')
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'producto'
         indexes = [models.Index(fields=['nomproducto'])]

@@ -19,7 +19,7 @@ def requiere_caja_aperturada(view_func):
         # Verificar si tiene apertura activa
         apertura = AperturaCierreCaja.objects.filter(
             idusuario_id=idusuario,
-            estado='abierta'
+            estado__in=['abierta', 'reabierta']
         ).first()
         
         if not apertura:

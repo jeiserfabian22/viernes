@@ -27,9 +27,12 @@ class Ventas(models.Model):
     total_venta = models.DecimalField(max_digits=10, decimal_places=2)
     total_ganancia = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     observaciones = models.TextField(blank=True, null=True)
+    id_almacen = models.ForeignKey('Almacenes', on_delete=models.DO_NOTHING, db_column='id_almacen', null=True, blank=True)
+    id_caja = models.ForeignKey('Caja', on_delete=models.DO_NOTHING, db_column='id_caja', null=True, blank=True)
+    id_sucursal = models.ForeignKey('Sucursales', on_delete=models.DO_NOTHING, db_column='id_sucursal', null=True, blank=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'ventas'
 
     def __str__(self):

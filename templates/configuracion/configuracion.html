@@ -1,399 +1,940 @@
 {% extends 'plantilla/base.html' %}
+{% load url_filters %} 
 {% block main %}
 <main id="main" class="main">
-  <div class="pagetitle">
-    <h1>Configuracion de la empresa</h1>
-    <nav>
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="index.html">Home</a></li>
-        <li class="breadcrumb-item active">Configuracion de empresa</li>
-      </ol>
-      <p>
-        {% if modo == 1 %}
-            <strong style="color: blue;">El sistema se encuentra en modo producción</strong>
-        {% else %}
-            <strong style="color: red;">El sistema se encuentra en modo desarrollo</strong>
-        {% endif %}
-    </p>
-    </nav>
-  </div><!-- End Page Title -->
 
-  <section class="section dashboard">
-    <div class="row">
-      <div class="col-lg-12">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Configuración</h5>
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <div>
+      <h1 class="fw-bold text-primary mb-1">
+        <i class="bi bi-gear-fill me-2"></i>Configuración de Empresa
+      </h1>
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb mb-0">
+          <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+          <li class="breadcrumb-item active">Configuración de Empresa</li>
+        </ol>
+      </nav>
+    </div>
+  </div>
 
-            <!-- Table with stripped rows -->
-            <table class="table datatable">
-              <thead>
-                <tr>
-                  <th scope="col">Ruc</th>
-                  <th scope="col">Razón Social</th>
-                  <th scope="col">Dirección</th>
-                  <th scope="col">Telefono</th>
-                  <th scope="col">Modificar</th>
-                  <th scope="col">Activar modo producción</th>
-                  <th scope="col">Activar modo desarrollo</th>
-                </tr>
+  {% for empresa in empresas %}
 
-              </thead>
-
-              <tbody>
-                {% for empresa in empresas %}
-                <tr>
-                  <td>{{empresa.ruc}}</td>
-                  <td>{{empresa.razonsocial}}</td>
-                  <td>{{empresa.direccion}}</td>
-                  <td>{{empresa.telefono}}</td>
-                  <td>
-                    <a type="submit" id="btnEditar" class="btn " data-bs-toggle="modal" data-bs-target="#myModal2"><i
-                        class="fa-solid fa-pen-to-square fa-2xl" style="color: #005eff;"></i></a>
-                  </td>
-                  <td>
-                    <a  
-                    href="{% url 'produccion' empresa.idempresa %}" 
-                    class="btn btn-primary"
-                    onclick="return produccion('{{ empresa.idempresa }}', this)">
-                    Producción
-                  </a >
-                  </td>
-                  <td>
-                    <a  
-                    href="{% url 'desarrollo' empresa.idempresa %}" class="btn btn-success" 
-                    onclick="return desarrollo('{{ empresa.idempresa }}', this)">
-                      Desarrollo</a >
-                  </td>
-                </tr>
-
-
-            <!-- Modal de editar -->
-            <div class="modal" id="myModal2">
-              <div class="modal-dialog">
-                <div class="modal-content">
-
-                  <!-- Cabecera del modal -->
-                  <div class="modal-header">
-                    <h4 class="modal-title">Editar Empresa</h4>
-                    <button type="button" class="close" data-bs-dismiss="modal">&times;</button>
+  <!-- Contenedor Principal -->
+  <section class="section mt-4">
+    <div class="row g-4">
+      <!-- Columna Izquierda: Información de la Empresa -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body p-4">
+            <div class="row">
+              <!-- Logo -->
+              <div class="col-3 text-center">
+                {% if empresa.logo %}
+                  <img src="/media/{{ empresa.logo }}" 
+                      alt="Logo {{ empresa.nombrecomercial }}" 
+                      class="company-logo-box"
+                      onerror="handleLogoError(this, '{{ empresa.logo }}')">
+                {% else %}
+                  <div class="company-logo-placeholder-box">
+                    <i class="bi bi-building"></i>
                   </div>
-
-                  <!-- Contenido del modal De editar-->
-                  <div class="modal-body">
-
-                    <!-- inicio de form -->
-
-                    <form action="" method="post" enctype="multipart/form-data">
-                      {% csrf_token %}
-                      <h4>Datos de la empresa</h4>
-
-                      <label for="nombreProducto2"><strong>Ruc</strong></label><br>
-                      <input type="hidden" class="form-control" name="idempresa" id="nombreProducto2" value="{{empresa.idempresa}}">
-                      <input type="text" class="form-control" name="ruc" id="nombreProducto2" value="{{empresa.ruc}}"><br>
-
-                      <label for="nombreProducto2"><strong>Razón social</strong></label><br>
-                      <input type="text" class="form-control" name="razonSocial" id="nombreProducto2" style="width: 465px;" value="{{empresa.razonsocial}}"><br>
-
-                      <label for="nombreProducto2"><strong>NombreComercia</strong></label><br>
-                      <input type="text" class="form-control" name="nombreComercia" id="nombreProducto2" style="width: 465px;" value="{{empresa.nombrecomercial}}"><br>
-
-                      <label for="nombreProducto2"><strong>Dirección</strong></label><br>
-                      <input type="text" class="form-control" name="Direccion" id="nombreProducto2" style="width: 465px;" value="{{empresa.direccion}}"><br>
-
-
-                      <label for="nombreProducto2"><strong>Telefono</strong></label><br>
-                      <input type="text" class="form-control" name="telefono" id="nombreProducto2" style="width: 465px;" value="{{empresa.telefono}}"><br>
-
-
-                      <label for="nombreProducto2"><strong>Usuario secundario(User)</strong></label><br>
-                      <input type="text" class="form-control" name="user" id="nombreProducto2" style="width: 465px;" value="{{empresa.usersec}}"><br>
-
-
-                      <label for="nombreProducto2"><strong>Usuario secundario(Password)</strong></label><br>
-                      <input type="text" class="form-control" name="password" id="nombreProducto2" style="width: 465px;" value="{{empresa.passwordsec}}"><br>
-
-                      <label for="nombreProducto2"><strong>Departamento</strong></label><br>
-
-                      <select class="form-select" id="mySelect" aria-label="Default select example" name="departamento">
-                        <option value="">Seleccione un departamento</option>
-                        {% for departamento in departamentos %}
-                        <option value="{{departamento.iddepartamentos}}">{{departamento.nombredepartamento}}</option>
-                        {% endfor %}    
-                        </option>
-
-                      </select><br>
-
-                      <label for="nombreProducto2"><strong>Provincia</strong></label><br>
-                      <select class="form-select" id="secondSelect" aria-label="Default select example"
-                        name="provincia">
-                      </select><br>
-
-
-                      <label for="nombreProducto2"><strong>Distrito</strong></label><br>
-                      <select class="form-select" id="distrito" aria-label="Default select example" name="distrito">
-                      </select><br>
-
-                      <label for="nombreProducto2"><strong>Ubigueo</strong></label><br>
-                      <input type="text" class="form-control" id="ubigeo" name="ubigueo" style="width: 465px;" readonly value="">
-                      <br>
-                      <!-- <label for="nombreProducto2">Imagen de la Empresa</label><br>
-                      <input type="file" name="imagenEmpresa" id="nombreProducto2" style="width: 465px;"> -->
-
-                      <div style="display:flex; margin-left:140px;">
-
-                        <div class="modal-footer">
-                          <button type="" class="btn btn-secondary" id="modalEditar"
-                            data-bs-dismiss="modal">Editar</button>
-                        </div>
-                        <div class="modal-footer">
-                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                        </div>
-                      </div>
-
-
-                  </div>
-                  </form>
-
-                  <!-- fin del form -->
-
+                {% endif %}
+              </div>
+              
+              <!-- Información Principal -->
+              <div class="col-9">
+                <h5 class="fw-bold text-dark mb-1">{{ empresa.nombrecomercial|upper }}</h5>
+                <p class="text-muted small mb-3">{{ empresa.razonsocial }}</p>
+                
+                <div class="info-row-clean">
+                  <i class="bi bi-card-text text-muted"></i>
+                  <span class="info-label-clean">RUC</span>
+                  <span class="info-value-clean">{{ empresa.ruc }}</span>
                 </div>
 
-                <!-- Pie del modal -->
+                <div class="info-row-clean">
+                  <i class="bi bi-geo-alt text-muted"></i>
+                  <span class="info-label-clean">Dirección</span>
+                  <span class="info-value-clean">{{ empresa.direccion }}</span>
+                </div>
 
+                <div class="info-row-clean">
+                  <i class="bi bi-envelope text-muted"></i>
+                  <span class="info-label-clean">Email</span>
+                  <span class="info-value-clean">{{ empresa.usersec|default:"MODDATOS" }}</span>
+                </div>
+
+                <div class="info-row-clean">
+                  <i class="bi bi-telephone text-muted"></i>
+                  <span class="info-label-clean">Teléfono</span>
+                  <span class="info-value-clean">{{ empresa.telefono|default:"No especificado" }}</span>
+                </div>
+
+                <div class="info-row-clean">
+                  <i class="bi bi-pin-map text-muted"></i>
+                  <span class="info-label-clean">Ubigeo</span>
+                  <span class="info-value-clean">{{ empresa.ubigueo|default:"-" }}</span>
+                </div>
               </div>
             </div>
 
-            <!-- Fin del modal Editar-->
-            {% endfor %}
-          </tbody>
-
-        </table>
-        <!-- End Table with stripped rows -->
-
+            <!-- Botón Editar -->
+            <div class="text-center mt-4">
+              <button type="button" class="btn btn-info text-white px-4" data-bs-toggle="modal" data-bs-target="#modalEditarEmpresa{{ empresa.idempresa }}">
+                <i class="bi bi-pencil-square me-2"></i>Editar información
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
+      <!-- Columna Derecha: Parámetros de la Empresa -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3">Parámetros de la empresa</h6>
+            
+            <!-- Badges de Parámetros Tributarios -->
+            <div class="badges-container mb-4">
+              <span class="param-badge badge-cyan">IGV SUNAT: 18.00</span>
+              <span class="param-badge badge-red">ICBPER SUNAT: 0.00</span>
+              <span class="param-badge badge-yellow">ISC: 0.00</span>
+              <span class="param-badge badge-purple">Afectación general SUNAT: 20</span>
+            </div>
+
+            <!-- Parámetros de Información -->
+            <div class="params-list">
+              <div class="param-item">
+                <i class="bi bi-calendar text-muted"></i>
+                <span class="param-label">Fecha de trabajo:</span>
+                <span class="param-value">Fecha actual</span>
+              </div>
+
+              <div class="param-item">
+                <i class="bi bi-tag text-muted"></i>
+                <span class="param-label">Slogan:</span>
+                <span class="param-value">{{ empresa.slogan|default:"-" }}</span>
+              </div>
+
+              <div class="param-item">
+                <i class="bi bi-tag text-muted"></i>
+                <span class="param-label">Pagina web:</span>
+                <span class="param-value">{{ empresa.pagina|default:"-" }}</span>
+              </div>
+
+              <div class="param-item">
+                <i class="bi bi-megaphone text-muted"></i>
+                <span class="param-label">Publicidad:</span>
+                <span class="param-value">{{ empresa.publicidad|default:"-" }}</span>
+              </div>
+
+              <div class="param-item">
+                <i class="bi bi-emoji-smile text-muted"></i>
+                <span class="param-label">Agradecimiento:</span>
+                <span class="param-value">-</span>
+              </div>
+
+              <div class="param-item">
+                <i class="bi bi-lock text-muted"></i>
+                <span class="param-label">Clave de seguridad empresa:</span>
+                <span class="param-value">{{ empresa.passwordsec|default:"MODDATOS" }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-</main><!-- End #main -->
+  <!-- Sección de Sistema: Configuración en 2 Columnas -->
+  <section class="section mt-4">
+    <div class="row g-4">
+      <!-- Columna Izquierda: Lista de Configuración -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body p-4">
+            <h6 class="text-primary fw-bold mb-4">
+              <i class="bi bi-shield-check me-2"></i>Configuración del Sistema
+            </h6>
 
+            <div class="config-list">
+              <div class="config-item">
+                <i class="bi bi-person"></i>
+                <span class="config-label">Usuario SUNAT</span>
+                <span class="config-value">{{ empresa.usersec|default:"MODDATOS" }}</span>
+              </div>
 
+              <div class="config-item">
+                <i class="bi bi-lock"></i>
+                <span class="config-label">Clave SUNAT</span>
+                <span class="config-value">
+                  {% if empresa.passwordsec %}
+                  <span class="password-masked">••••••••</span>
+                  {% else %}
+                  No configurado
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="config-item">
+                <i class="bi bi-gear"></i>
+                <span class="config-label">Modo de Operación</span>
+                <span class="config-value">
+                  {% if empresa.mododev == 1 %}
+                  <span class="status-badge status-prod">Producción</span>
+                  {% else %}
+                  <span class="status-badge status-dev">Desarrollo</span>
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="config-item">
+                <i class="bi bi-arrow-repeat"></i>
+                <span class="config-label">Cambiar Modo</span>
+                <span class="config-value">
+                  {% if empresa.mododev == 0 %}
+                  <button class="btn-change btn-to-prod" 
+                          data-eid="{{ empresa.idempresa|eid }}" 
+                          data-modo="producción" 
+                          onclick="cambiarModo(this)">
+                    <i class="bi bi-check-circle me-1"></i>Cambiar a Producción
+                  </button>
+                  {% else %}
+                  <button class="btn-change btn-to-dev" 
+                          data-eid="{{ empresa.idempresa|eid }}" 
+                          data-modo="desarrollo" 
+                          onclick="cambiarModo(this)">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Cambiar a Desarrollo
+                  </button>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Cards de Sistema -->
+      <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-body p-4">
+            <h6 class="text-primary fw-bold mb-4">
+              <i class="bi bi-bar-chart me-2"></i>Datos del Sistema
+            </h6>
+
+            <div class="row g-3">
+              <!-- Modo de Operación -->
+              <div class="col-md-6">
+                <div class="system-card">
+                  <div class="system-card-header">Modo de Operación</div>
+                  <div class="system-card-body">
+                    {% if empresa.mododev == 1 %}
+                    <span class="mode-badge mode-prod">
+                      <i class="bi bi-check-circle me-1"></i>PRODUCCIÓN
+                    </span>
+                    {% else %}
+                    <span class="mode-badge mode-dev">
+                      <i class="bi bi-exclamation-triangle me-1"></i>DESARROLLO
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+
+              <!-- RUC -->
+              <div class="col-md-6">
+                <div class="system-card">
+                  <div class="system-card-header">RUC</div>
+                  <div class="system-card-body">
+                    <span class="system-value">
+                      <i class="bi bi-credit-card text-warning me-2"></i>{{ empresa.ruc }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- IGV SUNAT -->
+              <div class="col-md-6">
+                <div class="system-card">
+                  <div class="system-card-header">IGV SUNAT</div>
+                  <div class="system-card-body">
+                    <span class="system-value text-danger">
+                      <i class="bi bi-percent me-2"></i>18.00%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Afectación SUNAT -->
+              <div class="col-md-6">
+                <div class="system-card">
+                  <div class="system-card-header">Afectación SUNAT</div>
+                  <div class="system-card-body">
+                    <span class="system-value text-info">
+                      <i class="bi bi-file-earmark-text me-2"></i>20
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Editar Empresa -->
+  <div class="modal fade" id="modalEditarEmpresa{{ empresa.idempresa }}" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-pencil-square me-2"></i>Editar Información de Empresa
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formEditarEmpresa" action="{% url 'editarEmpresa' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="idempresa" value="{{ empresa.idempresa }}">
+            
+            <!-- Información Básica -->
+            <div class="section-divider">
+              <i class="bi bi-info-circle me-2"></i>Información Básica
+            </div>
+            
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">RUC <span class="text-danger">*</span></label>
+                <input type="text" name="ruc" id="ruc" class="form-control" value="{{ empresa.ruc }}" required maxlength="11" pattern="[0-9]{11}">
+                <small class="text-muted">11 dígitos numéricos</small>
+              </div>
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Razón Social <span class="text-danger">*</span></label>
+                <input type="text" name="razonSocial" class="form-control" value="{{ empresa.razonsocial }}" required>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold">Nombre Comercial <span class="text-danger">*</span></label>
+                <input type="text" name="nombreComercia" class="form-control" value="{{ empresa.nombrecomercial }}" required>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold">Slogan</label>
+                <input type="text" name="slogan" class="form-control" value="{{ empresa.slogan }}" placeholder="Ej: Alquiler venta de vehículos menor">
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold">Pagina Web <span class="text-danger">*</span></label>
+                <input type="text" name="pagina" class="form-control" value="{{ empresa.pagina }}" placeholder="Ej: www.tuempresa.com">
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-12">
+                <label class="form-label fw-semibold">Publicidad</label>
+                <textarea name="publicidad" class="form-control" rows="3" placeholder="Ej: VENTA, MANTENIMIENTO Y REPARACIÓN">{{ empresa.publicidad }}</textarea>
+              </div>
+            </div>
+
+            <!-- Ubicación -->
+            <div class="section-divider">
+              <i class="bi bi-geo-alt me-2"></i>Ubicación
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-8">
+                <label class="form-label fw-semibold">Dirección <span class="text-danger">*</span></label>
+                <input type="text" name="Direccion" class="form-control" value="{{ empresa.direccion }}" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label fw-semibold">Ubigeo</label>
+                <input type="text" name="ubigueo" class="form-control" value="{{ empresa.ubigueo }}" maxlength="10">
+              </div>
+            </div>
+
+            <!-- Contacto -->
+            <div class="section-divider">
+              <i class="bi bi-telephone me-2"></i>Información de Contacto
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Teléfono</label>
+                <input type="text" name="telefono" class="form-control" value="{{ empresa.telefono }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Logo (Imagen)</label>
+                <input type="file" name="logo" id="logoInput" class="form-control" accept="image/*" onchange="previewLogo(event)">
+                <small class="text-muted">Formatos: JPG, PNG. Tamaño máximo: 2MB</small>
+                <!-- Preview del logo -->
+                <div id="logoPreviewContainer" class="mt-2" style="display: none;">
+                  <img id="logoPreview" src="" alt="Preview">
+                </div>
+              </div>
+            </div>
+
+            <!-- Credenciales SUNAT -->
+            <div class="section-divider">
+              <i class="bi bi-shield-check me-2"></i>Credenciales SUNAT
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Usuario SUNAT</label>
+                <input type="text" name="user" class="form-control" value="{{ empresa.usersec }}">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label fw-semibold">Clave de Seguridad</label>
+                <div class="input-group">
+                  <input type="password" name="password" id="password" class="form-control" value="{{ empresa.passwordsec }}">
+                  <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                    <i class="bi bi-eye" id="toggleIcon"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save me-2"></i>Guardar Cambios
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+</main>
+
+<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
-
-  $(function () {
-
-    $('#mySelect').change(function () {
-      $('#secondSelect').empty();
-      // Obtener el valor seleccionado
-      var selectedValue = $(this).val();
-      // Realizar la solicitud AJAX
-      $.ajax({
-        type: "GET",
-        dataType: "JSON",
-        url: "{% url 'buscarProvincias' %}",
-        data: { 
-          selected_value: selectedValue,csrfmiddlewaretoken: '{{ csrf_token }}'
-        },
-        success: function (response) {
-
-          $.each(response, function (index, item) {
-
-            var idProvincia = item.idprovincia;
-            var nombreProvincia = item.nombreprovincia;
-            var idDepartamento = item.iddepartamento;
-
-            $('#secondSelect').append('<option value="' + idProvincia + '">' + nombreProvincia + '</option>');
-
-
-          });
-        }
-      })
-    })
-
-
-    $('#secondSelect').change(function () {
-      $('#distrito').empty();
-      var selectedValue = $(this).val();
-
-      $.ajax({
-        type: "GET",
-        dataType: "JSON",
-        url: "{% url 'buscarDistritos' %}",
-        // dataType:'json',
-        data: { selected_value: selectedValue,csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function (response) {
-
-          $.each(response, function (index, item) {
-
-            var idProvincia = item.iddistrito;
-            var nombreProvincia = item.nombredistrito;
-            var ubigueo = item.ubigeo;
-
-            $('#distrito').append('<option value="' + idProvincia + '">' + nombreProvincia + '</option>');
-
-
-          });
-        }
-      })
-    })
-
-
-    $('#distrito').change(function () {
-      $('#ubigeo').empty();
-      var selectedValue = $(this).val();
-
-      $.ajax({
-        type: "GET",
-        dataType: "JSON",
-        url: "{% url 'ubigueo' %}",
-        // dataType:'json',
-        data: { selected_value: selectedValue,csrfmiddlewaretoken: '{{ csrf_token }}' },
-        success: function (response) {
-
-
-          $.each(response, function (index, item) {
-
-            var ubigueo = item.ubigeo;
-
-            $('#ubigeo').val(ubigueo);
-          });
-        }
-      })
-    })
-
-    $('#pro').click(function () {
-      mododev = 1;
-      $.ajax({
-        type: "GET",
-
-        url: "",
-
-        data: { mododev1: mododev },
-        success: function (response) {
-          alert('Sistema en modo producción');
-
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-          alert('Error');
-        }
-      })
-    })
-
-    $('#desa').click(function () {
-      mododev = 0;
-      $.ajax({
-        type: "GET",
-
-        url: "",
-
-        data: { mododev1: mododev },
-        success: function (response) {
-          alert('Sistema en modo desarrollo');
-
-        },
-        error: function (jqXHR, textStatus, errorThrown) {
-          alert('Error');
-        }
-      })
-    })
-
-
-  $("#modalEditar").click(function(){
-  // Obtener los datos del formulario
-  var formData = new FormData($('form')[0]);
-  // Realizar la solicitud AJAX
-  $.ajax({
-      type: "POST",
-      url: "{% url 'editarEmpresa' %}",
-      data: formData,
-      processData: false,  // Evitar que jQuery procese los datos automáticamente
-      contentType: false,  // No establecer automáticamente el tipo de contenido
-      success: function (response) {
-          Swal.fire({
-              title: 'Datos de la empresa editado exitosamente',
-              icon: 'success',
-              showCancelButton: true,
-              confirmButtonColor: '#3085d6',
-              cancelButtonColor: '#d33',
-              confirmButtonText: '¡Ok!',
-          }).then((result) => {
-              if (result.isConfirmed) {
-                  // Redireccionar solo si el usuario hace clic en "OK"
-                  window.location.href=  "{% url 'configuracion' %}";
-
-              }
-          });
-      }
-  });
-  return false; // Prevenir el envío del formulario por defecto
-}); 
+// Toggle password visibility
+$('#togglePassword').on('click', function() {
+  const passwordInput = $('#password');
+  const toggleIcon = $('#toggleIcon');
+  
+  if (passwordInput.attr('type') === 'password') {
+    passwordInput.attr('type', 'text');
+    toggleIcon.removeClass('bi-eye').addClass('bi-eye-slash');
+  } else {
+    passwordInput.attr('type', 'password');
+    toggleIcon.removeClass('bi-eye-slash').addClass('bi-eye');
+  }
 });
 
+// Validación de RUC en tiempo real
+$('#ruc').on('input', function() {
+  this.value = this.value.replace(/[^0-9]/g, '');
+});
 
-function desarrollo(idproducto, enlace) {
-  let urlEliminar = $(enlace).attr("href");
+// Preview de logo
+$('#logoInput').on('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    if (file.size > 2 * 1024 * 1024) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Archivo muy grande',
+        text: 'El logo no debe superar los 2MB',
+        confirmButtonColor: '#dc3545'
+      });
+      this.value = '';
+    }
+  }
+});
+
+// Función para cambiar modo
+function cambiarModo(button) {
+  const eid = $(button).data('eid');  // ⭐ Obtener ID encriptado
+  const modo = $(button).data('modo');
+  
+  // Determinar la URL según el modo
+  let url;
+  if (modo === 'producción') {
+    url = `/cfg/emp/prod/${eid}/`;  // ⭐ URL con eid
+  } else {
+    url = `/cfg/emp/dev/${eid}/`;   // ⭐ URL con eid
+  }
+  
+  console.log(`🔄 Cambiando a modo ${modo} con ID encriptado:`, eid);
+  
   Swal.fire({
-    title: 'Sistema en modo desarrollo',
-    icon: 'success',
+    title: '¿Está seguro?',
+    text: `¿Desea cambiar al modo ${modo}?`,
+    icon: 'warning',
     showCancelButton: true,
     confirmButtonColor: '#3085d6',
     cancelButtonColor: '#d33',
-    confirmButtonText: '¡Ok!',
+    confirmButtonText: 'Sí, cambiar',
     cancelButtonText: 'Cancelar'
   }).then((result) => {
     if (result.isConfirmed) {
-
-      // Redirige a la URL para eliminar la compra si el usuario confirma
-      $.ajax({
-        type: "GET",
-        url: urlEliminar,
-        data: {csrfmiddlewaretoken: '{{ csrf_token }}'}, // Incluye el token CSRF en la solicitud
-        success: function(response) {
-          window.location.href='configuracion'
-        },
-
+      // Mostrar loading
+      Swal.fire({
+        title: 'Cambiando modo...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
       });
-
+      
+      window.location.href = url;
     }
   });
-  return false; // Detiene la acción predeterminada del enlace
 }
 
-
-function produccion(idproducto, enlace) {
-  let urlEliminar = $(enlace).attr("href");
+// Submit del formulario de editar empresa
+$('#formEditarEmpresa').submit(function(e) {
+  e.preventDefault();
+  
+  const ruc = $('#ruc').val();
+  if (ruc.length !== 11 || !/^\d+$/.test(ruc)) {
+    Swal.fire({
+      icon: 'error',
+      title: 'RUC inválido',
+      text: 'El RUC debe tener exactamente 11 dígitos numéricos',
+      confirmButtonColor: '#dc3545'
+    });
+    return;
+  }
+  
   Swal.fire({
-    title: 'Sistema en modo produccion',
-    icon: 'success',
-    showCancelButton: true,
-    confirmButtonColor: '#3085d6',
-    cancelButtonColor: '#d33',
-    confirmButtonText: '¡Ok!',
-    cancelButtonText: 'Cancelar'
-  }).then((result) => {
-    if (result.isConfirmed) {
-
-      // Redirige a la URL para eliminar la compra si el usuario confirma
-      $.ajax({
-        type: "GET",
-        url: urlEliminar,
-        data: {csrfmiddlewaretoken: '{{ csrf_token }}'}, // Incluye el token CSRF en la solicitud
-        success: function(response) {
-          window.location.href='configuracion'
-        },
-
-      });
-
+    title: 'Guardando cambios...',
+    allowOutsideClick: false,
+    didOpen: () => {
+      Swal.showLoading();
     }
   });
-  return false; // Detiene la acción predeterminada del enlace
+  
+  let formData = new FormData(this);
+  
+  $.ajax({
+    url: $(this).attr('action'),
+    method: 'POST',
+    data: formData,
+    processData: false,
+    contentType: false,
+    success: function(res) {
+      Swal.fire({
+        icon: 'success',
+        title: '¡Éxito!',
+        text: 'La información se actualizó correctamente',
+        confirmButtonColor: '#198754'
+      }).then(() => {
+        window.location.reload();
+      });
+    },
+    error: function(xhr) {
+      console.error(xhr);
+      let errorMsg = 'Error al guardar los cambios';
+      
+      try {
+        const response = JSON.parse(xhr.responseText);
+        errorMsg = response.error || errorMsg;
+      } catch(e) {}
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMsg,
+        confirmButtonColor: '#dc3545'
+      });
+    }
+  });
+});
+
+function handleLogoError(img, logoPath) {
+  // Intentar desde static
+  const staticUrl = '/static/' + logoPath;
+  
+  // Si ya intentamos static, mostrar placeholder
+  if (img.src.includes('/static/')) {
+    img.style.display = 'none';
+    const placeholder = document.createElement('div');
+    placeholder.className = 'company-logo-placeholder-box';
+    placeholder.innerHTML = '<i class="bi bi-building"></i>';
+    img.parentNode.replaceChild(placeholder, img);
+  } else {
+    img.src = staticUrl;
+  }
 }
 
+// Preview del logo al seleccionar
+function previewLogo(event) {
+  const file = event.target.files[0];
+  const preview = document.getElementById('logoPreview');
+  const container = document.getElementById('logoPreviewContainer');
+  
+  if (file) {
+    // Validar tamaño
+    if (file.size > 2 * 1024 * 1024) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Archivo muy grande',
+        text: 'El logo no debe superar los 2MB',
+        confirmButtonColor: '#dc3545'
+      });
+      event.target.value = '';
+      container.style.display = 'none';
+      return;
+    }
+    
+    // Mostrar preview
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.src = e.target.result;
+      container.style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  } else {
+    container.style.display = 'none';
+  }
+}
 
 </script>
+
+<style>
+/* ===================================
+   ESTILOS GENERALES
+   =================================== */
+
+/* Logo en caja */
+.company-logo-box {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 4px;
+  background: white;
+}
+
+.company-logo-placeholder-box {
+  width: 80px;
+  height: 80px;
+  border: 1px dashed #dee2e6;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  color: #adb5bd;
+  font-size: 2rem;
+}
+
+/* Filas de información limpias */
+.info-row-clean {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.info-row-clean i {
+  font-size: 1rem;
+  width: 18px;
+}
+
+.info-label-clean {
+  color: #6c757d;
+  min-width: 70px;
+}
+
+.info-value-clean {
+  color: #212529;
+  font-weight: 500;
+}
+
+/* Badges de parámetros */
+.badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.param-badge {
+  padding: 0.5rem 0.9rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  display: inline-block;
+}
+
+.badge-cyan {
+  background-color: #17a2b8;
+}
+
+.badge-red {
+  background-color: #dc3545;
+}
+
+.badge-yellow {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.badge-purple {
+  background-color: #6f42c1;
+}
+
+/* Lista de parámetros */
+.params-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.param-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.param-item i {
+  font-size: 1rem;
+  width: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.param-label {
+  color: #6c757d;
+  min-width: 180px;
+}
+
+.param-value {
+  color: #212529;
+  flex-grow: 1;
+}
+
+/* ===================================
+   CARDS DE SISTEMA
+   =================================== */
+
+.system-card {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  height: 100%;
+}
+
+.system-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.system-card-header {
+  background: #f8f9fa;
+  padding: 0.75rem 1rem;
+  font-weight: 500;
+  font-size: 0.85rem;
+  color: #495057;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.system-card-body {
+  padding: 1.25rem 1rem;
+  text-align: center;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.system-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #212529;
+}
+
+/* Badges de modo */
+.mode-badge {
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.mode-prod {
+  background-color: #198754;
+  color: white;
+}
+
+.mode-dev {
+  background-color: #ffc107;
+  color: #333;
+}
+
+/* ===================================
+   LISTA DE CONFIGURACIÓN
+   =================================== */
+
+.config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.config-item:last-child {
+  border-bottom: none;
+}
+
+.config-item i {
+  font-size: 1.2rem;
+  color: #6c757d;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.config-label {
+  color: #6c757d;
+  font-weight: 500;
+  min-width: 150px;
+}
+
+.config-value {
+  color: #212529;
+  font-weight: 600;
+  flex-grow: 1;
+}
+
+.password-masked {
+  letter-spacing: 2px;
+  font-size: 1.1rem;
+}
+
+/* Status badges */
+.status-badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-prod {
+  background-color: #198754;
+  color: white;
+}
+
+.status-dev {
+  background-color: #ffc107;
+  color: #333;
+}
+
+/* Botones de cambio de modo */
+.btn-change {
+  padding: 0.4rem 1rem;
+  border-radius: 4px;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-to-prod {
+  background-color: #198754;
+  color: white;
+}
+
+.btn-to-prod:hover {
+  background-color: #157347;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(25, 135, 84, 0.3);
+}
+
+.btn-to-dev {
+  background-color: #ffc107;
+  color: #333;
+}
+
+.btn-to-dev:hover {
+  background-color: #ffb300;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+}
+
+/* ===================================
+   MODAL
+   =================================== */
+
+.section-divider {
+  color: #4154f1;
+  font-weight: 600;
+  margin: 1.5rem 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #4154f1;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+/* ===================================
+   RESPONSIVE
+   =================================== */
+
+@media (max-width: 768px) {
+  .param-label,
+  .config-label {
+    min-width: auto;
+  }
+
+  .param-item,
+  .config-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .badges-container {
+    flex-direction: column;
+  }
+
+  .param-badge {
+    display: block;
+  }
+
+  .system-card-body {
+    padding: 1rem 0.5rem;
+    min-height: 70px;
+  }
+
+  .info-label-clean {
+    min-width: auto;
+  }
+}
+</style>
 {% endblock %}

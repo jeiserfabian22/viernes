@@ -20,3 +20,16 @@ class RepuestoForm(forms.ModelForm):
     class Meta:
         model = Repuesto
         fields = ['codigo_barras', 'precio_compra', 'precio_venta', 'cantidad']
+
+
+
+
+
+
+
+
+
+
+
+
+

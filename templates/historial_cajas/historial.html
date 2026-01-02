@@ -1,0 +1,638 @@
+{% extends 'plantilla/base.html' %}
+{% load url_filters %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    <div class="pagetitle">
+        <h1><i class="bi bi-clock-history"></i> Historial de Cajas</h1>
+        <nav>
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'ventas' %}">Home</a></li>
+                <li class="breadcrumb-item active">Historial de Cajas</li>
+            </ol>
+        </nav>
+    </div>
+
+    <section class="section">
+        <div class="row">
+            <div class="col-lg-12">
+                
+                <!-- Alertas -->
+                {% if tiene_caja_abierta %}
+                <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-triangle"></i> 
+                    <strong>Atención:</strong> Tienes una caja abierta actualmente. Debes cerrarla antes de poder reabrir una caja anterior.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endif %}
+
+                <!-- Tarjeta de Filtros -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-funnel"></i> Filtros de Búsqueda
+                        </h5>
+
+                        <form method="GET" class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Fecha Desde:</label>
+                                <input type="date" class="form-control" name="fecha_desde" value="{{ fecha_desde }}">
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label">Fecha Hasta:</label>
+                                <input type="date" class="form-control" name="fecha_hasta" value="{{ fecha_hasta }}">
+                            </div>
+                            
+                            <div class="col-md-2">
+                                <label class="form-label">Estado:</label>
+                                <select class="form-select" name="estado">
+                                    <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                                    <option value="abierta" {% if estado_filtro == 'abierta' %}selected{% endif %}>Abierta</option>
+                                    <option value="cerrada" {% if estado_filtro == 'cerrada' %}selected{% endif %}>Cerrada</option>
+                                    <option value="reabierta" {% if estado_filtro == 'reabierta' %}selected{% endif %}>Reabierta</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3">
+                                <label class="form-label">Caja:</label>
+                                <select class="form-select" name="id_caja">
+                                    <option value="">Todas</option>
+                                    {% for caja in cajas %}
+                                    <option value="{{ caja.id_caja }}" {% if id_caja_filtro == caja.id_caja|stringformat:"s" %}selected{% endif %}>
+                                        {{ caja.nombre_caja }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-1 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Tabla de Historial -->
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            Listado de Aperturas y Cierres
+                            <span class="badge bg-secondary">{{ aperturas.count }} registros</span>
+                        </h5>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Caja</th>
+                                        <th>Usuario</th>
+                                        <th>Fecha Apertura</th>
+                                        <th>Fecha Cierre</th>
+                                        <th>Saldo Inicial</th>
+                                        <th>Saldo Final</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for apertura in aperturas %}
+                                    <tr>
+                                        <td><strong>{{ apertura.id_movimiento }}</strong></td>
+                                        <td>
+                                            <i class="bi bi-inbox"></i> 
+                                            {{ apertura.id_caja.nombre_caja|default:"N/A" }}
+                                        </td>
+                                        <td>
+                                            <i class="bi bi-person"></i>
+                                            {{ apertura.idusuario.nombrecompleto|default:"N/A" }}
+                                        </td>
+                                        <td>
+                                            <small>
+                                                {{ apertura.fecha_apertura|date:"d/m/Y" }}<br>
+                                                <span class="text-muted">{{ apertura.hora_apertura|time:"H:i" }}</span>
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if apertura.fecha_cierre %}
+                                            <small>
+                                                {{ apertura.fecha_cierre|date:"d/m/Y" }}<br>
+                                                <span class="text-muted">{{ apertura.hora_cierre|time:"H:i" }}</span>
+                                            </small>
+                                            {% else %}
+                                            <span class="text-muted">---</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <strong class="text-success">S/ {{ apertura.saldo_inicial|floatformat:2 }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if apertura.saldo_final %}
+                                            <strong class="text-primary">S/ {{ apertura.saldo_final|floatformat:2 }}</strong>
+                                            {% else %}
+                                            <span class="text-muted">---</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if apertura.estado == 'abierta' %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-unlock"></i> Abierta
+                                            </span>
+                                            {% elif apertura.estado == 'cerrada' %}
+                                            <span class="badge bg-secondary">
+                                                <i class="bi bi-lock"></i> Cerrada
+                                            </span>
+                                            {% elif apertura.estado == 'reabierta' %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="bi bi-arrow-repeat"></i> Reabierta
+                                            </span>
+                                            {% endif %}
+                                            
+                                            {% if apertura.fue_reabierta %}
+                                            <br><small class="text-info"><i class="bi bi-info-circle"></i> Ya reabierta antes</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <!-- Botón Reabrir -->
+                                            {% if apertura.puede_reabrirse %}
+                                            <button type="button" class="btn btn-sm btn-warning" 
+                                                    onclick="solicitarReapertura('{{ apertura.id_movimiento|eid }}')" 
+                                                    title="Reabrir caja">
+                                                <i class="bi bi-arrow-repeat"></i> Reabrir
+                                            </button>
+                                            <!-- Botón Cerrar - CON ID ENCRIPTADO -->
+                                            {% elif apertura.estado == 'reabierta' %}
+                                            <button type="button" class="btn btn-sm btn-danger" 
+                                                    onclick="cerrarReabierta('{{ apertura.id_movimiento|eid }}')" 
+                                                    title="Cerrar caja reabierta">
+                                                <i class="bi bi-lock"></i> Cerrar
+                                            </button>
+                                            {% endif %}
+                                            
+                                            <!-- Botón Ver Movimientos -->
+                                            <button type="button" class="btn btn-sm btn-info" 
+                                                    onclick="verMovimientos({{ apertura.id_movimiento }})" 
+                                                    title="Ver movimientos">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="9" class="text-center text-muted py-5">
+                                            <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                                            <p class="mt-3 mb-0">No hay registros que mostrar</p>
+                                            <small>Ajusta los filtros para ver más resultados</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+</main>
+
+<!-- Modal Solicitar Reapertura -->
+<div class="modal fade" id="modalSolicitarReapertura" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="bi bi-arrow-repeat"></i> Solicitar Reapertura de Caja
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formSolicitarReapertura">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-shield-lock"></i>
+                        <strong>Importante:</strong> Se enviará un código de verificación al correo del dueño del negocio para autorizar esta acción.
+                    </div>
+                    
+                    <input type="hidden" id="id_movimiento_reabrir">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Motivo de Reapertura:</strong> 
+                            <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="motivo_reapertura" name="motivo" 
+                                  rows="4" required 
+                                  placeholder="Explique por qué necesita reabrir esta caja (mínimo 10 caracteres)"></textarea>
+                        <small class="text-muted">
+                            <i class="bi bi-lightbulb"></i> 
+                            Ejemplo: "Olvidé registrar un pago de cuota del cliente Juan Pérez"
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-send"></i> Solicitar Reapertura
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Verificar Código 2FA -->
+<div class="modal fade" id="modalVerificar2FA" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-shield-lock"></i> Verificación de Seguridad
+                </h5>
+            </div>
+            <form id="formVerificar2FA">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-success">
+                        <i class="bi bi-envelope-check"></i>
+                        <strong>Código enviado</strong><br>
+                        Se ha enviado un código de 6 dígitos al correo: 
+                        <strong id="correo_dueno_display"></strong>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Ingrese el Código de Verificación:</strong>
+                        </label>
+                        <input type="text" 
+                               class="form-control form-control-lg text-center" 
+                               id="codigo_2fa" 
+                               name="codigo" 
+                               maxlength="6" 
+                               placeholder="000000" 
+                               required
+                               autocomplete="off"
+                               style="font-size: 2rem; letter-spacing: 10px; font-weight: bold;">
+                        <small class="text-muted">
+                            <i class="bi bi-clock"></i> El código expira en 10 minutos
+                        </small>
+                    </div>
+                    
+                    <div id="mensaje_verificacion"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="cancelarVerificacion()">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Verificar y Reabrir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cerrar Caja Reabierta -->
+<div class="modal fade" id="modalCerrarReabierta" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-lock"></i> Cerrar Caja Reabierta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCerrarReabierta">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" id="id_movimiento_cerrar">
+                    
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <strong>¿Está seguro?</strong><br>
+                        Al cerrar esta caja reabierta ya no podrá realizar más movimientos en esta apertura.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Saldo Final:</strong></label>
+                        <div class="input-group">
+                            <span class="input-group-text">S/</span>
+                            <input type="number" 
+                                   class="form-control form-control-lg text-end" 
+                                   id="saldo_final_cerrar" 
+                                   name="saldo_final" 
+                                   step="0.01" 
+                                   readonly
+                                   style="font-weight: bold; font-size: 1.5rem;">
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-calculator"></i> Este valor se calcula automáticamente
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-lock"></i> Confirmar Cierre
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==========================================
+// SOLICITAR REAPERTURA
+// ==========================================
+function solicitarReapertura(eid) {
+    console.log('🔓 Solicitando reapertura de caja con ID encriptado:', eid);
+    document.getElementById('id_movimiento_reabrir').value = eid;
+    document.getElementById('motivo_reapertura').value = '';
+    document.getElementById('mensaje_verificacion').innerHTML = '';
+    new bootstrap.Modal(document.getElementById('modalSolicitarReapertura')).show();
+}
+
+document.getElementById('formSolicitarReapertura').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const eid = document.getElementById('id_movimiento_reabrir').value;
+    const motivo = document.getElementById('motivo_reapertura').value.trim();
+    
+    // Validar longitud del motivo
+    if (motivo.length < 10) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Motivo muy corto',
+            text: 'El motivo debe tener al menos 10 caracteres'
+        });
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const btnSubmit = this.querySelector('button[type="submit"]');
+    
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enviando código...';
+    
+    // ⭐ RUTA CORREGIDA
+    fetch(`/sys/hcj/reopen/${eid}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            // Cerrar modal de solicitud
+            bootstrap.Modal.getInstance(document.getElementById('modalSolicitarReapertura')).hide();
+            
+            // Mostrar modal de verificación 2FA
+            document.getElementById('correo_dueno_display').textContent = data.correo_dueno;
+            document.getElementById('codigo_2fa').value = '';
+            new bootstrap.Modal(document.getElementById('modalVerificar2FA')).show();
+            
+            // Enfocar el input del código
+            setTimeout(() => {
+                document.getElementById('codigo_2fa').focus();
+            }, 500);
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Código Enviado!',
+                text: data.message,
+                timer: 3000,
+                showConfirmButton: false
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error || 'Error al enviar código'
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error en la conexión. Intente nuevamente.'
+        });
+    })
+    .finally(() => {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="bi bi-send"></i> Solicitar Reapertura';
+    });
+});
+
+// ==========================================
+// VERIFICAR CÓDIGO 2FA
+// ==========================================
+document.getElementById('formVerificar2FA').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const codigo = document.getElementById('codigo_2fa').value.trim();
+    
+    if (codigo.length !== 6) {
+        document.getElementById('mensaje_verificacion').innerHTML = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-circle"></i> El código debe tener 6 dígitos
+            </div>
+        `;
+        return;
+    }
+    
+    const formData = new FormData(this);
+    const btnSubmit = this.querySelector('button[type="submit"]');
+    
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Verificando...';
+    
+    // ⭐ RUTA CORREGIDA
+    fetch('/sys/hcj/verify/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalVerificar2FA')).hide();
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Caja Reabierta!',
+                html: data.message + '<br><br><strong>Puede proceder a realizar los movimientos necesarios.</strong>',
+                confirmButtonText: 'Entendido'
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            document.getElementById('mensaje_verificacion').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-x-circle"></i> <strong>${data.error}</strong>
+                </div>
+            `;
+            document.getElementById('codigo_2fa').value = '';
+            document.getElementById('codigo_2fa').focus();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        document.getElementById('mensaje_verificacion').innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-x-circle"></i> Error al verificar el código
+            </div>
+        `;
+    })
+    .finally(() => {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="bi bi-check-circle"></i> Verificar y Reabrir';
+    });
+});
+
+function cancelarVerificacion() {
+    Swal.fire({
+        title: '¿Cancelar verificación?',
+        text: 'Se perderá la solicitud de reapertura',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cancelar',
+        cancelButtonText: 'No, continuar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            bootstrap.Modal.getInstance(document.getElementById('modalVerificar2FA')).hide();
+            location.reload();
+        }
+    });
+}
+
+// ==========================================
+// CERRAR CAJA REABIERTA
+// ==========================================
+function cerrarReabierta(eid) {
+    console.log('🔒 Cerrando caja reabierta con ID encriptado:', eid);
+    document.getElementById('id_movimiento_cerrar').value = eid;
+    document.getElementById('saldo_final_cerrar').value = '0.00';
+    
+    // Mostrar loading mientras carga el saldo
+    const inputSaldo = document.getElementById('saldo_final_cerrar');
+    inputSaldo.value = 'Calculando...';
+    
+    // Cargar saldo actual
+    fetch('/api/obtener-saldo-actual/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                inputSaldo.value = data.saldo_actual.toFixed(2);
+            } else {
+                inputSaldo.value = '0.00';
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Advertencia',
+                    text: 'No se pudo calcular el saldo actual'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            inputSaldo.value = '0.00';
+        });
+    
+    new bootstrap.Modal(document.getElementById('modalCerrarReabierta')).show();
+}
+
+document.getElementById('formCerrarReabierta').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const eid = document.getElementById('id_movimiento_cerrar').value;
+    const formData = new FormData(this);
+    const btnSubmit = this.querySelector('button[type="submit"]');
+    
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Cerrando...';
+    
+    // ⭐ RUTA CORREGIDA
+    fetch(`/sys/hcj/close/${eid}/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.ok) {
+            bootstrap.Modal.getInstance(document.getElementById('modalCerrarReabierta')).hide();
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Caja Cerrada!',
+                text: data.message,
+                timer: 2000,
+                showConfirmButton: false
+            }).then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: data.error
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'Error al cerrar la caja'
+        });
+    })
+    .finally(() => {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="bi bi-lock"></i> Confirmar Cierre';
+    });
+});
+
+// ==========================================
+// VER MOVIMIENTOS (PLACEHOLDER)
+// ==========================================
+function verMovimientos(eid) {
+    console.log('👁️ Ver movimientos de caja con ID encriptado:', eid);
+    Swal.fire({
+        icon: 'info',
+        title: 'Movimientos de Caja',
+        html: `Ver todos los movimientos de esta apertura<br><small class="text-muted">Funcionalidad próximamente...</small>`,
+        confirmButtonText: 'Entendido'
+    });
+}
+
+// Auto-focus en el código cuando se abre el modal
+document.getElementById('modalVerificar2FA').addEventListener('shown.bs.modal', function () {
+    document.getElementById('codigo_2fa').focus();
+});
+
+// Solo permitir números en el código 2FA
+document.getElementById('codigo_2fa').addEventListener('input', function(e) {
+    this.value = this.value.replace(/[^0-9]/g, '');
+});
+</script>
+
+{% endblock %}

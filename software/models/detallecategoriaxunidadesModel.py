@@ -7,5 +7,5 @@ class Detallecategoriaxunidades(models.Model):
     idunidad = models.ForeignKey('Unidades', models.DO_NOTHING, db_column='idunidad')
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'detallecategoriaxunidades'

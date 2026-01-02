@@ -1,0 +1,505 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="fas fa-hashtag me-2"></i>Series de Comprobante
+    </h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModalAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Serie
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Series de Comprobante</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de series de comprobante</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable" style="width: 100%;">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col" style="width: 5%;">#</th>
+                <th scope="col" style="width: 20%;">Tipo de Comprobante</th>
+                <th scope="col" style="width: 10%;">Código</th>
+                <th scope="col" style="width: 12%;">Serie</th>
+                <th scope="col" style="width: 15%;">Número Actual</th>
+                <th scope="col" style="width: 18%;">Próximo Número</th>
+                <th scope="col" style="width: 10%;">Estado</th>
+                <th scope="col" class="text-center" style="width: 10%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for serie in series_comprobante %}
+              <tr>
+                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                <td>{{ serie.idtipocomprobante.nombre }}</td>
+                <td><span class="badge bg-primary">{{ serie.idtipocomprobante.codigo }}</span></td>
+                <td><span class="badge bg-success fs-6">{{ serie.serie }}</span></td>
+                <td class="text-center">
+                  {% if serie.numero_actual == 0 %}
+                    <span class="badge bg-secondary">Sin emitir</span>
+                  {% else %}
+                    <span class="fw-bold">{{ serie.numero_actual|stringformat:"08d" }}</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-info text-dark">{{ serie.serie }}-{{ serie.siguiente_numero|stringformat:"08d" }}</span>
+                </td>
+                <td class="text-center">
+                  {% if serie.numero_actual == 0 %}
+                    <span class="badge bg-warning text-dark">Nueva</span>
+                  {% else %}
+                    <span class="badge bg-success">Activa</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <a type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                    data-bs-target="#myModalEditar{{ serie.idseriecomprobante }}" title="Editar">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </a>
+
+                  <a href="{% url 'eliminar_serie_comprobante' id=serie.idseriecomprobante %}" class="btn btn-sm btn-outline-danger eliminar"
+                    onclick="return confirmarEliminar('{{ serie.idseriecomprobante }}', this)" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModalEditar{{ serie.idseriecomprobante }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Serie de Comprobante</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarSerieComprobante{{ serie.idseriecomprobante }}" action="{% url 'editar_serie_comprobante' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="idSerieComprobante" value="{{ serie.idseriecomprobante }}">
+                        
+                        <div class="row">
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Tipo de Comprobante <span class="text-danger">*</span></label>
+                            <select name="tipoComprobanteSerieComprobante" class="form-select rounded-pill" required>
+                              <option value="">Seleccione...</option>
+                              {% for tipo in tipos_comprobante %}
+                              <option value="{{ tipo.idtipocomprobante }}" {% if tipo.idtipocomprobante == serie.idtipocomprobante.idtipocomprobante %}selected{% endif %}>
+                                {{ tipo.codigo }} - {{ tipo.nombre }}
+                              </option>
+                              {% endfor %}
+                            </select>
+                          </div>
+
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Serie <span class="text-danger">*</span></label>
+                            <input type="text" name="serieSerieComprobante" value="{{ serie.serie }}" 
+                                   class="form-control rounded-pill text-uppercase" maxlength="4" minlength="4"
+                                   placeholder="Ej: F001, B001" required>
+                            <small class="text-muted">Exactamente 4 caracteres alfanuméricos</small>
+                          </div>
+                        </div>
+
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Número Actual <span class="text-danger">*</span></label>
+                          <input type="number" name="numeroActualSerieComprobante" value="{{ serie.numero_actual }}" 
+                                 class="form-control rounded-pill" min="0" max="99999999"
+                                 placeholder="Ej: 0, 125, 1000" required>
+                          <small class="text-muted">Mínimo: 0, Máximo: 99999999 (0 = sin comprobantes emitidos)</small>
+                        </div>
+
+                        <!-- Info del próximo comprobante -->
+                        <div class="alert alert-info" role="alert">
+                          <i class="fa-solid fa-circle-info me-2"></i>
+                          <strong>Información:</strong><br>
+                          • Número actual: <strong>{{ serie.numero_actual }}</strong><br>
+                          • Próximo comprobante a emitir: <strong>{{ serie.serie_completa }}</strong><br>
+                          {% if serie.numero_actual > 0 %}
+                          • Último comprobante emitido: <strong>{{ serie.ultimo_comprobante_emitido }}</strong>
+                          {% else %}
+                          • Esta serie aún no ha emitido comprobantes
+                          {% endif %}
+                        </div>
+
+                        <div class="alert alert-warning" role="alert">
+                          <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                          <strong>Advertencia:</strong> Modificar el número actual puede afectar la correlatividad de los comprobantes.
+                        </div>
+
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" 
+                                  data-id="{{ serie.idseriecomprobante }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModalAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fa-solid fa-hashtag me-2"></i>Agregar Serie de Comprobante</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-circle-info me-2"></i>
+            <strong>Formato de series SUNAT:</strong><br>
+            • Facturas: F001, F002, F003, etc.<br>
+            • Boletas: B001, B002, B003, etc.<br>
+            • Notas de Crédito: NC01, NC02, etc.<br>
+            • Notas de Débito: ND01, ND02, etc.<br><br>
+            <strong>Nota:</strong> El número actual inicia en <strong>0</strong> para que el primer comprobante sea <strong>00000001</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+
+          <form id="formAgregarSerieComprobante" action="{% url 'agregar_serie_comprobante' %}" method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Tipo de Comprobante <span class="text-danger">*</span></label>
+                <select name="tipoComprobanteSerieComprobante" id="tipoComprobanteSerieComprobante" class="form-select rounded-pill" required>
+                  <option value="">Seleccione...</option>
+                  {% for tipo in tipos_comprobante %}
+                  <option value="{{ tipo.idtipocomprobante }}">{{ tipo.codigo }} - {{ tipo.nombre }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Serie <span class="text-danger">*</span></label>
+                <input type="text" name="serieSerieComprobante" id="serieSerieComprobante" 
+                       class="form-control rounded-pill text-uppercase" maxlength="4" minlength="4"
+                       placeholder="Ej: F001, B001" required>
+                <small class="text-muted">Exactamente 4 caracteres alfanuméricos</small>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Número Actual <span class="text-danger">*</span></label>
+              <input type="number" name="numeroActualSerieComprobante" id="numeroActualSerieComprobante" 
+                     class="form-control rounded-pill" min="0" max="99999999" value="0"
+                     placeholder="Inicia en 0" required>
+              <small class="text-muted">Mínimo: 0, Máximo: 99999999 (inicia en 0 para que el primer comprobante sea 00000001)</small>
+            </div>
+
+            <!-- Vista previa del próximo comprobante -->
+            <div class="alert alert-light border" role="alert">
+              <strong>Vista previa del próximo comprobante:</strong><br>
+              <span id="vistaPrevia" class="badge bg-info text-dark fs-6">Ingrese la serie y el número</span>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+  .datatable {
+    font-size: 0.9rem;
+  }
+  
+  .datatable thead th {
+    background-color: #212529 !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    padding: 12px 8px;
+  }
+  
+  .datatable tbody td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    font-size: 0.875rem;
+  }
+  
+  .datatable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  .badge {
+    font-weight: 500;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+  
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+
+  /* Estilo especial para la serie */
+  .badge.fs-6 {
+    font-size: 1rem !important;
+    padding: 8px 12px;
+  }
+
+  /* Input en mayúsculas automático */
+  .text-uppercase {
+    text-transform: uppercase;
+  }
+</style>
+
+<script>
+$(function(){
+  // ==================== VISTA PREVIA DEL COMPROBANTE ====================
+  function actualizarVistaPrevia() {
+    const serie = $('#serieSerieComprobante').val().toUpperCase();
+    const numeroActual = parseInt($('#numeroActualSerieComprobante').val()) || 0;
+    const siguienteNumero = numeroActual + 1;
+    
+    if (serie.length === 4) {
+      const numeroFormateado = siguienteNumero.toString().padStart(8, '0');
+      $('#vistaPrevia').text(`${serie}-${numeroFormateado}`);
+    } else if (serie.length > 0) {
+      $('#vistaPrevia').text('La serie debe tener 4 caracteres');
+    } else {
+      $('#vistaPrevia').text('Ingrese la serie y el número');
+    }
+  }
+
+  // Actualizar vista previa en tiempo real
+  $('#serieSerieComprobante, #numeroActualSerieComprobante').on('input', actualizarVistaPrevia);
+
+  // ==================== VALIDACIÓN EN TIEMPO REAL ====================
+  
+  // Validar serie en tiempo real (solo letras y números, máximo 4 caracteres)
+  $('#serieSerieComprobante, input[name="serieSerieComprobante"]').on('input', function() {
+    let valor = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (valor.length > 4) {
+      valor = valor.substring(0, 4);
+    }
+    this.value = valor;
+  });
+
+  // Validar número actual en tiempo real
+  $('#numeroActualSerieComprobante, input[name="numeroActualSerieComprobante"]').on('input', function() {
+    if (this.value < 0) {
+      this.value = 0;
+    }
+    if (this.value > 99999999) {
+      this.value = 99999999;
+    }
+  });
+
+  // ==================== AJAX AGREGAR ====================
+  $("#agregar").click(function(){
+    // Validación adicional antes de enviar
+    const serie = $('#serieSerieComprobante').val();
+    if (serie.length !== 4) {
+      Swal.fire({
+        title: 'Error de validación',
+        text: 'La serie debe tener exactamente 4 caracteres',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+      return false;
+    }
+
+    var formData = new FormData($('#formAgregarSerieComprobante')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregar_serie_comprobante' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Serie de comprobante guardada exitosamente',
+          html: `
+            <div class="text-start">
+              <strong>Serie:</strong> ${response.serie}<br>
+              <strong>Número actual:</strong> ${response.numero_actual}<br>
+              <strong>Próximo comprobante:</strong> ${response.serie_completa}
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'serie_comprobante' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // ==================== AJAX EDITAR ====================
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarSerieComprobante' + id);
+    
+    // Validación adicional antes de enviar
+    const serie = form.find('input[name="serieSerieComprobante"]').val();
+    if (serie.length !== 4) {
+      Swal.fire({
+        title: 'Error de validación',
+        text: 'La serie debe tener exactamente 4 caracteres',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+      return false;
+    }
+
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Serie de comprobante editada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'serie_comprobante' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // ==================== LIMPIAR MODAL AL CERRAR ====================
+  $('#myModalAgregar').on('hidden.bs.modal', function () {
+    $('#formAgregarSerieComprobante')[0].reset();
+    $('#numeroActualSerieComprobante').val(0);
+    actualizarVistaPrevia();
+  });
+
+  // ==================== DATATABLE ====================
+  $('.datatable').DataTable({
+    language: {
+      "processing": "Procesando...",
+      "lengthMenu": "Mostrar _MENU_ registros",
+      "zeroRecords": "No se encontraron resultados",
+      "emptyTable": "Ningún dato disponible en esta tabla",
+      "info": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+      "infoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+      "infoFiltered": "(filtrado de un total de _MAX_ registros)",
+      "search": "Buscar:",
+      "loadingRecords": "Cargando...",
+      "paginate": {
+        "first": "Primero",
+        "last": "Último",
+        "next": "Siguiente",
+        "previous": "Anterior"
+      }
+    },
+    pageLength: 10,
+    lengthMenu: [5, 10, 25, 50],
+    responsive: true,
+    order: [[1, 'asc'], [3, 'asc']],
+    columnDefs: [
+      { 
+        targets: [7],
+        orderable: false,
+        searchable: false
+      }
+    ],
+    autoWidth: false
+  });
+});
+
+// ==================== CONFIRMACIÓN ELIMINAR ====================
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar esta serie de comprobante?',
+    text: 'Esta acción cambiará el estado del registro',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          Swal.fire({
+            title: 'Eliminado',
+            text: 'La serie de comprobante ha sido eliminada',
+            icon: 'success',
+            confirmButtonText: 'OK'
+          }).then(() => {
+            window.location.href = "{% url 'serie_comprobante' %}";
+          });
+        },
+        error: function(response) {
+          Swal.fire({
+            title: 'Error',
+            text: 'No se pudo eliminar la serie',
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        }
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}

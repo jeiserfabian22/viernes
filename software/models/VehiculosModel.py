@@ -9,13 +9,14 @@ class Vehiculo(models.Model):
     idproducto = models.ForeignKey(Producto, on_delete=models.DO_NOTHING, db_column='idproducto', related_name='vehiculos')
     idestadoproducto = models.ForeignKey(EstadoProducto, on_delete=models.DO_NOTHING, db_column='idestadoproducto', related_name='vehiculos')
     imperfecciones = models.TextField(blank=True)
+    placas = models.TextField(blank=True)
     serie_chasis = models.CharField(max_length=50)
     serie_motor = models.CharField(max_length=50)
     estado = models.IntegerField(db_column='estado')
 
 
     class Meta:
-        managed = False  # porque la tabla ya existe
+        managed = True 
         db_table = 'vehiculos'
 
 

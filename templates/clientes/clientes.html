@@ -1,0 +1,660 @@
+{% extends 'plantilla/base.html' %}
+{% load url_filters %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">Clientes</h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModalAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Cliente
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Clientes</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de clientes</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable" style="width: 100%;">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col" style="width: 5%;">#</th>
+                <th scope="col" style="width: 8%;">Tipo Doc.</th>
+                <th scope="col" style="width: 10%;">Nro. Documento</th>
+                <th scope="col" style="width: 20%;">Razón Social</th>
+                <th scope="col" style="width: 15%;">Nombre Comercial</th>
+                <th scope="col" style="width: 10%;">Teléfono</th>
+                <th scope="col" style="width: 15%;">Dirección</th>
+                <th scope="col" style="width: 10%;">Tipo Entidad</th>
+                <th scope="col" class="text-center" style="width: 7%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cliente in clientes_registros %}
+              <tr>
+                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                <td><span class="badge bg-info text-dark">{{ cliente.tipo_documento }}</span></td>
+                <td class="fw-bold">{{ cliente.numdoc }}</td>
+                <td>{{ cliente.razonsocial }}</td>
+                <td>{{ cliente.nombre_comercial_cliente|default:"-" }}</td>
+                <td>{{ cliente.telefono|default:"-" }}</td>
+                <td>{{ cliente.direccion|default:"-" }}</td>
+                <td><span class="badge bg-secondary">{{ cliente.id_tipo_entidad.tipo_entidad }}</span></td>
+                <td class="text-center">
+                  <a type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                    data-bs-target="#myModalEditar{{ cliente.idcliente }}" title="Editar">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </a>
+
+                  <a href="#" class="btn btn-sm btn-outline-danger eliminar"
+                     data-eid="{{ cliente.idcliente|eid }}"
+                     data-nombre="{{ cliente.razonsocial }}"
+                     onclick="confirmarEliminar(event, this)" 
+                     title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModalEditar{{ cliente.idcliente }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Cliente</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarCliente{{ cliente.idcliente }}" action="{% url 'editar_cliente' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="idCliente" value="{{ cliente.idcliente }}">
+                        
+                        <div class="row">
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Tipo de Entidad <span class="text-danger">*</span></label>
+                            <select name="tipoEntidadCliente" class="form-select rounded-pill" required>
+                              <option value="">Seleccione...</option>
+                              {% for tipo in tipos_entidad %}
+                              <option value="{{ tipo.id_tipo_entidad }}" {% if tipo.id_tipo_entidad == cliente.id_tipo_entidad.id_tipo_entidad %}selected{% endif %}>
+                                {{ tipo.tipo_entidad }}
+                              </option>
+                              {% endfor %}
+                            </select>
+                          </div>
+
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Número de Documento <span class="text-danger">*</span></label>
+                            <input type="text" name="numdocCliente" value="{{ cliente.numdoc }}" class="form-control rounded-pill" maxlength="25" required>
+                          </div>
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-12 mb-3">
+                            <label class="form-label fw-semibold">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
+                            <input type="text" name="razonsocialCliente" value="{{ cliente.razonsocial }}" class="form-control rounded-pill" maxlength="255" required>
+                          </div>
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-12 mb-3">
+                            <label class="form-label fw-semibold">Nombre Comercial</label>
+                            <input type="text" name="nombreComercialCliente" value="{{ cliente.nombre_comercial_cliente }}" class="form-control rounded-pill" maxlength="255">
+                          </div>
+                        </div>
+
+                        <div class="row">
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Teléfono</label>
+                            <input type="text" name="telefonoCliente" value="{{ cliente.telefono }}" class="form-control rounded-pill" maxlength="10">
+                          </div>
+
+                          <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Dirección</label>
+                            <input type="text" name="direccionCliente" value="{{ cliente.direccion }}" class="form-control rounded-pill" maxlength="255">
+                          </div>
+                        </div>
+
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ cliente.idcliente }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar CON TOKENPERU -->
+  <div class="modal fade" id="myModalAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Agregar Cliente</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Alerta de información TokenPeru -->
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-circle-info me-2"></i>
+            <strong>Autocompletado:</strong> Ingrese el DNI (8 dígitos) o RUC (11 dígitos) y los datos se completarán automáticamente.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+
+          <!-- Alerta de carga -->
+          <div class="alert alert-primary d-none" id="alertCargando" role="alert">
+            <div class="d-flex align-items-center">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+              <div>Consultando documento en RENIEC/SUNAT...</div>
+            </div>
+          </div>
+
+          <!-- Alerta de error -->
+          <div class="alert alert-danger d-none" id="alertError" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-2"></i>
+            <span id="mensajeError"></span>
+          </div>
+
+          <!-- Alerta de éxito -->
+          <div class="alert alert-success d-none" id="alertExito" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i>
+            <span id="mensajeExito"></span>
+          </div>
+
+          <form id="formAgregarCliente" action="{% url 'agregar_cliente' %}" method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Tipo de Entidad <span class="text-danger">*</span></label>
+                <select name="tipoEntidadCliente" id="tipoEntidadCliente" class="form-select rounded-pill" required>
+                  <option value="">Seleccione...</option>
+                  {% for tipo in tipos_entidad %}
+                  <option value="{{ tipo.id_tipo_entidad }}">{{ tipo.tipo_entidad }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">
+                  Número de Documento <span class="text-danger">*</span>
+                  <span id="badgeTipoDoc" class="badge bg-secondary ms-2" style="display: none;"></span>
+                </label>
+                <div class="input-group">
+                  <input type="text" name="numdocCliente" id="numdocCliente" class="form-control rounded-start" maxlength="11" placeholder="DNI (8) o RUC (11)" required>
+                  <button class="btn btn-primary rounded-end" type="button" id="btnConsultarDoc" title="Consultar documento">
+                    <i class="fa-solid fa-search"></i>
+                  </button>
+                </div>
+                <small class="text-muted">Presione Enter o el botón de búsqueda</small>
+              </div>
+            </div>
+
+            <!-- Info adicional RUC (oculto inicialmente) -->
+            <div class="row d-none" id="infoRuc">
+              <div class="col-md-12 mb-3">
+                <div class="alert alert-light border" role="alert">
+                  <strong>Estado SUNAT:</strong> <span id="estadoSunat" class="badge"></span>
+                  <strong class="ms-3">Condición:</strong> <span id="condicionSunat"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
+                <input type="text" name="razonsocialCliente" id="razonsocialCliente" class="form-control rounded-pill" maxlength="255" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Nombre Comercial</label>
+                <input type="text" name="nombreComercialCliente" id="nombreComercialCliente" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Teléfono</label>
+                <input type="text" name="telefonoCliente" id="telefonoCliente" class="form-control rounded-pill" maxlength="10">
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Dirección</label>
+                <input type="text" name="direccionCliente" id="direccionCliente" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+  /* Mejoras visuales para la tabla */
+  .datatable {
+    font-size: 0.9rem;
+  }
+  
+  .datatable thead th {
+    background-color: #212529 !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    padding: 12px 8px;
+  }
+  
+  .datatable tbody td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    font-size: 0.875rem;
+  }
+  
+  .datatable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  /* Badges mejorados */
+  .badge {
+    font-weight: 500;
+    padding: 5px 10px;
+    font-size: 0.8rem;
+  }
+  
+  /* Botones de acciones */
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+  
+  /* Espaciado del DataTable */
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+  }
+  
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+  }
+  
+  /* Select de paginación */
+  .dataTables_length select {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+  }
+  
+  /* Input de búsqueda */
+  .dataTables_filter input {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    margin-left: 10px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .datatable {
+      font-size: 0.8rem;
+    }
+    
+    .datatable thead th,
+    .datatable tbody td {
+      padding: 8px 4px;
+    }
+  }
+
+  /* Animación para campos autocompletados */
+  .campo-autocompletado {
+    animation: highlightField 0.6s ease;
+  }
+
+  @keyframes highlightField {
+    0%, 100% { background-color: transparent; }
+    50% { background-color: #d1f2eb; }
+  }
+</style>
+
+<script>
+// ==================== FUNCIÓN PRINCIPAL TOKENPERU ====================
+async function consultarDocumentoTokenPeru(numero) {
+  const alertCargando = $('#alertCargando');
+  const alertError = $('#alertError');
+  const alertExito = $('#alertExito');
+  
+  // Validar longitud
+  if (numero.length !== 8 && numero.length !== 11) {
+    return;
+  }
+
+  // Mostrar loading
+  alertCargando.removeClass('d-none');
+  alertError.addClass('d-none');
+  alertExito.addClass('d-none');
+  
+  try {
+    const response = await fetch(`/api/autocompletar-cliente/?numero=${numero}`);
+    const data = await response.json();
+    
+    alertCargando.addClass('d-none');
+    
+    if (data.success) {
+      // Autocompletar campos - SIEMPRE autocompletar nombre comercial
+      $('#razonsocialCliente').val(data.razonsocial).addClass('campo-autocompletado');
+      $('#direccionCliente').val(data.direccion || '').addClass('campo-autocompletado');
+      $('#nombreComercialCliente').val(data.nombre_comercial || '').addClass('campo-autocompletado');
+      $('#tipoEntidadCliente').val(data.id_tipo_entidad);
+      
+      if (data.tipo === 'RUC') {
+        // Mostrar info SUNAT
+        $('#infoRuc').removeClass('d-none');
+        $('#estadoSunat').text(data.estado || 'N/A')
+          .removeClass('bg-success bg-danger')
+          .addClass(data.estado === 'ACTIVO' ? 'bg-success' : 'bg-danger');
+        $('#condicionSunat').text(data.condicion || 'N/A');
+        
+        // Badge RUC
+        $('#badgeTipoDoc').text('RUC').removeClass('bg-secondary bg-info').addClass('bg-info').show();
+        
+        // Validar estado
+        if (data.estado !== 'ACTIVO') {
+          alertExito.removeClass('d-none');
+          $('#mensajeExito').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}<br><small class="text-warning">⚠️ Advertencia: El RUC no está ACTIVO en SUNAT</small>`);
+        } else {
+          alertExito.removeClass('d-none');
+          $('#mensajeExito').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}`);
+        }
+      } else {
+        // DNI
+        $('#infoRuc').addClass('d-none');
+        $('#badgeTipoDoc').text('DNI').removeClass('bg-secondary bg-info').addClass('bg-secondary').show();
+        
+        alertExito.removeClass('d-none');
+        $('#mensajeExito').html(`<strong>DNI encontrado:</strong> ${data.razonsocial}`);
+      }
+      
+      // Remover animación después de 600ms
+      setTimeout(() => {
+        $('.campo-autocompletado').removeClass('campo-autocompletado');
+      }, 600);
+      
+    } else {
+      // Error de API
+      alertError.removeClass('d-none');
+      $('#mensajeError').text(data.error || 'No se encontró el documento');
+      limpiarCampos();
+    }
+  } catch (error) {
+    alertCargando.addClass('d-none');
+    alertError.removeClass('d-none');
+    $('#mensajeError').text('Error de conexión. Intente nuevamente.');
+    console.error('Error:', error);
+  }
+}
+
+// Función para limpiar campos
+function limpiarCampos() {
+  $('#razonsocialCliente').val('');
+  $('#nombreComercialCliente').val('');
+  $('#direccionCliente').val('');
+  $('#infoRuc').addClass('d-none');
+  $('#badgeTipoDoc').hide();
+}
+
+$(function(){
+  // ==================== EVENTOS TOKENPERU ====================
+  
+  // Detectar tipo de documento al escribir
+  $('#numdocCliente').on('input', function() {
+    const valor = this.value.replace(/[^0-9]/g, '');
+    this.value = valor; // Solo números
+    
+    const badge = $('#badgeTipoDoc');
+    if (valor.length === 8) {
+      badge.text('DNI').removeClass('bg-info').addClass('bg-secondary').show();
+      $('#tipoEntidadCliente').val(1);
+    } else if (valor.length === 11) {
+      badge.text('RUC').removeClass('bg-secondary').addClass('bg-info').show();
+      $('#tipoEntidadCliente').val(6);
+    } else {
+      badge.hide();
+    }
+  });
+  
+  // Consultar al presionar Enter
+  $('#numdocCliente').on('keypress', function(e) {
+    if (e.which === 13) { // Enter
+      e.preventDefault();
+      const numero = $(this).val().trim();
+      if (numero.length === 8 || numero.length === 11) {
+        consultarDocumentoTokenPeru(numero);
+      }
+    }
+  });
+  
+  // Consultar al hacer clic en el botón
+  $('#btnConsultarDoc').on('click', function() {
+    const numero = $('#numdocCliente').val().trim();
+    if (numero.length === 8 || numero.length === 11) {
+      consultarDocumentoTokenPeru(numero);
+    } else {
+      Swal.fire({
+        title: 'Documento inválido',
+        text: 'Ingrese un DNI (8 dígitos) o RUC (11 dígitos)',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+  
+  // Limpiar al cerrar el modal
+  $('#myModalAgregar').on('hidden.bs.modal', function () {
+    $('#formAgregarCliente')[0].reset();
+    limpiarCampos();
+    $('.alert').addClass('d-none');
+  });
+
+  // ==================== AJAX AGREGAR CLIENTE ====================
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarCliente')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregar_cliente' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Cliente guardado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'clientes' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el cliente',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // ==================== AJAX EDITAR CLIENTE ====================
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarCliente' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Cliente editado exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'clientes' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar el cliente',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // ==================== DATATABLE ====================
+  $('.datatable').DataTable({
+    language: {
+      "processing": "Procesando...",
+      "lengthMenu": "Mostrar _MENU_ registros",
+      "zeroRecords": "No se encontraron resultados",
+      "emptyTable": "Ningún dato disponible en esta tabla",
+      "info": "Mostrando registros del _START_ al _END_ de un total de _TOTAL_ registros",
+      "infoEmpty": "Mostrando registros del 0 al 0 de un total de 0 registros",
+      "infoFiltered": "(filtrado de un total de _MAX_ registros)",
+      "search": "Buscar:",
+      "loadingRecords": "Cargando...",
+      "paginate": {
+        "first": "Primero",
+        "last": "Último",
+        "next": "Siguiente",
+        "previous": "Anterior"
+      },
+      "aria": {
+        "sortAscending": ": Activar para ordenar la columna de manera ascendente",
+        "sortDescending": ": Activar para ordenar la columna de manera descendente"
+      }
+    },
+    pageLength: 10,
+    lengthMenu: [5, 10, 25, 50, 100],
+    responsive: true,
+    order: [[2, 'asc']],
+    columnDefs: [
+      { 
+        targets: [8],
+        orderable: false,
+        searchable: false
+      },
+      {
+        targets: [0],
+        width: '5%'
+      }
+    ],
+    autoWidth: false
+  });
+});
+
+// ==================== CONFIRMACIÓN ELIMINAR ====================
+function confirmarEliminar(event, enlace) {
+  event.preventDefault(); // Prevenir navegación
+  
+  const eid = $(enlace).data('eid');  // ⭐ Obtener ID encriptado
+  const nombre = $(enlace).data('nombre');
+  
+  console.log('🗑️ Eliminando cliente con ID encriptado:', eid);
+  
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar este cliente?',
+    html: `<p class="text-muted">${nombre}</p><p class="text-warning small">Esta acción cambiará el estado del cliente</p>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Mostrar loading
+      Swal.fire({
+        title: 'Eliminando...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // ⭐ AJAX con ID encriptado
+      $.ajax({
+        type: 'GET',
+        url: `/sys/cli/del/${eid}/`,  // ⭐ URL con eid
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function(response) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Eliminado',
+            text: response.message || 'Cliente eliminado correctamente',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            window.location.href = "{% url 'clientes' %}";
+          });
+        },
+        error: function(xhr) {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: xhr.responseJSON?.error || 'No se pudo eliminar el cliente'
+          });
+        }
+      });
+    }
+  });
+  return false;
+}
+
+</script>
+{% endblock %}

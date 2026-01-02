@@ -1,0 +1,333 @@
+{% extends 'plantilla/base.html' %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    
+    <div class="pagetitle">
+        <h1 class="fw-bold">
+            <i class="bi bi-currency-dollar text-success me-2"></i>Registrar Pago de Cuota
+        </h1>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creditos' %}">Créditos</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'detalle_credito' credito.idcredito %}">{{ credito.codigo_credito }}</a></li>
+            <li class="breadcrumb-item active">Pagar Cuota</li>
+        </ol>
+    </nav>
+
+    <section class="section dashboard mt-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                
+                <!-- INFORMACIÓN DEL CRÉDITO -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-info-circle-fill me-2"></i>Información del Crédito
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>Código:</strong> <span class="badge bg-primary">{{ credito.codigo_credito }}</span></p>
+                                <p class="mb-2"><strong>Cliente:</strong> {{ credito.idventa.idcliente.razonsocial }}</p>
+                                <p class="mb-0"><strong>DNI/RUC:</strong> {{ credito.idventa.idcliente.numdoc }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="mb-2"><strong>Comprobante:</strong> {{ credito.idventa.numero_comprobante }}</p>
+                                <p class="mb-2"><strong>Monto Total:</strong> S/ {{ credito.monto_total|floatformat:2 }}</p>
+                                <p class="mb-0"><strong>Saldo Pendiente:</strong> 
+                                    <span class="text-danger fw-bold">S/ {{ credito.saldo_pendiente|floatformat:2 }}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INFORMACIÓN DE LA CUOTA -->
+                <div class="card shadow-sm border-0 mb-4" style="background: #f8f9fa;">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary mb-3">
+                            <i class="bi bi-calendar-check-fill me-2"></i>Cuota N° {{ cuota.numero_cuota }}
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-4 text-center">
+                                <p class="mb-1"><strong>F. Vencimiento</strong></p>
+                                <span class="badge {% if cuota.esta_vencida %}bg-danger{% else %}bg-secondary{% endif %}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                                    {{ cuota.fecha_vencimiento|date:"d/m/Y" }}
+                                </span>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <p class="mb-1"><strong>Total Cuota</strong></p>
+                                <h4 class="text-primary mb-0">S/ {{ cuota.total|floatformat:2 }}</h4>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <p class="mb-1"><strong>Saldo</strong></p>
+                                <h4 class="text-danger mb-0">S/ {{ cuota.saldo_cuota|floatformat:2 }}</h4>
+                            </div>
+                        </div>
+                        
+                        {% if cuota.monto_pagado > 0 %}
+                        <div class="mt-3 pt-3 border-top">
+                            <p class="mb-0 text-success text-center">
+                                <i class="bi bi-check-circle-fill me-2"></i>
+                                <strong>Monto Pagado:</strong> S/ {{ cuota.monto_pagado|floatformat:2 }}
+                            </p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- FORMULARIO DE PAGO -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="bi bi-cash-coin me-2"></i>Datos del Pago
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="formPagarCuota" method="POST">
+                            {% csrf_token %}
+                            
+                            <div class="mb-4">
+                                <label for="monto_pago" class="form-label fw-bold">
+                                    <i class="bi bi-currency-dollar"></i> Monto a Pagar <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text">S/</span>
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="monto_pago" 
+                                           name="monto_pago"
+                                           step="0.01" 
+                                           min="0.01"
+                                           required>
+                                </div>
+                                <small class="form-text text-muted" id="textoMaximo">
+                                    Máximo: S/ {{ cuota.saldo_cuota|floatformat:2 }}
+                                </small>
+                                <!-- ⭐ ALERTA DE VALIDACIÓN -->
+                                <div id="alertaMonto" class="alert alert-warning mt-2" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    <span id="mensajeAlerta"></span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="btnPagarTodo">
+                                    Pagar Saldo Completo
+                                </button>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="id_tipo_pago" class="form-label fw-bold">
+                                            <i class="bi bi-credit-card"></i> Tipo de Pago <span class="text-danger">*</span>
+                                        </label>
+                                        <select class="form-select" id="id_tipo_pago" name="id_tipo_pago" required>
+                                            <option value="">Seleccione...</option>
+                                            {% for tipo in tipos_pago %}
+                                            <option value="{{ tipo.id_tipo_pago }}">{{ tipo.nombre }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="numero_operacion" class="form-label fw-bold">
+                                            <i class="bi bi-hash"></i> N° Operación / Referencia
+                                        </label>
+                                        <input type="text" 
+                                               class="form-control" 
+                                               id="numero_operacion" 
+                                               name="numero_operacion"
+                                               placeholder="Opcional">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="observaciones" class="form-label fw-bold">
+                                    <i class="bi bi-chat-left-text"></i> Observaciones
+                                </label>
+                                <textarea class="form-control" 
+                                          id="observaciones" 
+                                          name="observaciones" 
+                                          rows="3" 
+                                          placeholder="Información adicional (opcional)"></textarea>
+                            </div>
+
+                            <hr>
+
+                            <!-- BOTONES -->
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'detalle_credito' credito.idcredito %}" class="btn btn-secondary btn-lg rounded-pill px-4">
+                                    <i class="bi bi-arrow-left me-2"></i>Cancelar
+                                </a>
+                                <button type="submit" class="btn btn-success btn-lg rounded-pill px-4" id="btnGuardarPago">
+                                    <i class="bi bi-save me-2"></i>Registrar Pago
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    
+    // ⭐ CONVERTIR VALOR CON FORMATO EUROPEO (coma) A FORMATO US (punto)
+    const saldoCuotaStr = '{{ cuota.saldo_cuota|floatformat:2 }}';
+    const saldoCuotaOriginal = parseFloat(saldoCuotaStr.replace(',', '.'));
+    
+    console.log('💰 VALORES INICIALES:');
+    console.log('   Saldo de cuota (string):', saldoCuotaStr);
+    console.log('   Saldo de cuota (number):', saldoCuotaOriginal);
+    
+    // Establecer valor inicial y máximo del input
+    $('#monto_pago').attr('max', saldoCuotaOriginal);
+    $('#monto_pago').val(saldoCuotaOriginal.toFixed(2));
+    
+    // ⭐ VALIDACIÓN EN TIEMPO REAL AL ESCRIBIR
+    $('#monto_pago').on('input change', function() {
+        const montoPago = parseFloat($(this).val()) || 0;
+        const $alerta = $('#alertaMonto');
+        const $input = $(this);
+        
+        if (montoPago > saldoCuotaOriginal) {
+            // Mostrar alerta
+            $('#mensajeAlerta').text('El valor debe ser menor de o igual a S/ ' + saldoCuotaOriginal.toFixed(2));
+            $alerta.removeClass('alert-warning').addClass('alert-danger').show();
+            $input.addClass('is-invalid');
+        } else if (montoPago < 0.01 && montoPago > 0) {
+            // Monto muy pequeño
+            $('#mensajeAlerta').text('El monto debe ser mayor a S/ 0.01');
+            $alerta.removeClass('alert-danger').addClass('alert-warning').show();
+            $input.addClass('is-invalid');
+        } else {
+            // Válido
+            $alerta.hide();
+            $input.removeClass('is-invalid');
+        }
+    });
+    
+    // Botón para pagar saldo completo
+    $('#btnPagarTodo').click(function() {
+        $('#monto_pago').val(saldoCuotaOriginal.toFixed(2));
+        $('#alertaMonto').hide();
+        $('#monto_pago').removeClass('is-invalid');
+    });
+
+    // Enviar formulario
+    $('#formPagarCuota').submit(function(e) {
+        e.preventDefault();
+        
+        const montoPago = parseFloat($('#monto_pago').val()) || 0;
+        const saldoCuota = saldoCuotaOriginal;
+        
+        console.log('💰 DEBUG VALIDACIÓN:');
+        console.log('   Monto a pagar:', montoPago);
+        console.log('   Saldo de cuota:', saldoCuota);
+        
+        // Validaciones
+        if (montoPago <= 0) {
+            Swal.fire('Error', 'El monto debe ser mayor a 0', 'error');
+            return;
+        }
+        
+        if (montoPago > saldoCuota) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'El monto no puede ser mayor al saldo de la cuota (S/ ' + saldoCuota.toFixed(2) + ')',
+                confirmButtonColor: '#dc3545'
+            });
+            return;
+        }
+        
+        if (!$('#id_tipo_pago').val()) {
+            Swal.fire('Error', 'Debe seleccionar el tipo de pago', 'error');
+            return;
+        }
+        
+        // Guardar referencia al formulario
+        const $form = $(this);
+        
+        // Confirmar
+        Swal.fire({
+            title: '¿Confirmar pago?',
+            html: '<p>Se registrará un pago de <strong>S/ ' + montoPago.toFixed(2) + '</strong></p>' +
+                  '<p>Para la Cuota N° <strong>{{ cuota.numero_cuota }}</strong></p>' +
+                  '<p class="text-muted mb-0">Saldo actual: <strong>S/ ' + saldoCuota.toFixed(2) + '</strong></p>',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, registrar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#btnGuardarPago').prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Procesando...');
+                
+                $.ajax({
+                    url: '{% url "pagar_cuota" cuota.idcuotaventa %}',
+                    type: 'POST',
+                    data: $form.serialize(),
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    success: function(response) {
+                        console.log('✅ Respuesta exitosa:', response);
+                        
+                        if (response.ok) {
+                            // ⭐ ABRIR RECIBO AUTOMÁTICAMENTE
+                            const urlRecibo = `/creditos/recibo-pago/${response.idpago}/`;
+                            window.open(urlRecibo, '_blank');
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Pago registrado!',
+                                html: '<p>' + response.message + '</p>' +
+                                      '<p class="text-success mb-0"><strong>Nuevo saldo:</strong> S/ ' + response.nuevo_saldo.toFixed(2) + '</p>' +
+                                      '<p class="mt-2"><small>El recibo se abrirá en una nueva ventana...</small></p>',
+                                confirmButtonColor: '#198754'
+                            }).then(() => {
+                                window.location.href = '{% url "detalle_credito" credito.idcredito %}';
+                            });
+                        } else {
+                            Swal.fire('Error', response.error || 'Error desconocido', 'error');
+                            $('#btnGuardarPago').prop('disabled', false).html('<i class="bi bi-save me-2"></i>Registrar Pago');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error AJAX:', xhr, status, error);
+                        
+                        let errorMsg = 'Error desconocido';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        } else if (xhr.responseText) {
+                            errorMsg = xhr.responseText;
+                        }
+                        
+                        Swal.fire('Error', errorMsg, 'error');
+                        $('#btnGuardarPago').prop('disabled', false).html('<i class="bi bi-save me-2"></i>Registrar Pago');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

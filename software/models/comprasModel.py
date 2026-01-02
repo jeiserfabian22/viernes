@@ -1,5 +1,5 @@
 from django.db import models
-from software.models.ProveedoresModel import Proveedores
+from software.models.ProveedoresModel import Proveedor
 from software.models.FormaPagoModel import FormaPago
 from software.models.TipoPagoModel import TipoPago
 from software.models.TipoclienteModel import Tipocliente
@@ -7,7 +7,7 @@ from software.models.sucursalesModel import Sucursales
 
 class Compras(models.Model):
     idcompra = models.AutoField(primary_key=True)
-    idproveedor = models.ForeignKey(Proveedores, on_delete=models.DO_NOTHING, db_column='idproveedor', related_name='compras')
+    idproveedor = models.ForeignKey(Proveedor, on_delete=models.DO_NOTHING, db_column='idproveedor', related_name='compras')
     idtipocliente = models.ForeignKey(Tipocliente, on_delete=models.DO_NOTHING, db_column='idtipocliente', related_name='compras')
     id_forma_pago = models.ForeignKey(FormaPago, on_delete=models.DO_NOTHING, db_column='id_forma_pago', related_name='compras')
     id_tipo_pago = models.ForeignKey(TipoPago, on_delete=models.DO_NOTHING, db_column='id_tipo_pago', related_name='compras')
@@ -19,7 +19,7 @@ class Compras(models.Model):
     
 
     class Meta:
-        managed = False  # porque la tabla ya existe
+        managed = True  
         db_table = 'compras'
 
 

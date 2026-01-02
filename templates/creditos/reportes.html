@@ -1,0 +1,399 @@
+{% extends 'plantilla/base.html' %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    
+    <!-- HEADER -->
+    <div class="pagetitle d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="fw-bold text-primary">
+                <i class="bi bi-bar-chart-fill me-2"></i>Reportes de Créditos
+            </h1>
+            <p class="text-muted mb-0">Análisis y estadísticas del sistema de créditos</p>
+        </div>
+        <div>
+            <a href="{% url 'creditos' %}" class="btn btn-secondary rounded-pill">
+                <i class="bi bi-arrow-left me-2"></i>Volver
+            </a>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creditos' %}">Créditos</a></li>
+            <li class="breadcrumb-item active">Reportes</li>
+        </ol>
+    </nav>
+
+    <section class="section dashboard mt-4">
+        
+        <!-- FILTRO DE FECHAS -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <form method="GET" action="{% url 'reportes_creditos' %}" class="row g-3 align-items-end">
+                    <div class="col-auto">
+                        <label class="form-label fw-bold">Periodo:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}" required>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label">hasta</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}" required>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-search me-2"></i>Consultar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ESTADÍSTICAS GENERALES -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Créditos Otorgados</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #4154f1;">
+                                <i class="bi bi-file-earmark-text text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">{{ total_creditos_periodo }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Monto Financiado</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #2eca6a;">
+                                <i class="bi bi-currency-dollar text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">S/ {{ monto_total_financiado|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pagos Recibidos</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #4bc0c0;">
+                                <i class="bi bi-cash-stack text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">S/ {{ total_pagos_recibidos|floatformat:2 }}</h6>
+                                <small class="text-muted">{{ cantidad_pagos }} pagos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">En Mora</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #ff771d;">
+                                <i class="bi bi-exclamation-triangle text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">{{ creditos_mora }}</h6>
+                                <small class="text-danger">S/ {{ monto_vencido|floatformat:2 }} vencido</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS -->
+        <div class="row mb-4">
+            <!-- GRÁFICO DE ESTADOS -->
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">Créditos por Estado</h5>
+                        <canvas id="chartEstados" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GRÁFICO DE CRÉDITOS POR MES -->
+            <div class="col-md-6">
+                <div class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h5 class="card-title">Créditos por Mes (Últimos 12 meses)</h5>
+                        <canvas id="chartMeses" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUOTAS VENCIDAS -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-danger text-white">
+                <h6 class="mb-0 fw-bold">
+                    <i class="bi bi-exclamation-circle-fill me-2"></i>Cuotas Vencidas ({{ cuotas_vencidas.count }})
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if cuotas_vencidas %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código Crédito</th>
+                                <th>Cliente</th>
+                                <th class="text-center">N° Cuota</th>
+                                <th>F. Vencimiento</th>
+                                <th class="text-center">Días Vencidos</th>
+                                <th class="text-end">Saldo</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuota in cuotas_vencidas %}
+                            <tr>
+                                <td>
+                                    {% if cuota.idventa.credito %}
+                                        <span class="badge bg-primary">{{ cuota.idventa.credito.codigo_credito }}</span>
+                                    {% else %}
+                                        ---
+                                    {% endif %}
+                                </td>
+                                <td>{{ cuota.idventa.idcliente.razonsocial|truncatewords:4 }}</td>
+                                <td class="text-center"><strong>{{ cuota.numero_cuota }}</strong></td>
+                                <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-danger">
+                                        {{ cuota.fecha_vencimiento|timesince }} atrás
+                                    </span>
+                                </td>
+                                <td class="text-end text-danger">
+                                    <strong>S/ {{ cuota.saldo_cuota|floatformat:2 }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'pagar_cuota' cuota.idcuotaventa %}" 
+                                       class="btn btn-sm btn-success">
+                                        <i class="bi bi-currency-dollar"></i> Pagar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted mb-0 py-4">
+                    <i class="bi bi-check-circle" style="font-size: 3rem;"></i><br>
+                    No hay cuotas vencidas
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- CUOTAS POR VENCER (30 DÍAS) -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h6 class="mb-0 fw-bold">
+                    <i class="bi bi-clock-fill me-2"></i>Cuotas Por Vencer (Próximos 30 días)
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if cuotas_por_vencer %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Código Crédito</th>
+                                <th>Cliente</th>
+                                <th class="text-center">N° Cuota</th>
+                                <th>F. Vencimiento</th>
+                                <th class="text-center">Días Restantes</th>
+                                <th class="text-end">Saldo</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cuota in cuotas_por_vencer %}
+                            <tr>
+                                <td>
+                                    {% if cuota.idventa.credito %}
+                                        <span class="badge bg-primary">{{ cuota.idventa.credito.codigo_credito }}</span>
+                                    {% else %}
+                                        ---
+                                    {% endif %}
+                                </td>
+                                <td>{{ cuota.idventa.idcliente.razonsocial|truncatewords:4 }}</td>
+                                <td class="text-center"><strong>{{ cuota.numero_cuota }}</strong></td>
+                                <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-warning text-dark">
+                                        {{ cuota.fecha_vencimiento|timeuntil }}
+                                    </span>
+                                </td>
+                                <td class="text-end">S/ {{ cuota.saldo_cuota|floatformat:2 }}</td>
+                                <td class="text-center">
+                                    <a href="{% url 'pagar_cuota' cuota.idcuotaventa %}" 
+                                       class="btn btn-sm btn-success">
+                                        <i class="bi bi-currency-dollar"></i> Pagar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-center text-muted mb-0 py-3">No hay cuotas por vencer en los próximos 30 días</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- TOP 10 CLIENTES CON MAYOR DEUDA -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-people-fill me-2"></i>Top 10 Clientes con Mayor Deuda
+                </h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>Cliente</th>
+                                <th>DNI/RUC</th>
+                                <th class="text-center">Créditos Activos</th>
+                                <th class="text-end">Deuda Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in top_clientes %}
+                            <tr>
+                                <td><strong>{{ forloop.counter }}</strong></td>
+                                <td>{{ item.cliente.razonsocial }}</td>
+                                <td>{{ item.cliente.numdoc }}</td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ item.creditos }}</span>
+                                </td>
+                                <td class="text-end text-danger">
+                                    <strong>S/ {{ item.total_deuda|floatformat:2 }}</strong>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No hay datos</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+// Gráfico de Estados (Doughnut)
+const ctxEstados = document.getElementById('chartEstados').getContext('2d');
+new Chart(ctxEstados, {
+    type: 'doughnut',
+    data: {
+        labels: ['Activos', 'En Mora', 'Pagados'],
+        datasets: [{
+            data: [{{ creditos_activos }}, {{ creditos_mora }}, {{ creditos_pagados }}],
+            backgroundColor: ['#2eca6a', '#ff771d', '#4bc0c0']
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Gráfico de Créditos por Mes (Bar)
+const ctxMeses = document.getElementById('chartMeses').getContext('2d');
+new Chart(ctxMeses, {
+    type: 'bar',
+    data: {
+        labels: [
+            {% for item in creditos_por_mes %}
+                '{{ item.mes }}',
+            {% endfor %}
+        ],
+        datasets: [{
+            label: 'Créditos Otorgados',
+            data: [
+                {% for item in creditos_por_mes %}
+                    {{ item.cantidad }},
+                {% endfor %}
+            ],
+            backgroundColor: '#4154f1'
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                display: false
+            }
+        }
+    }
+});
+</script>
+
+<style>
+.info-card {
+    border: none;
+    box-shadow: 0px 0 30px rgba(1, 41, 112, 0.1);
+}
+
+.card-icon {
+    font-size: 32px;
+    line-height: 0;
+    width: 64px;
+    height: 64px;
+}
+
+.card-title {
+    padding: 20px 0 15px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #012970;
+}
+</style>
+{% endblock %}

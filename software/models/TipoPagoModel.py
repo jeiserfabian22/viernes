@@ -7,7 +7,7 @@ class TipoPago(models.Model):
     estado = models.IntegerField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'tipospago'
 
 

@@ -19,7 +19,7 @@ class VentaDetalle(models.Model):
     estado = models.IntegerField(default=1)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'ventadetalle'
 
     def __str__(self):

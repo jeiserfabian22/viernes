@@ -11,5 +11,5 @@ class Lotes(models.Model):
     cantidad = models.IntegerField()
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'lotes'

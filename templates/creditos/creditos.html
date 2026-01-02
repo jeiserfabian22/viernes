@@ -1,0 +1,258 @@
+{% extends 'plantilla/base.html' %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    
+    <!-- HEADER -->
+    <div class="pagetitle d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="fw-bold text-primary">
+                <i class="bi bi-credit-card me-2"></i>Gestión de Créditos
+            </h1>
+            <p class="text-muted mb-0">Administración de ventas a crédito y cuotas</p>
+        </div>
+        <div>
+            <a href="{% url 'reportes_creditos' %}" class="btn btn-info rounded-pill">
+                <i class="bi bi-bar-chart-fill me-2"></i>Reportes
+            </a>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item active">Créditos</li>
+        </ol>
+    </nav>
+
+    <!-- ESTADÍSTICAS -->
+    <section class="section dashboard mt-4">
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card info-card sales-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Créditos</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #4154f1;">
+                                <i class="bi bi-file-text text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">{{ total_creditos }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card revenue-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Activos</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #2eca6a;">
+                                <i class="bi bi-check-circle text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">{{ total_activos }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card customers-card">
+                    <div class="card-body">
+                        <h5 class="card-title">En Mora</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #ff771d;">
+                                <i class="bi bi-exclamation-triangle text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">{{ total_mora }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Saldo Pendiente</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #012970;">
+                                <i class="bi bi-currency-dollar text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0 text-primary">S/ {{ saldo_total_pendiente|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">Filtros de Búsqueda</h6>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosCollapse">
+                    <i class="bi bi-funnel"></i> Mostrar/Ocultar
+                </button>
+            </div>
+            <div class="collapse" id="filtrosCollapse">
+                <div class="card-body">
+                    <form method="GET" action="{% url 'creditos' %}">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">Estado:</label>
+                                <select name="estado" class="form-select">
+                                    <option value="todos" {% if estado_filtro == 'todos' %}selected{% endif %}>Todos</option>
+                                    <option value="activo" {% if estado_filtro == 'activo' %}selected{% endif %}>Activos</option>
+                                    <option value="mora" {% if estado_filtro == 'mora' %}selected{% endif %}>En Mora</option>
+                                    <option value="pagado" {% if estado_filtro == 'pagado' %}selected{% endif %}>Pagados</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Búsqueda:</label>
+                                <input type="text" name="busqueda" class="form-control" 
+                                       placeholder="Código, cliente, DNI..." value="{{ busqueda }}">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label">Desde:</label>
+                                <input type="date" name="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label">Hasta:</label>
+                                <input type="date" name="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                            </div>
+
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> Buscar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE CRÉDITOS -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title">Listado de Créditos</h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle datatable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Código</th>
+                                <th>Cliente</th>
+                                <th>Comprobante</th>
+                                <th>Fecha</th>
+                                <th class="text-end">Monto Total</th>
+                                <th class="text-end">Adelanto</th>
+                                <th class="text-end">Saldo</th>
+                                <th class="text-center">Cuotas</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for credito in creditos %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-primary">{{ credito.codigo_credito }}</span>
+                                </td>
+                                <td>
+                                    <strong>{{ credito.idventa.idcliente.razonsocial|truncatewords:4 }}</strong><br>
+                                    <small class="text-muted">{{ credito.idventa.idcliente.numdoc }}</small>
+                                </td>
+                                <td>{{ credito.idventa.numero_comprobante }}</td>
+                                <td>{{ credito.fecha_credito|date:"d/m/Y" }}</td>
+                                <td class="text-end fw-bold">S/ {{ credito.monto_total|floatformat:2 }}</td>
+                                <td class="text-end text-success">S/ {{ credito.monto_adelanto|floatformat:2 }}</td>
+                                <td class="text-end">
+                                    <strong class="text-danger">S/ {{ credito.saldo_pendiente|floatformat:2 }}</strong>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-info">{{ credito.cantidad_cuotas }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% if credito.estado_credito == 'activo' %}
+                                        <span class="badge bg-success">ACTIVO</span>
+                                    {% elif credito.estado_credito == 'mora' %}
+                                        <span class="badge bg-danger">MORA</span>
+                                    {% elif credito.estado_credito == 'pagado' %}
+                                        <span class="badge bg-info">PAGADO</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <a href="{% url 'detalle_credito' credito.idcredito %}" 
+                                       class="btn btn-sm btn-info" title="Ver Detalle">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'imprimir_cronograma' credito.idventa.idventa %}" 
+                                       class="btn btn-sm btn-secondary" title="Imprimir Cronograma" target="_blank">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox" style="font-size: 3rem;"></i><br>
+                                    No se encontraron créditos con los filtros aplicados
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<style>
+.info-card {
+    border: none;
+    box-shadow: 0px 0 30px rgba(1, 41, 112, 0.1);
+}
+
+.card-icon {
+    font-size: 32px;
+    line-height: 0;
+    width: 64px;
+    height: 64px;
+}
+
+.card-title {
+    padding: 20px 0 15px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #012970;
+}
+</style>
+
+<script>
+$(document).ready(function() {
+    if ($('.datatable').length) {
+        $('.datatable').DataTable({
+            language: {
+                url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+            },
+            pageLength: 25,
+            order: [[3, 'desc']]
+        });
+    }
+});
+</script>
+{% endblock %}

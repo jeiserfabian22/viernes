@@ -1,0 +1,436 @@
+{% extends 'plantilla/base.html' %}
+{% load static %}
+
+{% block main %}
+<main id="main" class="main">
+    
+    <!-- HEADER CON BOTONES -->
+    <div class="pagetitle d-flex justify-content-between align-items-center">
+        <div>
+            <h1 class="fw-bold">
+                <i class="bi bi-file-invoice-dollar text-primary me-2"></i>
+                Crédito: <span class="text-primary">{{ credito.codigo_credito }}</span>
+            </h1>
+            <p class="text-muted mb-0">Detalle completo del crédito y sus cuotas</p>
+        </div>
+        <div>
+            <a href="{% url 'creditos' %}" class="btn btn-secondary rounded-pill">
+                <i class="bi bi-arrow-left me-2"></i>Volver
+            </a>
+            <a href="{% url 'imprimir_cronograma' credito.idventa.idventa %}" 
+               class="btn btn-info rounded-pill" target="_blank">
+                <i class="bi bi-printer me-2"></i>Imprimir Cronograma
+            </a>
+        </div>
+    </div>
+
+    <nav aria-label="breadcrumb" class="mt-2">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'creditos' %}">Créditos</a></li>
+            <li class="breadcrumb-item active">{{ credito.codigo_credito }}</li>
+        </ol>
+    </nav>
+
+    <!-- INFORMACIÓN DEL CRÉDITO -->
+    <section class="section dashboard mt-4">
+        <div class="row mb-4">
+            <!-- DATOS DEL CLIENTE -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="bi bi-person-fill me-2"></i>Datos del Cliente
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td width="40%"><strong>Cliente:</strong></td>
+                                <td>{{ credito.idventa.idcliente.razonsocial }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>DNI/RUC:</strong></td>
+                                <td>{{ credito.idventa.idcliente.numdoc|default:"---" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Teléfono:</strong></td>
+                                <td>{{ credito.idventa.idcliente.telefono|default:"---" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Dirección:</strong></td>
+                                <td>{{ credito.idventa.idcliente.direccion|default:"---" }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATOS DEL CRÉDITO -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0 fw-bold">
+                            <i class="bi bi-info-circle-fill me-2"></i>Información del Crédito
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm table-borderless">
+                            <tr>
+                                <td width="40%"><strong>Código:</strong></td>
+                                <td><span class="badge bg-primary" style="font-size: 1rem;">{{ credito.codigo_credito }}</span></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Comprobante:</strong></td>
+                                <td>{{ credito.idventa.numero_comprobante }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Fecha:</strong></td>
+                                <td>{{ credito.fecha_credito|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Vendedor:</strong></td>
+                                <td>{{ credito.idventa.idusuario.nombrecompleto }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Estado:</strong></td>
+                                <td>
+                                    {% if credito.estado_credito == 'activo' %}
+                                        <span class="badge bg-success">ACTIVO</span>
+                                    {% elif credito.estado_credito == 'mora' %}
+                                        <span class="badge bg-danger">EN MORA</span>
+                                    {% elif credito.estado_credito == 'pagado' %}
+                                        <span class="badge bg-info">PAGADO</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RESUMEN FINANCIERO -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Monto Total</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #4154f1;">
+                                <i class="bi bi-cash-stack text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0">S/ {{ credito.monto_total|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Adelanto</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #2eca6a;">
+                                <i class="bi bi-hand-thumbs-up text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0 text-success">S/ {{ credito.monto_adelanto|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Pagado</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #4bc0c0;">
+                                <i class="bi bi-check-circle text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0 text-info">S/ {{ total_pagado|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="card info-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Saldo Pendiente</h5>
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center" style="background: #ff771d;">
+                                <i class="bi bi-exclamation-triangle text-white"></i>
+                            </div>
+                            <div class="ps-3">
+                                <h6 class="mb-0 text-danger">S/ {{ credito.saldo_pendiente|floatformat:2 }}</h6>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if cuotas_vencidas > 0 %}
+        <!-- ALERTA DE CUOTAS VENCIDAS -->
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            <strong>¡Atención!</strong> Este crédito tiene <strong>{{ cuotas_vencidas }}</strong> cuota(s) vencida(s).
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endif %}
+
+        <!-- TABLA DE CUOTAS -->
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-list-check me-2"></i>Cronograma de Cuotas ({{ credito.cantidad_cuotas }})
+                </h5>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="tablaCuotas">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>N°</th>
+                                <th>F. Vencimiento</th>
+                                <th class="text-end">Monto</th>
+                                <th class="text-end">Interés</th>
+                                <th class="text-end">Total</th>
+                                <th class="text-end">Pagado</th>
+                                <th class="text-end">Saldo</th>
+                                <th class="text-center">Estado</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cuotas_con_pagos %}
+                            {% with cuota=item.cuota pagos=item.pagos %}
+                            <tr class="{% if cuota.estado_pago == 'Pagado' %}table-success{% elif cuota.esta_vencida %}table-danger{% endif %}">
+                                <td class="text-center"><strong>{{ cuota.numero_cuota }}</strong></td>
+                                <td>{{ cuota.fecha_vencimiento|date:"d/m/Y" }}</td>
+                                <td class="text-end">S/ {{ cuota.monto|floatformat:2 }}</td>
+                                <td class="text-end">S/ {{ cuota.interes|floatformat:2 }}</td>
+                                <td class="text-end"><strong>S/ {{ cuota.total|floatformat:2 }}</strong></td>
+                                <td class="text-end text-success"><strong>S/ {{ cuota.monto_pagado|floatformat:2 }}</strong></td>
+                                <td class="text-end text-danger"><strong>S/ {{ cuota.saldo_cuota|floatformat:2 }}</strong></td>
+                                <td class="text-center">
+                                    {% if cuota.estado_pago == 'Pagado' %}
+                                        <span class="badge bg-success">PAGADO</span>
+                                    {% elif cuota.estado_pago == 'Parcial' %}
+                                        <span class="badge bg-warning text-dark">PARCIAL</span>
+                                    {% else %}
+                                        {% if cuota.esta_vencida %}
+                                            <span class="badge bg-danger">VENCIDA</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">PENDIENTE</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if cuota.estado_pago != 'Pagado' %}
+                                        <a href="{% url 'pagar_cuota' cuota.idcuotaventa %}" 
+                                           class="btn btn-sm btn-success" title="Registrar Pago">
+                                            <i class="bi bi-currency-dollar"></i> Pagar
+                                        </a>
+                                    {% endif %}
+                                    
+                                    {% if pagos %}
+                                        <button class="btn btn-sm btn-info" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#historial-{{ cuota.idcuotaventa }}"
+                                                title="Ver Historial de Pagos">
+                                            <i class="bi bi-clock-history"></i>
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            
+                            <!-- FILA EXPANDIBLE CON HISTORIAL DE PAGOS -->
+                            {% if pagos %}
+                            <tr class="collapse" id="historial-{{ cuota.idcuotaventa }}">
+                                <td colspan="9" class="bg-light">
+                                    <div class="p-3">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-clock-history me-2"></i>Historial de Pagos - Cuota {{ cuota.numero_cuota }}
+                                        </h6>
+                                        <table class="table table-sm table-bordered mb-0">
+                                            <thead style="background: #012970; color: white;">
+                                                <tr>
+                                                    <th>Fecha</th>
+                                                    <th>Monto</th>
+                                                    <th>Tipo Pago</th>
+                                                    <th>N° Operación</th>
+                                                    <th>Usuario</th>
+                                                    <th>Observaciones</th>
+                                                    <th>Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for pago in pagos %}
+                                                <tr>
+                                                    <td>{{ pago.fecha_pago|date:"d/m/Y H:i" }}</td>
+                                                    <td class="text-end"><strong>S/ {{ pago.monto_pago|floatformat:2 }}</strong></td>
+                                                    <td>{{ pago.id_tipo_pago.nombre }}</td>
+                                                    <td>{{ pago.numero_operacion|default:"---" }}</td>
+                                                    <td>{{ pago.idusuario.nombrecompleto }}</td>
+                                                    <td>{{ pago.observaciones|default:"---" }}</td>
+                                                    <td class="text-center">
+                                                        <a href="/creditos/recibo-pago/{{ pago.idpagocuota }}/" 
+                                                            class="btn btn-sm btn-info me-1"
+                                                            target="_blank"
+                                                            title="Re-imprimir Recibo">
+                                                            <i class="bi bi-printer"></i>
+                                                        </a>
+                                                        <button class="btn btn-sm btn-danger btn-anular-pago" 
+                                                                data-idpago="{{ pago.idpagocuota }}"
+                                                                data-monto="{{ pago.monto_pago|floatformat:2}}"
+                                                                data-cuota="{{ cuota.cuota.numero_cuota }}"
+                                                                title="Anular Pago">
+                                                            <i class="bi bi-x-circle"></i> Anular
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                        <tfoot style="background: #f8f9fa;">
+                            <tr>
+                                <th colspan="4" class="text-end">TOTALES:</th>
+                                <th class="text-end">S/ {{ credito.idventa.total_venta|floatformat:2 }}</th>
+                                <th class="text-end text-success">S/ {{ total_pagado|floatformat:2 }}</th>
+                                <th class="text-end text-danger">S/ {{ total_pendiente|floatformat:2 }}</th>
+                                <th colspan="2"></th>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<style>
+.info-card {
+    border: none;
+    box-shadow: 0px 0 30px rgba(1, 41, 112, 0.1);
+}
+
+.card-icon {
+    font-size: 32px;
+    line-height: 0;
+    width: 64px;
+    height: 64px;
+}
+
+.card-title {
+    padding: 20px 0 15px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: #012970;
+}
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+$(document).ready(function() {
+    console.log('✅ Script de anular pago cargado');
+    console.log('📊 Botones encontrados:', $('.btn-anular-pago').length);
+    
+    // Evento para anular pago
+    $(document).on('click', '.btn-anular-pago', function(e) {
+        e.preventDefault();
+        
+        console.log('🔴 Click en botón anular');
+        
+        const idpago = $(this).data('idpago');
+        const monto = $(this).data('monto');  // Ya viene como "1.10" desde el template
+        const cuota = $(this).data('cuota');
+        
+        console.log('📋 Datos del pago:', { idpago, monto, cuota });
+        
+        if (!idpago) {
+            Swal.fire('Error', 'No se pudo identificar el pago', 'error');
+            return;
+        }
+        
+        // Confirmar anulación
+        Swal.fire({
+            title: '¿Anular este pago?',
+            html: `<p><strong>Cuota N°:</strong> ${cuota}</p>` +
+                  `<p><strong>Monto:</strong> S/ ${monto}</p>` +  // ⭐ Usa el monto directamente (ya tiene formato)
+                  `<p class="text-danger mt-3">Esta acción no se puede deshacer.</p>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, anular',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                console.log('✅ Usuario confirmó anulación');
+                
+                // Mostrar loading
+                Swal.fire({
+                    title: 'Anulando pago...',
+                    text: 'Por favor espere',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                // Hacer petición AJAX
+                $.ajax({
+                    url: `/creditos/anular-pago/${idpago}/`,
+                    type: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    success: function(response) {
+                        console.log('✅ Respuesta del servidor:', response);
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Pago anulado!',
+                            text: response.message || 'El pago ha sido anulado correctamente',
+                            confirmButtonColor: '#3085d6'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('❌ Error:', xhr);
+                        
+                        let errorMsg = 'Error al anular el pago';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        }
+                        
+                        Swal.fire('Error', errorMsg, 'error');
+                    }
+                });
+            }
+        });
+    });
+});
+</script>
+
+{% endblock %}

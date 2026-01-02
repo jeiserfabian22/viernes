@@ -1,0 +1,360 @@
+{% extends 'plantilla/base.html' %}
+{% block main %}
+<main id="main" class="main">
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="fas fa-landmark me-2"></i>Provincias
+    </h1>
+    <button type="button" class="btn btn-success rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#myModaAgregar">
+      <i class="fa-solid fa-circle-plus me-2"></i>Agregar Provincia
+    </button>
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="index.html">Home</a></li>
+      <li class="breadcrumb-item active">Provincia</li>
+    </ol>
+  </nav>
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Listado de provincias</h5>
+        
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable" style="width: 100%;">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col" style="width: 8%;">#</th>
+                <th scope="col" style="width: 40%;">Provincia</th>
+                <th scope="col" style="width: 37%;">Región</th>
+                <th scope="col" class="text-center" style="width: 15%;">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for provincia_registro in provincias_registros %}
+              <tr>
+                <td class="fw-semibold text-center">{{ forloop.counter }}</td>
+                <td>{{ provincia_registro.nombre_provincia }}</td>
+                <td>{{ provincia_registro.id_region.nombre_region }}</td>
+                <td class="text-center">
+                  <a type="button" class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                    data-bs-target="#myModal2{{ provincia_registro.id_provincia }}" title="Editar">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </a>
+
+                  <a href="{% url 'provinciasEliminar' id=provincia_registro.id_provincia %}" class="btn btn-sm btn-outline-danger eliminar"
+                    onclick="return confirmarEliminar('{{ provincia_registro.id_provincia }}', this)" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Modal Editar -->
+              <div class="modal fade" id="myModal2{{ provincia_registro.id_provincia }}" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content rounded-3 shadow-lg">
+                    <div class="modal-header bg-primary text-white">
+                      <h5 class="modal-title">Editar Provincia</h5>
+                      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                      <form id="formEditarProvincia{{ provincia_registro.id_provincia }}" action="{% url 'editarProvincias' %}" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Nombre de la Provincia <span class="text-danger">*</span></label>
+                          <input type="text" name="nameProvincia" value="{{ provincia_registro.nombre_provincia }}" class="form-control rounded-pill" required>
+                          <input type="hidden" name="idProvincia" value="{{ provincia_registro.id_provincia }}">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label fw-semibold">Región <span class="text-danger">*</span></label>
+                          <select name="idRegion" class="form-select rounded-pill" required>
+                            <option value="">Seleccione una región</option>
+                            {% for region in regiones_registros %}
+                            <option value="{{ region.id_region }}" {% if region.id_region == provincia_registro.id_region.id_region %}selected{% endif %}>
+                              {{ region.nombre_region }}
+                            </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-primary rounded-pill px-4 btn-editar" data-id="{{ provincia_registro.id_provincia }}">Guardar</button>
+                          <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Agregar -->
+  <div class="modal fade" id="myModaAgregar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title">Agregar Provincia</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formAgregarProvincia" action="{% url 'agregarProvincias' %}" method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Nombre de la Provincia <span class="text-danger">*</span></label>
+              <input type="text" name="nameProvinciaAgregar" class="form-control rounded-pill" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Región <span class="text-danger">*</span></label>
+              <select name="idRegionAgregar" class="form-select rounded-pill" required>
+                <option value="">Seleccione una región</option>
+                {% for region in regiones_registros %}
+                <option value="{{ region.id_region }}">{{ region.nombre_region }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="agregar">Agregar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<!-- DataTables + Bootstrap 5 -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<style>
+  /* Mejoras visuales para la tabla */
+  .datatable {
+    font-size: 0.9rem;
+  }
+  
+  .datatable thead th {
+    background-color: #212529 !important;
+    color: white !important;
+    font-weight: 600;
+    text-align: center;
+    vertical-align: middle;
+    border: none;
+    padding: 12px 8px;
+  }
+  
+  .datatable tbody td {
+    vertical-align: middle;
+    padding: 10px 8px;
+    font-size: 0.875rem;
+  }
+  
+  .datatable tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+  
+  /* Botones de acciones */
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+  }
+  
+  /* Espaciado del DataTable */
+  .dataTables_wrapper .dataTables_length,
+  .dataTables_wrapper .dataTables_filter {
+    margin-bottom: 15px;
+  }
+  
+  .dataTables_wrapper .dataTables_info,
+  .dataTables_wrapper .dataTables_paginate {
+    margin-top: 15px;
+  }
+  
+  /* Select de paginación */
+  .dataTables_length select {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+  }
+  
+  /* Input de búsqueda */
+  .dataTables_filter input {
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #ced4da;
+    margin-left: 10px;
+  }
+  
+  /* Select dentro de modales */
+  .form-select {
+    padding: 8px 12px;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .datatable {
+      font-size: 0.8rem;
+    }
+    
+    .datatable thead th,
+    .datatable tbody td {
+      padding: 8px 4px;
+    }
+  }
+</style>
+
+<script>
+$(document).ready(function(){
+  // Para agregar
+  $("#agregar").click(function(){
+    var formData = new FormData($('#formAgregarProvincia')[0]);
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregarProvincias' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Provincia guardada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'provincias' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la provincia',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // Para editar
+  $(".btn-editar").click(function(){
+    var id = $(this).data('id');
+    var form = $('#formEditarProvincia' + id);
+    var formData = new FormData(form[0]);
+    $.ajax({
+      type: "POST",
+      url: form.attr('action'),
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (response) {
+        Swal.fire({
+          title: 'Provincia editada exitosamente',
+          icon: 'success',
+          confirmButtonColor: '#3085d6',
+          confirmButtonText: '¡Ok!',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            window.location.href = "{% url 'provincias' %}";
+          }
+        });
+      },
+      error: function(response) {
+        Swal.fire({
+          title: 'Error al guardar la provincia',
+          text: response.responseText,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+    return false;
+  });
+
+  // DataTable inicialización
+  if ($.fn.DataTable.isDataTable('.datatable')) {
+    $('.datatable').DataTable().destroy();
+  }
+  
+  $('.datatable').DataTable({
+    "language": {
+      "decimal": "",
+      "emptyTable": "No hay información",
+      "info": "Mostrando _START_ a _END_ de _TOTAL_ registros",
+      "infoEmpty": "Mostrando 0 to 0 of 0 registros",
+      "infoFiltered": "(Filtrado de _MAX_ total registros)",
+      "infoPostFix": "",
+      "thousands": ",",
+      "lengthMenu": "Mostrar _MENU_ registros",
+      "loadingRecords": "Cargando...",
+      "processing": "Procesando...",
+      "search": "Buscar:",
+      "zeroRecords": "Sin resultados encontrados",
+      "paginate": {
+        "first": "Primero",
+        "last": "Último",
+        "next": "Siguiente",
+        "previous": "Anterior"
+      }
+    },
+    "pageLength": 10,
+    "lengthMenu": [[5, 10, 25, 50, 100], [5, 10, 25, 50, 100]],
+    "responsive": true,
+    "order": [[1, 'asc']],
+    "columnDefs": [
+      { 
+        "targets": 3,
+        "orderable": false,
+        "searchable": false
+      },
+      {
+        "targets": 0,
+        "width": "8%"
+      }
+    ],
+    "autoWidth": false
+  });
+});
+
+// Confirmación eliminar
+function confirmarEliminar(id, enlace) {
+  let urlEliminar = $(enlace).attr("href");
+  Swal.fire({
+    title: '¿Seguro que quieres eliminar esta provincia?',
+    text: 'Esta acción cambiará el estado de la provincia',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $.ajax({
+        type: "GET",
+        url: urlEliminar,
+        data: { csrfmiddlewaretoken: '{{ csrf_token }}' },
+        success: function (response) {
+          window.location.href = "{% url 'provincias' %}";
+        },
+      });
+    }
+  });
+  return false;
+}
+</script>
+{% endblock %}

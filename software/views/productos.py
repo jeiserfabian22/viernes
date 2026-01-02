@@ -1,6 +1,6 @@
-
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.http import JsonResponse
 from software.models.ProductoModel import Producto
 from software.models.categoriaModel import Categoria
 from software.models.UnidadesModel import Unidades
@@ -10,21 +10,19 @@ from software.models.colorModel import Color
 from software.models.detalletipousuarioxmodulosModel import Detalletipousuarioxmodulos
 
 
-
-# Create your views here.
 def productos(request):
     id2 = request.session.get('idtipousuario')
     if not id2:
-        # si no hay sesión, redirige a login o muestra algo acorde a tu app
         return redirect('login')
     
     permisos = Detalletipousuarioxmodulos.objects.filter(idtipousuario=id2)
-    productos= Producto.objects.filter(estado=1)
+    productos = Producto.objects.filter(estado=1)
     categoria = Categoria.objects.filter(estado=1)
     unidades = Unidades.objects.filter(estado=1)
     marca = Marca.objects.filter(estado=1)
     cilindrada = Cilindrada.objects.filter(estado=1)
     color = Color.objects.filter(estado=1)
+    
     data = {
         'productos': productos,
         'categorias': categoria,
@@ -34,9 +32,9 @@ def productos(request):
         'color': color,
         'permisos': permisos
     }
-    return render(request, 'productos/productos.html',data)
+    return render(request, 'productos/productos.html', data)
 
-#Funcion para agregar producto
+
 def agregar(request):
     if request.method != 'POST':
         return redirect('productos')
@@ -47,7 +45,7 @@ def agregar(request):
     marca_id       = request.POST.get('marca')
     cilindrada_id  = request.POST.get('cilindrada')
     color_id       = request.POST.get('color')
-    imagenprod     = request.POST.get('imagenprod', '')  # si tu BD acepta NULL, puedes mandar None
+    imagenprod     = request.POST.get('imagenprod', '')
 
     categoria  = get_object_or_404(Categoria, idcategoria=categoria_id)
     unidad     = get_object_or_404(Unidades, idunidad=unidad_id)
@@ -69,7 +67,6 @@ def agregar(request):
     return redirect('productos')
 
 
-#Funcion para editar un producto
 def editado(request):
     if request.method != 'POST':
         return redirect('productos')
@@ -103,8 +100,53 @@ def editado(request):
     return redirect('productos')
 
 
-def eliminar(request, idproducto):
-    producto = get_object_or_404(Producto, idproducto=idproducto)
-    producto.estado = 0
-    producto.save()
-    return redirect('productos')
+# ⭐ ACTUALIZADO: Usar eid
+def eliminar(request, eid):
+    """
+    Eliminar producto (soft delete) - CON ID ENCRIPTADO
+    """
+    try:
+        from software.utils.url_encryptor import decrypt_id
+        
+        # ⭐ DESENCRIPTAR ID
+        idproducto = decrypt_id(eid)
+        if not idproducto:
+            return JsonResponse({
+                'success': False,
+                'error': 'URL inválida'
+            }, status=400)
+        
+        producto = get_object_or_404(Producto, idproducto=idproducto)
+        producto.estado = 0
+        producto.save()
+        
+        # Si es AJAX, devolver JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'message': f"Producto '{producto.nomproducto}' eliminado correctamente"
+            })
+        
+        # Si no es AJAX, redirigir
+        messages.success(request, f"🗑️ Producto '{producto.nomproducto}' eliminado correctamente.")
+        return redirect('productos')
+        
+    except Producto.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Producto no encontrado'
+            }, status=404)
+        
+        messages.error(request, "❌ Producto no encontrado.")
+        return redirect('productos')
+        
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+        
+        messages.error(request, f"❌ Error al eliminar: {str(e)}")
+        return redirect('productos')

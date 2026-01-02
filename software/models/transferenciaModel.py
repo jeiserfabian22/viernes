@@ -26,7 +26,7 @@ class Transferencia(models.Model):
     estado = models.CharField(max_length=20, choices=ESTADOS, default='pendiente', db_column='estado')
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'transferencias'
     
     def __str__(self):

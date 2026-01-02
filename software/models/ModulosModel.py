@@ -17,6 +17,6 @@ class Modulos(models.Model):
     orden = models.IntegerField(default=0)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'modulos'
         ordering = ['orden', 'nombremodulo']

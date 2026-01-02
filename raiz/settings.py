@@ -30,7 +30,13 @@ SECRET_KEY = 'django-insecure-1yqp4mb^j0uqm-uf6zgr+^axhif(n-^x%kk2y$folet5#i##!a
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '127.0.0.1', 
+    'localhost',
+    # Esto permite cualquier subdominio generado por ngrok en el dominio .ngrok-free.dev
+    'misistemaventas.ngrok.app', 
+    '*' # Permite todas las peticiones si DEBUG=True (útil para desarrollo)
+]
 
 
 
@@ -43,7 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'software',
+    'software.apps.SoftwareConfig',
 ]
 
 MIDDLEWARE = [
@@ -152,9 +158,16 @@ EMAIL_HOST_USER = 'jerojasd@alumno.unsm.edu.pe'  # ← Cambia esto
 EMAIL_HOST_PASSWORD = 'usrlkwexthgfjmxh'  # ← Contraseña de aplicación de Gmail
 DEFAULT_FROM_EMAIL = 'MotoVentas <jerojasd@alumno.unsm.edu.pe>'
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://misistemaventas.ngrok.app', # Añade el comodín HTTPS para ngrok
+]
 
-
+#Para encriptar 
 ENCRYPTION_KEY = 'lhgnTN5ZgcS6UKinpZdMrknlCeUPFxy5Eq10e8tyB0I='
 
+URL_ENCRYPTION_KEY = 'WT0j3asFkLJj7xaZFL7EtvJtyd8ELf1q1ju5DMwt6jY='
 
+#Para consumir la API RENIC
+TOKENPERU_TOKEN = 'sk_11701.nbA9F1Pyxxiq9B1tn2dGAzjtioUPEBoJ'
 
+#TOKENPERU_DEMO_MODE = True

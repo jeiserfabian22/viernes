@@ -11,9 +11,9 @@ class Sucursales(models.Model):
     direccion = models.CharField(max_length=255)
     telefono = models.CharField(max_length=20)
     fecha_apertura = models.DateField()
-    estado = models.IntegerField(db_column='estado')
+    estado = models.IntegerField(default=1, db_column='estado')
     es_principal = models.BooleanField(default=False, db_column='es_principal')
 
     class Meta:
-        managed = False  # porque la tabla ya existe en tu BD
+        managed = True  
         db_table = 'sucursales'

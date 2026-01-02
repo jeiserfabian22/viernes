@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar Documento Firmado - MotoVentas</title>
+    
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Fuente -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0a4d3c 0%, #00695c 50%, #26a69a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 191, 165, 0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            top: -200px;
+            left: -200px;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(38, 198, 218, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            bottom: -150px;
+            right: -150px;
+            animation: float 15s infinite ease-in-out reverse;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(50px, 50px) scale(1.1);
+            }
+        }
+        
+        .verificador-container {
+            background: white;
+            max-width: 900px;
+            width: 100%;
+            border-radius: 25px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            overflow: hidden;
+            position: relative;
+            z-index: 10;
+            animation: slideUp 0.6s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .verificador-header {
+            background: linear-gradient(135deg, #004d40, #00796b);
+            color: white;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .verificador-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 30px 30px;
+            animation: movePattern 30s linear infinite;
+        }
+
+        @keyframes movePattern {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(30px, 30px); }
+        }
+
+        .logo-verificador {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00bfa5, #26c6da);
+            color: white;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 15px 40px rgba(0, 191, 165, 0.5);
+            animation: pulse 3s infinite ease-in-out;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 15px 40px rgba(0, 191, 165, 0.5);
+            }
+            50% {
+                transform: scale(1.08);
+                box-shadow: 0 20px 60px rgba(0, 191, 165, 0.7);
+            }
+        }
+        
+        .verificador-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .verificador-header p {
+            position: relative;
+            z-index: 2;
+            opacity: 0.95;
+        }
+        
+        .verificador-body {
+            padding: 3rem 2.5rem;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+        }
+        
+        .dropzone {
+            border: 3px dashed #00bfa5;
+            border-radius: 15px;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .dropzone:hover {
+            background: #e8f5e9;
+            border-color: #00897b;
+            transform: translateY(-3px);
+        }
+        
+        .dropzone.dragging {
+            background: #d1f2eb;
+            border-color: #00695c;
+            box-shadow: 0 10px 30px rgba(0, 191, 165, 0.2);
+        }
+        
+        .dropzone i {
+            font-size: 4rem;
+            color: #00bfa5;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .btn-verificar {
+            background: linear-gradient(135deg, #00bfa5, #26c6da);
+            color: white;
+            border: none;
+            padding: 1rem 2.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            width: 100%;
+            margin-top: 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 25px rgba(0, 191, 165, 0.3);
+        }
+        
+        .btn-verificar:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(0, 191, 165, 0.4);
+        }
+
+        .btn-verificar:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .resultado-valido {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            border-left: 5px solid #4caf50;
+            padding: 2rem;
+            border-radius: 15px;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .resultado-invalido {
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+            border-left: 5px solid #f44336;
+            padding: 2rem;
+            border-radius: 15px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .icono-resultado {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert {
+            border-radius: 12px;
+            border: none;
+            padding: 1.2rem;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .card-header {
+            font-weight: 600;
+            padding: 1.2rem;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .info-box h6 {
+            color: #004d40;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .info-box ol {
+            padding-left: 1.5rem;
+        }
+
+        .info-box li {
+            margin-bottom: 0.5rem;
+            color: #555;
+        }
+
+        @media (max-width: 768px) {
+            .verificador-container {
+                margin: 1rem;
+                border-radius: 20px;
+            }
+
+            .verificador-header {
+                padding: 2rem 1.5rem;
+            }
+
+            .verificador-header h1 {
+                font-size: 1.6rem;
+            }
+
+            .verificador-body {
+                padding: 2rem 1.5rem;
+            }
+
+            .dropzone {
+                padding: 2rem 1rem;
+            }
+
+            .dropzone i {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="verificador-container">
+        <!-- Header -->
+        <div class="verificador-header">
+            <div class="logo-verificador">
+                <i class="fas fa-shield-check"></i>
+            </div>
+            <h1>Verificador de Firma Digital</h1>
+            <p class="mb-0">Sistema de Verificación Criptográfica</p>
+        </div>
+        
+        <!-- Body -->
+        <div class="verificador-body">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Instrucciones:</strong> Suba el documento firmado para verificar su autenticidad e integridad.
+            </div>
+            
+            <form id="formVerificar" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <!-- Dropzone -->
+                <div class="dropzone" id="dropzone">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <h5 class="fw-bold">Arrastre el documento aquí</h5>
+                    <p class="text-muted mb-0">o haga clic para seleccionar</p>
+                    <input type="file" 
+                           id="documento_verificar" 
+                           name="documento_verificar" 
+                           accept=".pdf,.docx" 
+                           style="display: none;">
+                </div>
+                
+                <!-- Info del archivo -->
+                <div id="archivoInfo" class="d-none mt-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-file-alt fa-2x text-primary me-3"></i>
+                                <div>
+                                    <h6 class="mb-1"><span id="nombreArchivo"></span></h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-weight-hanging me-1"></i>
+                                        <span id="tamanoArchivo"></span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botón Verificar -->
+                <button type="submit" class="btn btn-verificar" id="btnVerificar" disabled>
+                    <i class="fas fa-search me-2"></i>Verificar Documento
+                </button>
+            </form>
+            
+            <!-- Resultado -->
+            <div id="resultado" class="mt-4 d-none"></div>
+            
+            <!-- Información -->
+            <div class="info-box">
+                <h6><i class="fas fa-question-circle me-2"></i>¿Cómo funciona la verificación?</h6>
+                <ol class="small mb-0">
+                    <li>El sistema calcula el hash SHA-256 del documento subido</li>
+                    <li>Se compara con el hash original almacenado en la base de datos</li>
+                    <li>Se verifica la firma digital con la clave pública del certificado</li>
+                    <li>Si coinciden = Documento <strong class="text-success">VÁLIDO ✅</strong></li>
+                    <li>Si no coinciden = Documento <strong class="text-danger">MODIFICADO ❌</strong></li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // ==================== DROPZONE ====================
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('documento_verificar');
+    
+    dropzone.addEventListener('click', () => fileInput.click());
+    
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragging');
+    });
+    
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragging');
+    });
+    
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragging');
+        
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            mostrarInfoArchivo(e.dataTransfer.files[0]);
+        }
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length) {
+            mostrarInfoArchivo(e.target.files[0]);
+        }
+    });
+    
+    function mostrarInfoArchivo(file) {
+        $('#nombreArchivo').text(file.name);
+        $('#tamanoArchivo').text((file.size / 1024 / 1024).toFixed(2) + ' MB');
+        $('#archivoInfo').removeClass('d-none');
+        $('#btnVerificar').prop('disabled', false);
+        $('#resultado').addClass('d-none');
+        
+        console.log('📄 Archivo seleccionado:', file.name);
+    }
+    
+    // ==================== VERIFICAR DOCUMENTO ====================
+    $('#formVerificar').on('submit', function(e) {
+        e.preventDefault();
+        
+        const btnVerificar = $('#btnVerificar');
+        const textoOriginal = btnVerificar.html();
+        
+        btnVerificar.prop('disabled', true);
+        btnVerificar.html('<i class="fas fa-spinner fa-spin me-2"></i>Verificando...');
+        
+        const formData = new FormData(this);
+        
+        $.ajax({
+            type: 'POST',
+            url: '{% url "verificar_documento" %}',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                console.log('✅ Respuesta recibida:', response);
+
+                btnVerificar.prop('disabled', false);
+                btnVerificar.html(textoOriginal);
+                
+                $('#resultado').removeClass('d-none');
+                
+                if (response.valido) {
+                    // ✅ DOCUMENTO VÁLIDO
+                    $('#resultado').html(`
+                        <div class="resultado-valido text-center">
+                            <i class="fas fa-check-circle icono-resultado text-success"></i>
+                            <h3 class="text-success fw-bold">${response.mensaje}</h3>
+                            <p class="lead mb-4">El documento es auténtico y no ha sido modificado</p>
+                            
+                            <div class="card shadow-sm">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detalles de la Firma Digital</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row text-start">
+                                        <div class="col-md-6 mb-3">
+                                            <strong><i class="fas fa-user me-2 text-primary"></i>Firmante:</strong><br>
+                                            <span class="text-muted ms-4">${response.detalles.firmante}</span>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <strong><i class="fas fa-calendar me-2 text-primary"></i>Fecha de Firma:</strong><br>
+                                            <span class="text-muted ms-4">${response.detalles.fecha_firma}</span>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <strong><i class="fas fa-file me-2 text-primary"></i>Tipo de Documento:</strong><br>
+                                            <span class="badge bg-${response.detalles.tipo === 'PDF' ? 'danger' : 'primary'} ms-4">${response.detalles.tipo}</span>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <strong><i class="fas fa-fingerprint me-2 text-primary"></i>Hash SHA-256:</strong><br>
+                                            <code class="text-muted small ms-4">${response.detalles.hash}...</code>
+                                        </div>
+                                        <div class="col-12">
+                                            <strong><i class="fas fa-certificate me-2 text-primary"></i>Certificado Digital:</strong><br>
+                                            <code class="text-success ms-4">${response.detalles.certificado}...</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <small class="text-muted">
+                                        <i class="fas fa-shield-alt me-1"></i>
+                                        Firmado digitalmente usando encriptación <strong>RSA-2048</strong> y hash <strong>SHA-256</strong>
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-success mt-4">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <strong>Verificación exitosa:</strong> Este documento cuenta con firma digital válida emitida por MotoVentas
+                            </div>
+                        </div>
+                    `);
+                } else {
+                    // ❌ DOCUMENTO MODIFICADO
+                    $('#resultado').html(`
+                        <div class="resultado-invalido text-center">
+                            <i class="fas fa-times-circle icono-resultado text-danger"></i>
+                            <h3 class="text-danger fw-bold">${response.mensaje}</h3>
+                            <p class="lead mb-4">⚠️ Este documento ha sido alterado</p>
+                            
+                            <div class="card shadow-sm border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Advertencia de Seguridad</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-danger">
+                                        <i class="fas fa-ban me-2"></i>
+                                        <strong>${response.detalles.advertencia}</strong>
+                                    </div>
+                                    
+                                    <div class="row text-start">
+                                        <div class="col-md-6 mb-3">
+                                            <strong>Firmante Original:</strong><br>
+                                            <span class="text-muted">${response.detalles.firmante}</span>
+                                        </div>
+                                        <div class="col-md-6 mb-3">
+                                            <strong>Fecha de Firma Original:</strong><br>
+                                            <span class="text-muted">${response.detalles.fecha_firma}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <hr>
+                                    
+                                    <h6 class="text-danger mb-3">
+                                        <i class="fas fa-question-circle me-2"></i>
+                                        ¿Qué significa esto?
+                                    </h6>
+                                    <ul class="text-start">
+                                        <li class="mb-2">El contenido del documento ha sido <strong>modificado</strong> después de ser firmado</li>
+                                        <li class="mb-2">La firma digital detectó <strong>cambios no autorizados</strong></li>
+                                        <li class="mb-2">Este documento <strong>NO debe ser considerado auténtico</strong></li>
+                                        <li class="mb-2">Contacte al firmante original para obtener una copia válida</li>
+                                    </ul>
+                                </div>
+                                <div class="card-footer bg-light">
+                                    <small class="text-danger">
+                                        <i class="fas fa-ban me-1"></i>
+                                        <strong>NO</strong> utilice este documento para propósitos legales o contractuales
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                }
+            },
+            error: function(xhr) {
+                btnVerificar.prop('disabled', false);
+                btnVerificar.html(textoOriginal);
+                
+                let errorMsg = 'Error al verificar el documento';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMsg = xhr.responseJSON.error;
+                }
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: errorMsg,
+                    confirmButtonColor: '#00bfa5'
+                });
+            }
+        });
+        
+        return false;
+    });
+    </script>
+</body>
+</html>

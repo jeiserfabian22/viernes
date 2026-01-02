@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MotoVentas - Registro</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Fuente moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        body {
+            font-family: "Poppins", sans-serif;
+            background: linear-gradient(135deg, #0a4d3c 0%, #00695c 50%, #26a69a 100%);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            position: relative;
+            overflow-x: hidden;
+            padding: 1rem 0;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 191, 165, 0.3) 0%, transparent 70%);
+            border-radius: 50%;
+            top: -200px;
+            left: -200px;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(38, 198, 218, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            bottom: -150px;
+            right: -150px;
+            animation: float 15s infinite ease-in-out reverse;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(50px, 50px) scale(1.1);
+            }
+        }
+
+        .registro-container {
+            background: rgba(255, 255, 255, 0.98);
+            width: 600px;
+            max-width: 95vw;
+            border-radius: 30px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), 0 0 100px rgba(0, 191, 165, 0.3);
+            backdrop-filter: blur(20px);
+            position: relative;
+            z-index: 10;
+            transition: transform 0.3s ease;
+            margin: 1rem;
+        }
+
+        .registro-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 100px rgba(0, 0, 0, 0.5), 0 0 120px rgba(0, 191, 165, 0.4);
+        }
+
+        .registro-header {
+            background: linear-gradient(135deg, #004d40 0%, #00695c 50%, #00796b 100%);
+            color: #fff;
+            padding: 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .registro-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 30px 30px;
+            animation: movePattern 30s linear infinite;
+        }
+
+        @keyframes movePattern {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(30px, 30px);
+            }
+        }
+
+        .logo-registro {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00bfa5, #26c6da);
+            color: white;
+            font-size: 2.5rem;
+            margin: 0 auto 15px;
+            transition: all 0.4s ease;
+            position: relative;
+            box-shadow: 0 15px 40px rgba(0, 191, 165, 0.5);
+            animation: pulse 3s infinite ease-in-out;
+            z-index: 2;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 15px 40px rgba(0, 191, 165, 0.5);
+            }
+
+            50% {
+                transform: scale(1.08);
+                box-shadow: 0 20px 60px rgba(0, 191, 165, 0.7);
+            }
+        }
+
+        .registro-header h2 {
+            font-weight: 800;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #80deea, #26c6da, #00bfa5, #80deea);
+            background-size: 300%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientFlow 6s linear infinite;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes gradientFlow {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 300% 50%;
+            }
+        }
+
+        .registro-header p {
+            position: relative;
+            z-index: 2;
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .registro-body {
+            padding: 2.5rem 2.5rem 2rem;
+            color: #333;
+            background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: #004d40;
+            margin-bottom: 0.5rem;
+            display: block;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            color: #004d40;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background: white;
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #00bfa5;
+            box-shadow: 0 0 0 4px rgba(0, 191, 165, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .mb-3 {
+            margin-bottom: 1.3rem;
+        }
+
+        .btn-registro {
+            background: linear-gradient(135deg, #00bfa5, #26c6da);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            padding: 0.9rem 2rem;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 191, 165, 0.3);
+            min-height: 50px;
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+        }
+
+        .btn-registro::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #26c6da, #00bfa5);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .btn-registro:active::before {
+            opacity: 1;
+        }
+
+        .btn-registro:active {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(0, 191, 165, 0.5);
+        }
+
+        .btn-volver {
+            background: transparent;
+            color: #00796b;
+            border: 2px solid #00796b;
+            border-radius: 12px;
+            padding: 0.9rem 2rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .btn-volver:active {
+            background: #00796b;
+            color: white;
+            transform: translateY(-1px);
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #01579b;
+            border: none;
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.85rem;
+        }
+
+        .alert-info i {
+            color: #0277bd;
+            margin-right: 0.5rem;
+        }
+
+        .password-requirements {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+
+        /* ⭐ Estilos para autocompletado (igual que clientes) */
+        .campo-autocompletado {
+            animation: highlightField 0.6s ease;
+        }
+
+        @keyframes highlightField {
+
+            0%,
+            100% {
+                background-color: transparent;
+            }
+
+            50% {
+                background-color: #d1f2eb;
+            }
+        }
+
+        .input-group .btn-search {
+            background: #00bfa5;
+            color: white;
+            border: none;
+            padding: 0.85rem 1.2rem;
+            transition: all 0.3s ease;
+            border-radius: 0 12px 12px 0;
+        }
+
+        .input-group .btn-search:hover {
+            background: #00897b;
+        }
+
+        .input-group .btn-search:active {
+            background: #00695c;
+        }
+
+        /* Alertas de carga/error/éxito */
+        .alert-primary {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #01579b;
+            border: none;
+            border-radius: 12px;
+        }
+
+        .alert-danger {
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+            color: #c62828;
+            border: none;
+            border-radius: 12px;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+            border: none;
+            border-radius: 12px;
+        }
+
+        @media (max-width: 640px) {
+            .registro-container {
+                border-radius: 0;
+                width: 100%;
+            }
+
+            .registro-header {
+                padding: 2rem 1.5rem;
+            }
+
+            .logo-registro {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+
+            .registro-header h2 {
+                font-size: 1.7rem;
+            }
+
+            .registro-body {
+                padding: 2rem 1.5rem 1.5rem;
+            }
+
+            .mb-3 {
+                margin-bottom: 1.2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .registro-header {
+                padding: 1.8rem 1.2rem;
+            }
+
+            .logo-registro {
+                width: 70px;
+                height: 70px;
+                font-size: 1.8rem;
+            }
+
+            .registro-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .registro-body {
+                padding: 1.8rem 1.2rem 1.2rem;
+            }
+        }
+
+        /* ==================== ESTILOS MODAL POLÍTICAS ==================== */
+        /* ==================== ESTILOS MODAL POLÍTICAS (CORREGIDO) ==================== */
+        .modal {
+            z-index: 9999 !important;
+        }
+
+        .modal-backdrop {
+            z-index: 9998 !important;
+        }
+
+        .modal-dialog {
+            max-width: 800px;
+            margin: 1.75rem auto;
+        }
+
+        .modal-content {
+            border: none;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header.bg-gradient {
+            background: linear-gradient(135deg, #004d40 0%, #00695c 50%, #00796b 100%);
+            padding: 1.5rem;
+            border: none;
+        }
+
+        .modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .modal-body {
+            background: white;
+            padding: 0;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .politicas-content {
+            padding: 2rem;
+            color: #333;
+            line-height: 1.8;
+        }
+
+        .politicas-content h6 {
+            color: #004d40;
+            margin-top: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .politicas-content h6:first-child {
+            margin-top: 0;
+        }
+
+        .politicas-content p {
+            text-align: justify;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+        }
+
+        .politicas-content ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .politicas-content ul li {
+            margin-bottom: 0.5rem;
+            font-size: 0.95rem;
+        }
+
+        .modal-footer {
+            padding: 1.25rem;
+            border-top: 1px solid #e0e0e0;
+            background: #f8f9fa;
+        }
+
+        .modal-footer .btn {
+            border-radius: 8px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        /* Scrollbar personalizado para el modal */
+        .modal-body::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #00bfa5;
+            border-radius: 4px;
+        }
+
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #00897b;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                margin: 0.5rem;
+            }
+            
+            .modal-body {
+                max-height: 50vh;
+            }
+            
+            .politicas-content {
+                padding: 1.5rem;
+            }
+            
+            .politicas-content h6 {
+                font-size: 0.95rem;
+            }
+            
+            .politicas-content p,
+            .politicas-content ul li {
+                font-size: 0.85rem;
+            }
+        }
+
+        /* Campo readonly con estilo especial */
+        .form-control[readonly] {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+            color: #495057;
+        }
+
+        .form-control[readonly]:focus {
+            background-color: #f0f0f0;
+            border-color: #ced4da;
+            box-shadow: none;
+            transform: none;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <div class="registro-container">
+        <!-- Header -->
+        <div class="registro-header">
+            <div class="logo-registro">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h2>Crear Cuenta</h2>
+            <p>Regístrate para acceder a MotoVentas</p>
+        </div>
+
+        <!-- Body -->
+        <div class="registro-body">
+            <div class="alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Nota:</strong> Tu cuenta tendrá permisos limitados. Para acceso completo, contacta con un
+                administrador.
+            </div>
+
+            <!-- ⭐ Alerta de autocompletado (igual que clientes) -->
+            <div class="alert alert-info alert-dismissible fade show" role="alert">
+                <i class="fa-solid fa-circle-info me-2"></i>
+                <strong>Autocompletado:</strong> Ingrese su DNI (8 dígitos) y su nombre se completará automáticamente.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+
+            <!-- Alerta de carga -->
+            <div class="alert alert-primary d-none" id="alertCargando" role="alert">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Cargando...</span>
+                    </div>
+                    <div>Consultando DNI en RENIEC...</div>
+                </div>
+            </div>
+
+            <!-- Alerta de error -->
+            <div class="alert alert-danger d-none" id="alertError" role="alert">
+                <i class="fa-solid fa-circle-exclamation me-2"></i>
+                <span id="mensajeError"></span>
+            </div>
+
+            <!-- Alerta de éxito -->
+            <div class="alert alert-success d-none" id="alertExito" role="alert">
+                <i class="fa-solid fa-circle-check me-2"></i>
+                <span id="mensajeExito"></span>
+            </div>
+
+            <form id="formRegistro" method="post" action="{% url 'registro_usuario' %}">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        DNI
+                        <span class="text-danger">*</span>
+                        <span id="badgeDNI" class="badge bg-secondary ms-2" style="display: none;">DNI</span>
+                    </label>
+                    <div class="input-group">
+                        <input type="text" name="dni" id="dni" class="form-control"
+                            style="border-radius: 12px 0 0 12px;" maxlength="8" placeholder="Ingrese 8 dígitos"
+                            required>
+                        <button class="btn btn-search" type="button" id="btnConsultarDNI" title="Consultar DNI">
+                            <i class="fa-solid fa-search"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Presione Enter o el botón de búsqueda</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Nombre Completo <span class="text-danger">*</span></label>
+                    <input type="text" name="nombre_completo" id="nombre_completo" class="form-control" required readonly placeholder="Se completará automáticamente con su DNI">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Celular <span class="text-danger">*</span></label>
+                    <input type="text" name="celular" id="celular" class="form-control" maxlength="9"
+                        placeholder="9 dígitos" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Correo Electrónico <span class="text-danger">*</span></label>
+                    <input type="email" name="correo" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Contraseña <span class="text-danger">*</span></label>
+                    <input type="password" name="contrasena" id="contrasena" class="form-control" required>
+                    <div class="password-requirements">
+                        <i class="fas fa-shield-alt"></i> Mínimo 8 caracteres
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Confirmar Contraseña <span class="text-danger">*</span></label>
+                    <input type="password" name="confirmar_contrasena" id="confirmar_contrasena" class="form-control"
+                        required>
+                </div>
+
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="aceptoPoliticas" required disabled>
+                        <label class="form-check-label" for="aceptoPoliticas">
+                            He leído y acepto las
+                            <a href="#" id="btnVerPoliticas" class="link-politicas">
+                                <strong>políticas de la empresa</strong>
+                            </a>
+                        </label>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-info-circle"></i> Debe leer y aceptar las políticas para continuar
+                    </small>
+                </div>
+
+                <button type="submit" class="btn btn-registro" id="btnRegistro">
+                    <i class="fas fa-user-check me-2"></i>
+                    <span class="text">Crear Cuenta</span>
+                </button>
+
+                <button type="button" class="btn btn-volver" id="btnVolver">
+                    <i class="fas fa-arrow-left me-2"></i> Volver al Login
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- ⭐ MODAL FUERA DEL CONTENEDOR (AQUÍ) -->
+    <div class="modal fade" id="modalPoliticas" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient">
+                    <h5 class="modal-title text-white">
+                        <i class="fas fa-file-contract me-2"></i>
+                        Políticas de la Empresa
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="politicas-content">
+                        <h6 class="fw-bold text-primary mb-3">TÉRMINOS Y CONDICIONES DE USO</h6>
+
+                        <p class="text-justify">
+                            Bienvenido a <strong>MotoVentas</strong>. Al registrarse en nuestra plataforma, usted acepta
+                            los siguientes términos y condiciones:
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">1. Aceptación de los Términos</h6>
+                        <p class="text-justify">
+                            Al acceder y utilizar esta plataforma, usted acepta estar sujeto a estos términos y
+                            condiciones de uso, todas las leyes y regulaciones aplicables, y acepta que es responsable
+                            del cumplimiento de las leyes locales aplicables.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">2. Uso de la Plataforma</h6>
+                        <p class="text-justify">
+                            Esta plataforma está diseñada para la gestión de ventas de motocicletas y repuestos. El
+                            usuario se compromete a:
+                        </p>
+                        <ul>
+                            <li>Proporcionar información veraz y actualizada durante el registro</li>
+                            <li>Mantener la confidencialidad de su cuenta y contraseña</li>
+                            <li>No utilizar la plataforma para actividades ilegales o no autorizadas</li>
+                            <li>No intentar acceder a áreas restringidas del sistema</li>
+                        </ul>
+
+                        <h6 class="fw-bold mt-4 mb-2">3. Privacidad y Protección de Datos</h6>
+                        <p class="text-justify">
+                            Nos comprometemos a proteger su información personal de acuerdo con la Ley de Protección de
+                            Datos Personales (Ley N° 29733). Sus datos serán utilizados únicamente para:
+                        </p>
+                        <ul>
+                            <li>Gestión de su cuenta de usuario</li>
+                            <li>Procesamiento de transacciones comerciales</li>
+                            <li>Comunicaciones relacionadas con el servicio</li>
+                            <li>Mejora de nuestros servicios</li>
+                        </ul>
+
+                        <h6 class="fw-bold mt-4 mb-2">4. Permisos de Usuario</h6>
+                        <p class="text-justify">
+                            Al registrarse, usted obtendrá una cuenta con <strong>permisos limitados de
+                                consulta</strong>. Para obtener permisos completos de administración, deberá contactar
+                            con un administrador del sistema.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">5. Responsabilidades del Usuario</h6>
+                        <p class="text-justify">
+                            El usuario es responsable de:
+                        </p>
+                        <ul>
+                            <li>La veracidad de la información proporcionada</li>
+                            <li>El uso adecuado de las funcionalidades del sistema</li>
+                            <li>La seguridad de sus credenciales de acceso</li>
+                            <li>Notificar inmediatamente cualquier uso no autorizado de su cuenta</li>
+                        </ul>
+
+                        <h6 class="fw-bold mt-4 mb-2">6. Propiedad Intelectual</h6>
+                        <p class="text-justify">
+                            Todo el contenido de esta plataforma, incluyendo textos, gráficos, logos, iconos, imágenes y
+                            software, es propiedad de MotoVentas y está protegido por las leyes de propiedad
+                            intelectual.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">7. Limitación de Responsabilidad</h6>
+                        <p class="text-justify">
+                            MotoVentas no será responsable por daños indirectos, incidentales, especiales o consecuentes
+                            que resulten del uso o la imposibilidad de usar la plataforma.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">8. Modificaciones</h6>
+                        <p class="text-justify">
+                            Nos reservamos el derecho de modificar estos términos en cualquier momento. Las
+                            modificaciones entrarán en vigor inmediatamente después de su publicación en la plataforma.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">9. Terminación</h6>
+                        <p class="text-justify">
+                            Podemos terminar o suspender su acceso a la plataforma inmediatamente, sin previo aviso, por
+                            cualquier motivo, incluyendo el incumplimiento de estos términos.
+                        </p>
+
+                        <h6 class="fw-bold mt-4 mb-2">10. Ley Aplicable</h6>
+                        <p class="text-justify">
+                            Estos términos se regirán e interpretarán de acuerdo con las leyes de la República del Perú.
+                        </p>
+
+                        <div class="alert alert-warning mt-4">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Importante:</strong> Al hacer clic en "Aceptar", usted declara que ha leído,
+                            entendido y aceptado todos los términos y condiciones aquí descritos.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnAceptarPoliticas">
+                        <i class="fas fa-check-circle me-2"></i>Aceptar Políticas
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. Bootstrap JS Bundle (incluye Popper) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+        // ==================== FUNCIÓN PRINCIPAL: AUTOCOMPLETAR DNI ====================
+        async function consultarDNI(dni) {
+            const alertCargando = $('#alertCargando');
+            const alertError = $('#alertError');
+            const alertExito = $('#alertExito');
+
+            if (dni.length !== 8) {
+                return;
+            }
+
+            alertCargando.removeClass('d-none');
+            alertError.addClass('d-none');
+            alertExito.addClass('d-none');
+
+            try {
+                const response = await fetch(`/api/dni/?dni=${dni}`);
+                const data = await response.json();
+
+                alertCargando.addClass('d-none');
+
+                if (data.success) {
+                    $('#nombre_completo').val(data.nombre_completo).addClass('campo-autocompletado');
+                    $('#nombre_completo').prop('readonly', true);
+                    $('#badgeDNI').text('DNI Verificado').removeClass('bg-secondary').addClass('bg-success').show();
+                    alertExito.removeClass('d-none');
+                    $('#mensajeExito').html(`<strong>DNI encontrado:</strong> ${data.nombre_completo}`);
+
+                    setTimeout(() => {
+                        $('.campo-autocompletado').removeClass('campo-autocompletado');
+                    }, 600);
+
+                    $('#celular').focus();
+                } else {
+                    alertError.removeClass('d-none');
+                    $('#mensajeError').text(data.error || 'No se encontró el DNI');
+                    $('#nombre_completo').val('');
+                    $('#nombre_completo').prop('readonly', true);
+                    $('#badgeDNI').hide();
+                }
+            } catch (error) {
+                alertCargando.addClass('d-none');
+                alertError.removeClass('d-none');
+                $('#mensajeError').text('Error de conexión. Intente nuevamente.');
+                console.error('Error:', error);
+            }
+        }
+
+        $(function () {
+            // ==================== BOTÓN VOLVER ====================
+            $('#btnVolver').on('click', function () {
+                window.location.href = '/';
+            });
+
+            // ==================== EVENTOS DNI ====================
+            $('#dni').on('input', function () {
+                const valor = this.value.replace(/[^0-9]/g, '');
+                this.value = valor;
+                const badge = $('#badgeDNI');
+                if (valor.length === 8) {
+                    badge.text('DNI').removeClass('bg-success').addClass('bg-secondary').show();
+                } else {
+                    badge.hide();
+                }
+            });
+
+            $('#dni').on('keypress', function (e) {
+                if (e.which === 13) {
+                    e.preventDefault();
+                    const dni = $(this).val().trim();
+                    if (dni.length === 8) {
+                        consultarDNI(dni);
+                    }
+                }
+            });
+
+            $('#btnConsultarDNI').on('click', function () {
+                const dni = $('#dni').val().trim();
+                if (dni.length === 8) {
+                    consultarDNI(dni);
+                } else {
+                    Swal.fire({
+                        title: 'DNI inválido',
+                        text: 'Ingrese un DNI de 8 dígitos',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#00bfa5'
+                    });
+                }
+            });
+
+            $('#celular').on('input', function () {
+                const valor = this.value.replace(/[^0-9]/g, '');
+                this.value = valor;
+            });
+
+            // ==================== MODAL DE POLÍTICAS ====================
+            // Abrir modal al hacer clic en el link
+            $('#btnVerPoliticas').on('click', function (e) {
+                e.preventDefault();
+                const modalElement = document.getElementById('modalPoliticas');
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+            });
+
+            // Abrir modal si hacen clic en checkbox deshabilitado
+            $('#aceptoPoliticas').on('click', function (e) {
+                if ($(this).is(':disabled') && !$(this).is(':checked')) {
+                    e.preventDefault();
+                    const modalElement = document.getElementById('modalPoliticas');
+                    const modal = new bootstrap.Modal(modalElement);
+                    modal.show();
+                }
+            });
+
+            // Aceptar políticas
+            $('#btnAceptarPoliticas').on('click', function () {
+                $('#aceptoPoliticas').prop('checked', true);
+                $('#aceptoPoliticas').prop('disabled', false);
+
+                const modalElement = document.getElementById('modalPoliticas');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Políticas Aceptadas',
+                    text: 'Has aceptado las políticas de la empresa',
+                    timer: 2000,
+                    showConfirmButton: false,
+                    toast: true,
+                    position: 'top-end'
+                });
+
+                console.log('✅ Políticas aceptadas');
+            });
+
+            // Evento cuando se cierra el modal
+            document.getElementById('modalPoliticas').addEventListener('hidden.bs.modal', function () {
+                if (!$('#aceptoPoliticas').is(':checked')) {
+                    $('#aceptoPoliticas').prop('disabled', true);
+                }
+            });
+
+            // ==================== SUBMIT FORMULARIO ====================
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            const csrftoken = getCookie('csrftoken');
+
+            $('#formRegistro').on('submit', function (e) {
+                e.preventDefault();
+
+                const dni = $('#dni').val().trim();
+                const contrasena = $('#contrasena').val();
+                const confirmarContrasena = $('#confirmar_contrasena').val();
+                const celular = $('#celular').val().trim();
+                const aceptoPoliticas = $('#aceptoPoliticas').is(':checked');
+
+                // Validaciones
+                if (dni.length !== 8) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'El DNI debe tener exactamente 8 dígitos',
+                        confirmButtonColor: '#00bfa5'
+                    });
+                    return false;
+                }
+
+                if (celular.length !== 9) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'El celular debe tener exactamente 9 dígitos',
+                        confirmButtonColor: '#00bfa5'
+                    });
+                    return false;
+                }
+
+                if (contrasena !== confirmarContrasena) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Las contraseñas no coinciden',
+                        confirmButtonColor: '#00bfa5'
+                    });
+                    return false;
+                }
+
+                if (contrasena.length < 8) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'La contraseña debe tener al menos 8 caracteres',
+                        confirmButtonColor: '#00bfa5'
+                    });
+                    return false;
+                }
+
+                if (!aceptoPoliticas) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Políticas de empresa',
+                        text: 'Debe leer y aceptar las políticas de la empresa para continuar',
+                        confirmButtonColor: '#00bfa5',
+                        confirmButtonText: 'Ver Políticas'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const modalElement = document.getElementById('modalPoliticas');
+                            const modal = new bootstrap.Modal(modalElement);
+                            modal.show();
+                        }
+                    });
+                    return false;
+                }
+
+                const btnRegistro = $('#btnRegistro');
+                const textoOriginal = btnRegistro.html();
+                btnRegistro.prop('disabled', true);
+                btnRegistro.html('<i class="fas fa-spinner fa-spin me-2"></i>Registrando...');
+
+                const formData = new FormData(this);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '{% url "registro_usuario" %}',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    success: function (response) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Registro exitoso!',
+                            text: response.mensaje || 'Ya puedes iniciar sesión con tu cuenta',
+                            confirmButtonColor: '#00bfa5',
+                            confirmButtonText: 'Ir al Login'
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                window.location.href = '/';
+                            }
+                        });
+                    },
+                    error: function (xhr) {
+                        let errorMsg = 'Error al crear la cuenta';
+
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMsg = xhr.responseJSON.error;
+                        } else if (xhr.responseText) {
+                            errorMsg = xhr.responseText;
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: errorMsg,
+                            confirmButtonColor: '#00bfa5'
+                        });
+
+                        btnRegistro.prop('disabled', false);
+                        btnRegistro.html(textoOriginal);
+                    }
+                });
+
+                return false;
+            });
+
+            // Validación visual de contraseñas
+            $('#confirmar_contrasena').on('input', function () {
+                const contrasena = $('#contrasena').val();
+                const confirmar = $(this).val();
+
+                if (confirmar && contrasena !== confirmar) {
+                    $(this).css('border-color', '#f44336');
+                } else {
+                    $(this).css('border-color', '#00bfa5');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -14,6 +14,7 @@ class TwoFactorCode(models.Model):
     intentos = models.IntegerField(default=0)
     
     class Meta:
+        managed = True
         db_table = 'two_factor_codes'
     
     def save(self, *args, **kwargs):

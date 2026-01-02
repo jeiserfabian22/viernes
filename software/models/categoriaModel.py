@@ -6,5 +6,5 @@ class Categoria(models.Model):
     nomcategoria = models.CharField(max_length=255)
     estado = models.IntegerField()
     class Meta:
-        managed = False
+        managed = True
         db_table = 'categoria'

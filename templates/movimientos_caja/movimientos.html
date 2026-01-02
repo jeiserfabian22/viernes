@@ -1,0 +1,485 @@
+{% extends 'plantilla/base.html' %}
+{% load url_filters %}
+{% block main %}
+<main id="main" class="main">
+
+  <!-- Encabezado -->
+  <div class="pagetitle d-flex justify-content-between align-items-center">
+    <h1 class="fw-bold text-primary">
+      <i class="bi bi-cash-coin me-2"></i>Movimientos de Caja
+    </h1>
+    {% if tiene_caja_abierta %}
+    <button type="button" class="btn btn-danger rounded-pill shadow-sm" data-bs-toggle="modal"
+      data-bs-target="#modalRegistrarEgreso">
+      <i class="bi bi-dash-circle me-2"></i>Registrar Egreso
+    </button>
+    {% endif %}
+  </div>
+
+  <nav aria-label="breadcrumb" class="mt-2">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="{% url 'cpanel' %}">Home</a></li>
+      <li class="breadcrumb-item active">Movimientos de Caja</li>
+    </ol>
+  </nav>
+
+  <!-- Resumen de Caja -->
+  {% if tiene_caja_abierta %}
+  <section class="section mt-4">
+    <div class="row">
+      <div class="col-lg-3 col-md-6">
+        <div class="card info-card sales-card">
+          <div class="card-body">
+            <h5 class="card-title">Saldo Inicial</h5>
+            <div class="d-flex align-items-center">
+              <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                <i class="bi bi-currency-dollar"></i>
+              </div>
+              <div class="ps-3">
+                <h6>S/ {{ apertura_actual.saldo_inicial|floatformat:2 }}</h6>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="card info-card revenue-card">
+          <div class="card-body">
+            <h5 class="card-title">Total Ingresos</h5>
+            <div class="d-flex align-items-center">
+              <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                <i class="bi bi-arrow-up-circle"></i>
+              </div>
+              <div class="ps-3">
+                <h6 class="text-success">S/ {{ total_ingresos|floatformat:2 }}</h6>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="card info-card customers-card">
+          <div class="card-body">
+            <h5 class="card-title">Total Egresos</h5>
+            <div class="d-flex align-items-center">
+              <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                <i class="bi bi-arrow-down-circle"></i>
+              </div>
+              <div class="ps-3">
+                <h6 class="text-danger">S/ {{ total_egresos|floatformat:2 }}</h6>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-6">
+        <div class="card info-card">
+          <div class="card-body">
+            <h5 class="card-title">Saldo Actual</h5>
+            <div class="d-flex align-items-center">
+              <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                <i class="bi bi-wallet2"></i>
+              </div>
+              <div class="ps-3">
+                <h6 class="fw-bold text-primary">S/ {{ saldo_actual|floatformat:2 }}</h6>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <div class="alert alert-warning mt-4">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>Sin caja abierta.</strong> Debe aperturar una caja para ver los movimientos.
+  </div>
+  {% endif %}
+
+  <!-- Contenido -->
+  <section class="section dashboard mt-4">
+    <div class="card shadow-sm border-0">
+      <div class="card-body">
+        <h5 class="card-title">Historial de Movimientos</h5>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle datatable">
+            <thead class="table-dark">
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Fecha y Hora</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Descripción</th>
+                <th scope="col">Usuario</th>
+                <th scope="col" class="text-end">Monto</th>
+                <th scope="col">Comprobante</th>
+                {% if es_admin %}
+                <th scope="col" class="text-center">Acciones</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for mov in movimientos %}
+              <tr>
+                <td class="fw-semibold">{{ forloop.counter }}</td>
+                <td>{{ mov.fecha_movimiento|date:"d/m/Y H:i" }}</td>
+                <td>
+                  {% if mov.tipo_movimiento == 'ingreso' %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-arrow-up-circle me-1"></i>Ingreso
+                  </span>
+                  {% else %}
+                  <span class="badge bg-danger">
+                    <i class="bi bi-arrow-down-circle me-1"></i>Egreso
+                  </span>
+                  {% endif %}
+                </td>
+                <td>{{ mov.descripcion|truncatewords:15 }}</td>
+                <td>{{ mov.idusuario.nombrecompleto }}</td>
+                <td
+                  class="text-end fw-bold {% if mov.tipo_movimiento == 'ingreso' %}text-success{% else %}text-danger{% endif %}">
+                  {% if mov.tipo_movimiento == 'ingreso' %}+{% else %}-{% endif %}
+                  S/ {{ mov.monto|floatformat:2 }}
+                </td>
+                <td>
+                  {% if mov.idventa %}
+                  <a href="{% url 'imprimir_comprobante' mov.idventa.idventa %}" target="_blank"
+                    class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-receipt"></i> {{ mov.idventa.numero_comprobante }}
+                  </a>
+                  {% else %}
+                  <span class="text-muted">---</span>
+                  {% endif %}
+                </td>
+                {% if es_admin %}
+                <td class="text-center">
+                  {% if mov.tipo_movimiento == 'egreso' and not mov.idventa %}
+                  <div class="btn-group" role="group">
+                    <!-- Editar -->
+                    <button type="button" class="btn btn-sm btn-primary"
+                      onclick="editarMovimiento('{{ mov.id_movimiento_caja|eid }}')" title="Editar movimiento">
+                      <i class="bi bi-pencil"></i>
+                    </button>
+
+                    <!-- Eliminar -->
+                    <button type="button" class="btn btn-sm btn-danger"
+                      onclick="eliminarMovimiento('{{ mov.id_movimiento_caja|eid }}', '{{ mov.descripcion|truncatewords:5 }}')"
+                      title="Eliminar movimiento">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                  {% else %}
+                  <span class="text-muted">
+                    <i class="bi bi-lock" title="No editable"></i>
+                  </span>
+                  {% endif %}
+                </td>
+                {% endif %}
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="7" class="text-center text-muted">No hay movimientos registrados</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modal Registrar Egreso -->
+  {% if tiene_caja_abierta %}
+  <div class="modal fade" id="modalRegistrarEgreso" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-dash-circle me-2"></i>Registrar Egreso
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="formRegistrarEgreso" action="{% url 'registrar_egreso' %}" method="post">
+            {% csrf_token %}
+
+            <div class="alert alert-info">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Caja actual:</strong> {{ apertura_actual.id_caja.nombre_caja }}<br>
+              <strong>Saldo disponible:</strong> S/ {{ saldo_actual|floatformat:2 }}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Monto del Egreso <span class="text-danger">*</span></label>
+              <div class="input-group">
+                <span class="input-group-text">S/</span>
+                <input type="number" name="monto" id="monto_egreso" class="form-control" step="0.01" min="0.01"
+                  max="{{ saldo_actual }}" required placeholder="0.00">
+              </div>
+              <small class="text-muted">Máximo: S/ {{ saldo_actual|floatformat:2 }}</small>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Descripción <span class="text-danger">*</span></label>
+              <textarea name="descripcion" class="form-control" rows="3" required
+                placeholder="Ej: Pago de servicios, compra de útiles, etc."></textarea>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-save me-2"></i>Registrar Egreso
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</main>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+<!-- DataTables -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<!-- SweetAlert -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+  // Inicializar DataTable
+  $(document).ready(function () {
+    if ($('.datatable').length) {
+      $('.datatable').DataTable({
+        language: {
+          url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+        },
+        pageLength: 25,
+        order: [[0, 'desc']]
+      });
+    }
+  });
+
+  // Registrar egreso
+  $('#formRegistrarEgreso').submit(function (e) {
+    e.preventDefault();
+
+    const monto = parseFloat($('#monto_egreso').val());
+    const saldoDisponible = parseFloat('{{ saldo_actual }}');
+
+    if (monto > saldoDisponible) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Monto excedido',
+        text: `El monto del egreso no puede ser mayor al saldo disponible (S/ ${saldoDisponible.toFixed(2)})`,
+        confirmButtonColor: '#dc3545'
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: 'Registrando egreso...',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+
+    let formData = new FormData(this);
+
+    $.ajax({
+      url: $(this).attr('action'),
+      method: 'POST',
+      data: formData,
+      processData: false,
+      contentType: false,
+      success: function (res) {
+        if (res.ok) {
+          Swal.fire({
+            icon: 'success',
+            title: 'Egreso registrado',
+            text: res.message,
+            confirmButtonColor: '#198754'
+          }).then(() => {
+            window.location.reload();
+          });
+        } else {
+          if (res.necesita_aperturar) {
+            Swal.fire({
+              icon: 'warning',
+              title: 'Caja Requerida',
+              text: res.error,
+              showCancelButton: true,
+              confirmButtonText: '<i class="bi bi-box-arrow-in-right"></i> Aperturar Caja',
+              cancelButtonText: 'Cancelar',
+              confirmButtonColor: '#0d9488',
+              cancelButtonColor: '#6c757d'
+            }).then((result) => {
+              if (result.isConfirmed) {
+                const modalEgreso = bootstrap.Modal.getInstance(document.getElementById('modalRegistrarEgreso'));
+                if (modalEgreso) {
+                  modalEgreso.hide();
+                }
+
+                setTimeout(() => {
+                  const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
+                  modalCaja.show();
+                }, 300);
+              }
+            });
+          } else {
+            Swal.fire('Error', res.error, 'error');
+          }
+        }
+      },
+      error: function (xhr) {
+        console.error(xhr);
+        let errorMsg = 'Error al registrar el egreso';
+
+        try {
+          const response = JSON.parse(xhr.responseText);
+          errorMsg = response.error || errorMsg;
+        } catch (e) { }
+
+        Swal.fire('Error', errorMsg, 'error');
+      }
+    });
+  });
+
+  function editarMovimiento(eid) {
+    console.log('✏️ Editando movimiento con ID encriptado:', eid);
+
+    Swal.fire({
+      title: 'Editar Movimiento',
+      html: `
+            <div class="mb-3 text-start">
+                <label class="form-label">Monto:</label>
+                <input type="number" id="edit_monto" class="form-control" step="0.01" min="0.01">
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label">Descripción:</label>
+                <textarea id="edit_descripcion" class="form-control" rows="3"></textarea>
+            </div>
+        `,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const monto = document.getElementById('edit_monto').value;
+        const descripcion = document.getElementById('edit_descripcion').value;
+
+        if (!monto || !descripcion) {
+          Swal.showValidationMessage('Debe completar todos los campos');
+          return false;
+        }
+
+        return { monto, descripcion };
+      }
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+        formData.append('monto', result.value.monto);
+        formData.append('descripcion', result.value.descripcion);
+
+        fetch(`/sys/mcj/edit/${eid}/`, {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.ok) {
+              Swal.fire('Actualizado', data.message, 'success').then(() => {
+                location.reload();
+              });
+            } else {
+              Swal.fire('Error', data.error, 'error');
+            }
+          });
+      }
+    });
+  }
+
+  function eliminarMovimiento(eid, descripcion) {
+    console.log('🗑️ Eliminando movimiento con ID encriptado:', eid);
+
+    Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `<p>¿Está seguro de eliminar este egreso?</p><p class="text-muted">${descripcion}</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc3545',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch(`/sys/mcj/delete/${eid}/`, {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            if (data.ok) {
+              Swal.fire('Eliminado', data.message, 'success').then(() => {
+                location.reload();
+              });
+            } else {
+              Swal.fire('Error', data.error, 'error');
+            }
+          });
+      }
+    });
+  }
+</script>
+
+<style>
+  .info-card {
+    border-left: 4px solid #4154f1;
+  }
+
+  .sales-card {
+    border-left-color: #2eca6a;
+  }
+
+  .revenue-card {
+    border-left-color: #ff771d;
+  }
+
+  .customers-card {
+    border-left-color: #ff0000;
+  }
+
+  .card-icon {
+    width: 60px;
+    height: 60px;
+    background: #f6f9ff;
+    color: #4154f1;
+  }
+
+  .sales-card .card-icon {
+    background: #e0f8e9;
+    color: #2eca6a;
+  }
+
+  .revenue-card .card-icon {
+    background: #ffecdf;
+    color: #ff771d;
+  }
+
+  .customers-card .card-icon {
+    background: #ffe0e0;
+    color: #ff0000;
+  }
+</style>
+{% endblock %}

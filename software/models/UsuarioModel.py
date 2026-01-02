@@ -12,11 +12,12 @@ class Usuario(models.Model):
     idtipousuario = models.ForeignKey(Tipousuario, models.DO_NOTHING, db_column='idtipousuario')
     celular = models.CharField(max_length=10)
     dni = models.CharField(max_length=10)
+    es_dueno = models.BooleanField(default=False,null=True, blank=True)
     estado = models.IntegerField()
     idempresa = models.ForeignKey(Empresa, models.DO_NOTHING, db_column='idempresa', null=True, blank=True)
     id_sucursal = models.ForeignKey(Sucursales, models.DO_NOTHING, db_column='id_sucursal', null=True, blank= True)
     
 
     class Meta: 
-        managed = False
+        managed = True
         db_table = 'usuario'

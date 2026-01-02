@@ -16,7 +16,7 @@ class DetalleTransferencia(models.Model):
     estado = models.IntegerField(default=1, db_column='estado')
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'detalle_transferencia'
     
     def __str__(self):

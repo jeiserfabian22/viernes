@@ -1,5 +1,4 @@
-from datetime import datetime
-from decimal import Decimal
+
 from django.db import connection
 from django.http import HttpResponse
 from django.shortcuts import render

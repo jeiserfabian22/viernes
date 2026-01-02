@@ -13,7 +13,7 @@ class Repuesto(models.Model):
     estado = models.IntegerField(db_column='estado')
 
     class Meta:
-        managed = False   # porque la tabla ya existe
+        managed = True   # porque la tabla ya existe
         db_table = 'repuestos'
         indexes = [models.Index(fields=['nombre'])]
 

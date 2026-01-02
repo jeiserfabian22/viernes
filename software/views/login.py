@@ -11,7 +11,7 @@ from software.models.AperturaCierreCajaModel import AperturaCierreCaja
 from software.models.twoFactorModel import TwoFactorCode
 from django.core.mail import send_mail
 from django.conf import settings
-from software.utils.encryption_utils import EncryptionManager, PasswordManager
+
 
 def index(request):
     return render(request, 'index.html')
@@ -176,7 +176,7 @@ def verificar_2fa(request):
                 # ⭐ NUEVO: Verificar si tiene caja abierta de sesiones anteriores
                 apertura_abierta = AperturaCierreCaja.objects.filter(
                     idusuario=usuario,
-                    estado='abierta'
+                    estado__in=['abierta', 'reabierta']
                 ).first()
                 
                 if apertura_abierta:
@@ -420,7 +420,7 @@ def obtener_datos_apertura(request):
             for caja in cajas:
                 apertura_activa = AperturaCierreCaja.objects.filter(
                     id_caja=caja,
-                    estado='abierta'
+                    estado__in=['abierta', 'reabierta']
                 ).exclude(idusuario=usuario).exists()  # Excluir aperturas propias
                 
                 if not apertura_activa:
@@ -451,6 +451,10 @@ def obtener_cajas_almacenes(request):
     id_sucursal = request.GET.get('id_sucursal')
     idusuario = request.session.get('idusuario')
     
+    print(f"🔍 DEBUG obtener_cajas_almacenes:")
+    print(f"   id_sucursal recibido: {id_sucursal}")
+    print(f"   idusuario: {idusuario}")
+    
     if not id_sucursal:
         return JsonResponse({'error': 'Sucursal no especificada'}, status=400)
     
@@ -461,13 +465,19 @@ def obtener_cajas_almacenes(request):
             estado=1
         )
         
+        print(f"   Total cajas encontradas: {cajas.count()}")
+        for caja in cajas:
+            print(f"   - Caja: {caja.nombre_caja} (ID: {caja.id_caja})")
+        
         # Filtrar cajas disponibles
         cajas_disponibles = []
         for caja in cajas:
             apertura_activa = AperturaCierreCaja.objects.filter(
                 id_caja=caja,
-                estado='abierta'
+                estado__in=['abierta', 'reabierta']
             ).exclude(idusuario_id=idusuario).exists()
+            
+            print(f"   - Caja {caja.nombre_caja}: apertura_activa={apertura_activa}")
             
             if not apertura_activa:
                 cajas_disponibles.append({
@@ -476,11 +486,15 @@ def obtener_cajas_almacenes(request):
                     'numero': caja.numero_caja
                 })
         
+        print(f"   Cajas disponibles: {len(cajas_disponibles)}")
+        
         # Almacenes activos
         almacenes = Almacenes.objects.filter(
             id_sucursal_id=id_sucursal,
             estado=1
         )
+        
+        print(f"   Total almacenes encontrados: {almacenes.count()}")
         
         data = {
             'cajas': cajas_disponibles,
@@ -490,11 +504,16 @@ def obtener_cajas_almacenes(request):
             ]
         }
         
+        print(f"   ✅ Respuesta: {data}")
+        
         return JsonResponse(data)
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'error': 'Error al obtener datos'}, status=500)
+    
 
 def abrir_caja(request):
     """
@@ -533,7 +552,7 @@ def abrir_caja(request):
         # Verificar que no tenga otra caja abierta
         apertura_propia = AperturaCierreCaja.objects.filter(
             idusuario=usuario,
-            estado='abierta'
+            estado__in=['abierta', 'reabierta']
         ).first()
         
         if apertura_propia:
@@ -545,7 +564,7 @@ def abrir_caja(request):
         # Verificar que la caja no esté abierta por otro usuario
         apertura_otra = AperturaCierreCaja.objects.filter(
             id_caja=caja,
-            estado='abierta'
+            estado__in=['abierta', 'reabierta']
         ).first()
         
         if apertura_otra:
@@ -632,7 +651,7 @@ def cerrar_caja(request):
         # Buscar apertura activa del usuario
         apertura_abierta = AperturaCierreCaja.objects.filter(
             idusuario_id=idusuario,
-            estado='abierta'
+            estado__in=['abierta', 'reabierta']
         ).first()
         
         if not apertura_abierta:
@@ -677,11 +696,84 @@ def cerrar_caja(request):
             'ok': False,
             'error': f'Error al cerrar caja: {str(e)}'
         }, status=500)
+    
 
-
-
-
-
+def obtener_saldo_actual(request):
+    """
+    Devuelve el saldo actual de la caja abierta O reabierta del usuario
+    """
+    idusuario = request.session.get('idusuario')
+    
+    if not idusuario:
+        return JsonResponse({'error': 'No autenticado'}, status=401)
+    
+    try:
+        # Buscar apertura activa O reabierta
+        apertura = AperturaCierreCaja.objects.filter(
+            idusuario_id=idusuario,
+            estado__in=['abierta', 'reabierta']  # ✅ Agregar 'reabierta'
+        ).first()
+        
+        if not apertura:
+            return JsonResponse({
+                'ok': False,
+                'error': 'No hay caja abierta'
+            }, status=400)
+        
+        from software.models.movimientoCajaModel import MovimientoCaja
+        from django.db.models import Sum
+        
+        # Filtrar movimientos de esta apertura
+        movimientos = MovimientoCaja.objects.filter(
+            id_movimiento=apertura,
+            estado=1
+        )
+        
+        print("=" * 60)
+        print("🔍 DEBUG SALDO ACTUAL")
+        print(f"   Caja: {apertura.id_caja.nombre_caja}")
+        print(f"   ID Apertura (id_movimiento): {apertura.id_movimiento}")
+        print(f"   Estado: {apertura.estado}")  # ✅ Mostrar si es reabierta
+        print(f"   Saldo inicial: S/ {apertura.saldo_inicial}")
+        print(f"   Total movimientos: {movimientos.count()}")
+        
+        # Calcular ingresos y egresos
+        total_ingresos = movimientos.filter(
+            tipo_movimiento='ingreso'
+        ).aggregate(total=Sum('monto'))['total'] or 0
+        
+        total_egresos = movimientos.filter(
+            tipo_movimiento='egreso'
+        ).aggregate(total=Sum('monto'))['total'] or 0
+        
+        print(f"   Total ingresos: S/ {total_ingresos}")
+        print(f"   Total egresos: S/ {total_egresos}")
+        
+        # Saldo actual = Saldo inicial + Ingresos - Egresos
+        saldo_actual = float(apertura.saldo_inicial) + float(total_ingresos) - float(total_egresos)
+        
+        print(f"   ✅ SALDO ACTUAL: S/ {saldo_actual}")
+        print("=" * 60)
+        
+        return JsonResponse({
+            'ok': True,
+            'saldo_actual': saldo_actual,
+            'saldo_inicial': float(apertura.saldo_inicial),
+            'total_ingresos': float(total_ingresos),
+            'total_egresos': float(total_egresos),
+            'caja': apertura.id_caja.nombre_caja,
+            'fecha_apertura': apertura.fecha_apertura.strftime('%d/%m/%Y %H:%M'),
+            'es_reabierta': apertura.estado == 'reabierta'  # ✅ Nuevo
+        })
+        
+    except Exception as e:
+        print(f"❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            'ok': False,
+            'error': 'Error al obtener saldo'
+        }, status=500)
 
 
 

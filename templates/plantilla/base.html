@@ -12,7 +12,6 @@
   
   <!-- highcharts -->
   <script src="https://code.highcharts.com/highcharts.js"></script>
-  <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/modules/exporting.js"></script>
   <script src="https://code.highcharts.com/modules/export-data.js"></script>
   <script src="https://code.highcharts.com/modules/accessibility.js"></script>
@@ -38,7 +37,8 @@
 
 
   <!-- SweetAlert2 CSS -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <!-- Template Main CSS File -->
   <link href="{% static 'css/style.css' %}" rel="stylesheet">
@@ -52,8 +52,16 @@
 
     <div class="d-flex align-items-center justify-content-between">
       <a href="{% url 'index' %}" class="logo d-flex align-items-center">
-        <img src="{% static 'img/mestanza.png' %}" alt="">
-        <span class="d-none d-lg-block">ALIMARK</span>
+        {% if empresa.logo %}
+          <!-- Intentar cargar desde media primero, si falla desde static -->
+          <img src="/media/{{ empresa.logo }}" 
+              alt="Logo {{ empresa.nombrecomercial }}" 
+              onerror="this.onerror=null; this.src='/static/{{ empresa.logo }}'; if(this.error) this.src='{% static 'img/mestanza.png' %}';">
+        {% else %}
+          <!-- Logo por defecto -->
+          <img src="{% static 'img/mestanza.png' %}" alt="Logo Empresa">
+        {% endif %}
+        <span class="d-none d-lg-block">{{ empresa.nombrecomercial|default:"ALIMARK"|truncatewords:2 }}</span>
       </a>
       <i class="bi bi-list toggle-sidebar-btn"></i>
     </div><!-- End Logo -->
@@ -81,7 +89,13 @@
           <a class="nav-link nav-icon" href="#" data-bs-toggle="modal" data-bs-target="#modalGestionCaja" title="Gestión de Caja">
             <i class="bi bi-cash-stack"></i>
             {% if apertura_actual %}
-              <span class="badge bg-success">Abierta</span>
+              {% if apertura_actual.estado == 'reabierta' %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-arrow-clockwise"></i> Reabierta
+                </span>
+              {% else %}
+                <span class="badge bg-success">Abierta</span>
+              {% endif %}
             {% else %}
               <span class="badge bg-danger">Cerrada</span>
             {% endif %}
@@ -172,12 +186,10 @@
   </aside>
   <!-- End Sidebar-->
 
-
 {% block main %}
     
+
 {% endblock %}
-
-
 
   <!-- ======= Footer ======= -->
 <footer id="footer" class="footer">
@@ -188,23 +200,27 @@
 
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
 
-  <!-- Vendor JS Files -->
-  <script src="{% static 'vendor/apexcharts/apexcharts.min.js' %}"></script>
-  <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
-  <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
-  <script src="{% static 'js/producto.js' %}"></script>
- 
-  <script src="{% static 'vendor/quill/quill.min.js' %}"></script>
-  <script src="{% static 'vendor/simple-datatables/simple-datatables.js' %}"></script>
-  <script src="{% static 'vendor/tinymce/tinymce.min.js' %}"></script>
-  <script src="{% static 'vendor/php-email-form/validate.js' %}"></script>
-  <script src="https://kit.fontawesome.com/be2c92fd5f.js" crossorigin="anonymous"></script>
-  <!-- Template Main JS File -->
-  <script src="{% static 'js/main.js' %}"></script>
-<!-- SweetAlert2 JS -->
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <!-- 1. jQuery PRIMERO -->
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 
+    <!-- 2. Bootstrap JS -->
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- 3. SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- 5. Otros Vendor JS Files -->
+    <script src="{% static 'vendor/apexcharts/apexcharts.min.js' %}"></script>
+    <script src="{% static 'vendor/chart.js/chart.umd.js' %}"></script>
+    <script src="{% static 'js/producto.js' %}"></script>
+    <script src="{% static 'vendor/quill/quill.min.js' %}"></script>
+    <script src="{% static 'vendor/simple-datatables/simple-datatables.js' %}"></script>
+    <script src="{% static 'vendor/tinymce/tinymce.min.js' %}"></script>
+    <script src="{% static 'vendor/php-email-form/validate.js' %}"></script>
+    <script src="https://kit.fontawesome.com/be2c92fd5f.js" crossorigin="anonymous"></script>
+
+    <!-- 6. Template Main JS -->
+    <script src="{% static 'js/main.js' %}"></script>
 
 <!-- Modal unificado en base.html -->
 <div class="modal fade" id="modalGestionCaja" tabindex="-1">
@@ -218,8 +234,8 @@
       </div>
       <div class="modal-body">
         
-        <!-- Mostrar info de caja abierta si existe -->
-        {% if apertura_actual %}
+        <!-- Mostrar info de caja abierta SOLO si es la caja de la sesión -->
+        {% if apertura_actual and caja and apertura_actual.id_caja.id_caja == caja.id_caja %}
         <div class="alert alert-success">
           <h6 class="alert-heading">
             <i class="bi bi-check-circle"></i> Caja Abierta
@@ -242,12 +258,36 @@
           <div class="collapse mt-3" id="collapseCerrarCaja">
             <form id="formCerrarCaja">
               {% csrf_token %}
+              <!-- Mostrar información del saldo -->
+              <div class="row mb-3">
+                <div class="col-md-6">
+                  <div class="card border-success">
+                    <div class="card-body p-2">
+                      <small class="text-muted">Saldo Inicial</small>
+                      <h6 class="mb-0" id="saldoInicialDisplay">S/ {{ apertura_actual.saldo_inicial }}</h6>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="card border-info">
+                    <div class="card-body p-2">
+                      <small class="text-muted">Saldo Actual</small>
+                      <h6 class="mb-0" id="saldoActualDisplay">
+                        <span class="spinner-border spinner-border-sm"></span> Calculando...
+                      </h6>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div class="mb-3">
                 <label for="saldo_final" class="form-label">Saldo Final:</label>
                 <input type="number" class="form-control" id="saldo_final" name="saldo_final" 
-                       step="0.01" min="0" required placeholder="0.00">
+                      step="0.01" min="0" required placeholder="0.00" readonly>
+                <small class="text-muted">Este valor se calcula automáticamente</small>
               </div>
-              <button type="submit" class="btn btn-danger">
+              
+              <button type="submit" class="btn btn-danger w-100">
                 <i class="bi bi-x-circle"></i> Confirmar Cierre
               </button>
             </form>
@@ -286,12 +326,12 @@
           <!-- Caja (opcional) -->
           <div class="mb-3">
             <label class="form-label">
-              <i class="bi bi-inbox"></i> Caja (opcional - solo para referencia):
+              <i class="bi bi-inbox"></i> Caja:
             </label>
             <select class="form-select" id="select_caja" name="id_caja">
               <option value="">-- Sin caja --</option>
             </select>
-            <small class="text-muted">La caja se aperturará cuando realices una venta</small>
+            <small class="text-muted">Selecciona una caja para poder aperturarla</small>
           </div>
           
           <button type="submit" class="btn btn-success w-100">
@@ -302,15 +342,15 @@
         <div id="mensajesCaja" class="mt-3"></div>
         
         <!-- Botón para aperturar caja manualmente -->
-        {% if not apertura_actual %}
+        {% if not apertura_actual or not caja or apertura_actual.id_caja.id_caja != caja.id_caja %}
         <hr>
         <button type="button" class="btn btn-outline-primary w-100" data-bs-toggle="collapse" data-bs-target="#collapseAperturarCaja">
-          <i class="bi bi-box-arrow-in-right"></i> Aperturar Caja Ahora (Opcional)
+          <i class="bi bi-box-arrow-in-right"></i> Aperturar Caja
         </button>
         
         <div class="collapse mt-3" id="collapseAperturarCaja">
           <div class="alert alert-info">
-            <i class="bi bi-info-circle"></i> Si prefieres, puedes aperturar una caja ahora. De lo contrario, se te pedirá al realizar tu primera venta.
+            <i class="bi bi-info-circle"></i> Aperture la caja seleccionada para poder realizar operaciones.
           </div>
           
           <form id="formAbrirCaja">
@@ -363,6 +403,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const almacenApertura = document.getElementById('almacen_apertura');
     
     const mensajesCaja = document.getElementById('mensajesCaja');
+
+    const collapseCerrarCaja = document.getElementById('collapseCerrarCaja');
+    
+    if (collapseCerrarCaja) {
+        collapseCerrarCaja.addEventListener('show.bs.collapse', function() {
+            // Cargar saldo actual desde el servidor
+            fetch('/api/obtener-saldo-actual/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok) {
+                        // Actualizar display
+                        document.getElementById('saldoActualDisplay').textContent = `S/ ${data.saldo_actual.toFixed(2)}`;
+                        
+                        // Auto-llenar el campo saldo_final
+                        document.getElementById('saldo_final').value = data.saldo_actual.toFixed(2);
+                        
+                        console.log('✅ Saldo actual cargado:', data);
+                    } else {
+                        document.getElementById('saldoActualDisplay').textContent = 'Error';
+                        mostrarMensaje(data.error || 'Error al obtener saldo', 'danger');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('saldoActualDisplay').textContent = 'Error';
+                    mostrarMensaje('Error al cargar el saldo actual', 'danger');
+                });
+        });
+    }
     
     // Cargar datos al abrir el modal
     if (modalGestionCaja) {
@@ -388,49 +457,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Si no es admin y solo tiene una sucursal, cargar sus datos
                 if (!data.es_admin && data.sucursales.length === 1) {
                     selectSucursal.value = data.sucursales[0].id;
-                    
-                    // Cargar cajas y almacenes
-                    if (data.cajas.length > 0) {
-                        selectCaja.innerHTML = '<option value="">-- Sin caja --</option>';
-                        data.cajas.forEach(caja => {
-                            const option = document.createElement('option');
-                            option.value = caja.id;
-                            option.textContent = `${caja.nombre} - Caja #${caja.numero}`;
-                            selectCaja.appendChild(option);
-                        });
-                        
-                        // Duplicar para formulario de apertura
-                        if (cajaApertura) {
-                            cajaApertura.innerHTML = '<option value="">-- Seleccionar --</option>';
-                            data.cajas.forEach(caja => {
-                                const option = document.createElement('option');
-                                option.value = caja.id;
-                                option.textContent = `${caja.nombre} - Caja #${caja.numero}`;
-                                cajaApertura.appendChild(option);
-                            });
-                        }
-                    }
-                    
-                    if (data.almacenes.length > 0) {
-                        selectAlmacen.innerHTML = '<option value="">-- Seleccionar --</option>';
-                        data.almacenes.forEach(almacen => {
-                            const option = document.createElement('option');
-                            option.value = almacen.id;
-                            option.textContent = almacen.nombre;
-                            selectAlmacen.appendChild(option);
-                        });
-                        
-                        // Duplicar para formulario de apertura
-                        if (almacenApertura) {
-                            almacenApertura.innerHTML = '<option value="">-- Seleccionar --</option>';
-                            data.almacenes.forEach(almacen => {
-                                const option = document.createElement('option');
-                                option.value = almacen.id;
-                                option.textContent = almacen.nombre;
-                                almacenApertura.appendChild(option);
-                            });
-                        }
-                    }
+                    selectSucursal.dispatchEvent(new Event('change'));
                 }
             })
             .catch(error => {
@@ -450,12 +477,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     .then(data => {
                         // Llenar cajas
                         selectCaja.innerHTML = '<option value="">-- Sin caja --</option>';
-                        data.cajas.forEach(caja => {
-                            const option = document.createElement('option');
-                            option.value = caja.id;
-                            option.textContent = `${caja.nombre} - Caja #${caja.numero}`;
-                            selectCaja.appendChild(option);
-                        });
+                        
+                        if (data.cajas && data.cajas.length > 0) {
+                            data.cajas.forEach(caja => {
+                                const option = document.createElement('option');
+                                option.value = caja.id;
+                                option.textContent = `${caja.nombre} - Caja #${caja.numero}`;
+                                selectCaja.appendChild(option);
+                            });
+                        }
                         
                         // Duplicar para formulario de apertura
                         if (cajaApertura) {
@@ -470,12 +500,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         
                         // Llenar almacenes
                         selectAlmacen.innerHTML = '<option value="">-- Seleccionar --</option>';
-                        data.almacenes.forEach(almacen => {
-                            const option = document.createElement('option');
-                            option.value = almacen.id;
-                            option.textContent = almacen.nombre;
-                            selectAlmacen.appendChild(option);
-                        });
+                        
+                        if (data.almacenes && data.almacenes.length > 0) {
+                            data.almacenes.forEach(almacen => {
+                                const option = document.createElement('option');
+                                option.value = almacen.id;
+                                option.textContent = almacen.nombre;
+                                selectAlmacen.appendChild(option);
+                            });
+                        }
                         
                         // Duplicar para formulario de apertura
                         if (almacenApertura) {
@@ -518,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
+                if (data.ok || data.success) {
                     mostrarMensaje(data.mensaje, 'success');
                     setTimeout(() => {
                         location.reload();
@@ -634,7 +667,31 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<style>
+  /* Estilos para el logo del header */
+  .header .logo img {
+    max-height: 50px;
+    max-width: 50px;
+    object-fit: contain;
+    margin-right: 10px;
+  }
 
+  /* Reducir tamaño del texto del logo */
+  .header .logo span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    text-align: center
+  }
+  
+  /* Animación suave si el logo no carga */
+  .header .logo img {
+    transition: opacity 0.3s ease;
+  }
+  
+  .header .logo img[src=""] {
+    opacity: 0;
+  }
+</style>
 
 
 </body>

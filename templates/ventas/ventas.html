@@ -1,4 +1,5 @@
 {% extends 'plantilla/base.html' %}
+{% load url_filters %}
 {% block main %}
 <main id="main" class="main">
   <!-- Encabezado -->
@@ -67,20 +68,47 @@
                   {% endif %}
                 </td>
                 <td class="text-center">
-                  <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalVerDetalle{{ venta.idventa }}">
-                    <i class="fa-solid fa-eye"></i>
-                  </button>
-                  {% if venta.estado == 1 %}
-                  <a href="{% url 'anularVenta' id=venta.idventa %}" class="btn btn-sm btn-danger" onclick="return confirmarAnular('{{ venta.idventa }}', this)">
-                    <i class="fa-solid fa-ban"></i>
-                  </a>
-                  {% endif %}
-                  <a href="{% url 'imprimir_comprobante' venta.idventa %}" 
-                    class="btn btn-sm btn-info" 
-                    target="_blank"
-                    title="Imprimir Comprobante">
-                      <i class="fas fa-print"></i>
-                  </a>
+                  <div class="btn-group" role="group">
+                    <!-- Ver detalles -->
+                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#modalVerDetalle{{ venta.idventa }}" title="Ver detalles">
+                      <i class="fa-solid fa-eye"></i>
+                    </button>
+                    
+                    <!-- Editar (solo CONTADO) -->
+                    {% if venta.estado == 1 and venta.id_forma_pago.id_forma_pago == 1 %}
+                      <button type="button" class="btn btn-sm btn-primary" title="Editar venta" onclick="editarVenta('{{ venta.idventa|eid }}')">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    {% else %}
+                      <button type="button" class="btn btn-sm btn-secondary" title="No editable (Crédito o Anulada)" disabled>
+                        <i class="fa-solid fa-lock"></i>
+                      </button>
+                    {% endif %}
+                    
+                    <!-- Eliminar (solo Admin) -->
+                    {% if venta.estado == 1 %}
+                      {% if es_admin %}
+                        <button type="button" class="btn btn-sm btn-danger" title="Eliminar venta" onclick="eliminarVenta('{{ venta.idventa|eid }}', '{{ venta.numero_comprobante }}')">
+                          <i class="fa-solid fa-trash"></i>
+                        </button>
+                      {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary" title="Sin permisos para eliminar" disabled>
+                          <i class="fa-solid fa-ban"></i>
+                        </button>
+                      {% endif %}
+                    {% endif %}
+                    
+                    <!-- Imprimir -->
+                    {% if venta.id_forma_pago.id_forma_pago == 1 %}
+                      <a href="{% url 'imprimir_comprobante' eid=venta.idventa|eid %}" class="btn btn-sm btn-secondary" target="_blank" title="Imprimir Ticket">
+                        <i class="fas fa-print"></i>
+                      </a>
+                    {% else %}
+                      <a href="{% url 'imprimir_cronograma' eid=venta.idventa|eid %}" class="btn btn-sm btn-warning" target="_blank" title="Imprimir Cronograma">
+                        <i class="fas fa-calendar-alt"></i>
+                      </a>
+                    {% endif %}
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -91,12 +119,14 @@
     </div>
   </section>
 
-  <!-- Modal Nueva Venta -->
+  <!-- ========================================
+       MODAL NUEVA VENTA (MEJORADO)
+       ======================================== -->
   <div class="modal fade" id="modalNuevaVenta" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header bg-success text-white">
-          <h5 class="modal-title">
+          <h5 class="modal-title" id="tituloModalVenta">
             <i class="fa-solid fa-cart-shopping me-2"></i>Nueva Venta
           </h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -108,19 +138,37 @@
             <!-- CABECERA DE LA VENTA -->
             <div class="card mb-3">
               <div class="card-header bg-light">
-                <h6 class="mb-0 fw-bold">Datos de la Venta</h6>
+                <h6 class="mb-0 fw-bold"><i class="fa-solid fa-file-invoice me-2"></i>Datos de la Venta</h6>
               </div>
               <div class="card-body">
                 <div class="row g-3">
-                  <!-- Cliente -->
-                  <div class="col-md-3">
-                    <label class="form-label fw-semibold">Cliente <span class="text-danger">*</span></label>
-                    <select name="cliente" class="form-select" required>
-                      <option value="">Seleccione un cliente</option>
-                      {% for cliente in clientes %}
-                      <option value="{{ cliente.idcliente }}" {% if cliente.razonsocial == "Clientes varios" %}selected{% endif %}>{{ cliente.razonsocial }} - {{ cliente.numdoc }}</option>
-                      {% endfor %}
-                    </select>
+                  <!-- ⭐ CLIENTE CON AUTOCOMPLETE Y BOTÓN AGREGAR -->
+                  <div class="col-md-4">
+                    <label class="form-label fw-semibold">
+                      Cliente <span class="text-danger">*</span>
+                      <i class="fa-solid fa-circle-info text-info ms-1" 
+                        data-bs-toggle="tooltip" 
+                        data-bs-placement="top" 
+                        title="Busque el cliente por nombre o documento. Use el botón + para agregar uno nuevo."></i>
+                    </label>
+                    <div class="input-group input-group-cliente">
+                      <div class="autocomplete-wrapper flex-grow-1">
+                        <input type="text" 
+                              id="cliente_search" 
+                              class="form-control autocomplete-input autocomplete-with-arrow" 
+                              placeholder="Buscar cliente..." 
+                              autocomplete="off"
+                              required>
+                        <button type="button" class="autocomplete-arrow" onclick="toggleAutocomplete('cliente_search', 'cliente_results')">
+                          <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <input type="hidden" name="cliente" id="cliente_id">
+                        <div class="autocomplete-results" id="cliente_results"></div>
+                      </div>
+                      <button type="button" class="btn btn-success btn-add-cliente" data-bs-toggle="modal" data-bs-target="#modalAgregarClienteVenta" title="Agregar nuevo cliente">
+                        <i class="fa-solid fa-user-plus"></i>
+                      </button>
+                    </div>
                   </div>
 
                   <!-- Tipo Comprobante -->
@@ -136,19 +184,34 @@
 
                   <!-- Serie -->
                   <div class="col-md-3">
-                    <label class="form-label fw-semibold">Serie Comprobante <span class="text-danger">*</span></label>
-                    <select name="serie" id="serie_comprobante" class="form-select" required>
-                      <option value="">Seleccione</option>
-                      {% for sc in serie_comprobante %}
-                      <option value="{{ sc.idseriecomprobante }}" {% if sc.serie == "F001" %}selected{% endif %}>{{ sc.serie }}</option>
-                      {% endfor %}
+                    <label class="form-label fw-semibold">
+                      Serie Comprobante <span class="text-danger">*</span>
+                      <i class="fa-solid fa-circle-info text-info ms-1" 
+                        data-bs-toggle="tooltip" 
+                        data-bs-placement="top" 
+                        title="Seleccione primero un tipo de comprobante para ver las series disponibles."></i>
+                    </label>
+                    <select name="serie" id="serie_comprobante" class="form-select" required disabled>
+                      <option value="">Primero seleccione tipo de comprobante</option>
                     </select>
+                    <small class="text-muted" id="info_proximo_numero"></small>
                   </div>
 
                   <!-- Nro. Comprobante -->
-                  <div class="col-md-3">
-                    <label class="form-label fw-semibold">Nro. Comprobante</label>
-                    <input type="text" name="nro_comprobante" class="form-control" value="Autogenerado" readonly>
+                  <div class="col-md-2">
+                    <label class="form-label fw-semibold">
+                      Nro. Comprobante
+                      <span class="badge bg-primary ms-1" id="badge_estado_comprobante" style="display: none;">
+                        <i class="fa-solid fa-check-circle"></i> Listo
+                      </span>
+                    </label>
+                    <input type="text" 
+                          name="nro_comprobante" 
+                          id="nro_comprobante" 
+                          class="form-control fw-bold text-primary" 
+                          value="Seleccione serie" 
+                          readonly 
+                          style="background-color: #e3f2fd; border: 2px solid #2196f3;">
                   </div>
                   
                   <!-- Tipo IGV -->
@@ -165,7 +228,7 @@
                   <!-- Fecha Venta -->
                   <div class="col-md-3">
                     <label class="form-label fw-semibold">Fecha Venta <span class="text-danger">*</span></label>
-                    <input type="date" name="fecha_venta" class="form-control" value="2025-10-15" required>
+                    <input type="date" name="fecha_venta" class="form-control" value="{{ "now"|date:"Y-m-d" }}" required>
                   </div>
 
                   <!-- Vendedor -->
@@ -177,7 +240,13 @@
 
                   <!-- Forma de Pago -->
                   <div class="col-md-3">
-                    <label class="form-label fw-semibold">Forma de Pago <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold">
+                      Forma de Pago <span class="text-danger">*</span>
+                      <i class="fa-solid fa-circle-info text-info ms-1" 
+                        data-bs-toggle="tooltip" 
+                        data-bs-placement="top" 
+                        title="Seleccione CONTADO para ventas inmediatas o CRÉDITO para ventas a cuotas."></i>
+                    </label>
                     <select name="forma_pago" id="forma_pago" class="form-select" required>
                       <option value="">Seleccione</option>
                       {% for fp in forma_pago %}
@@ -232,7 +301,7 @@
             <!-- DETALLE DE LA VENTA -->
             <div class="card mb-3">
               <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 fw-bold">Detalle de la Venta</h6>
+                <h6 class="mb-0 fw-bold"><i class="fa-solid fa-list me-2"></i>Detalle de la Venta</h6>
                 <div>
                   <button type="button" class="btn btn-sm btn-success" onclick="agregarItem('vehiculo')">
                     <i class="fa-solid fa-motorcycle me-1"></i>Agregar Vehículo
@@ -243,30 +312,50 @@
                 </div>
               </div>
               <div class="card-body">
+                <!-- ⭐ ALERTA: Cambio de forma de pago limpiará items -->
+                <div class="alert alert-warning alert-dismissible fade show d-none" id="alertCambioFormaPago" role="alert">
+                  <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                  <strong>Atención:</strong> Al cambiar la forma de pago se limpiarán todos los items del detalle.
+                  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
                 <div class="table-responsive">
-                  <table class="table table-sm table-bordered">
+                  <table class="table table-sm table-bordered table-hover">
                     <thead class="table-light">
                       <tr>
-                        <th>Tipo</th>
-                        <th>Producto/Repuesto</th>
-                        <th>Detalle</th>
-                        <th>Cant.</th>
-                        <th>P. Compra</th>
-                        <th>P. Venta Contado</th>
-                        <th>P. Venta Crédito</th>
-                        <th>Subtotal</th>
-                        <th>Ganancia</th>
-                        <th>Acción</th>
+                        <th style="width: 8%;">Tipo</th>
+                        <th style="width: 20%;">Producto/Repuesto</th>
+                        <th style="width: 20%;">Detalle</th>
+                        <th style="width: 8%;">Cant.</th>
+                        <th style="width: 12%;" class="bg-info bg-opacity-10">P. Venta Normal</th>
+                        <th style="width: 12%;" class="bg-warning bg-opacity-25 columna-descuento">
+                          <i class="fa-solid fa-tag me-1"></i>P. Descuento
+                          <br><small class="text-muted">(Opcional)</small>
+                          <i class="fa-solid fa-circle-info text-warning ms-1" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-placement="top" 
+                            title="Ingrese un precio menor al normal para aplicar descuento. Debe ser menor que el precio de venta normal."></i>
+                        </th>
+                        <th style="width: 12%;" class="bg-danger bg-opacity-10 columna-credito d-none">
+                          <i class="fa-solid fa-credit-card me-1"></i>P. Crédito
+                          <br><small class="text-muted">(Obligatorio)</small>
+                          <i class="fa-solid fa-circle-info text-danger ms-1" 
+                            data-bs-toggle="tooltip" 
+                            data-bs-placement="top" 
+                            title="Ingrese el precio a crédito (incluye interés). Debe ser mayor que el precio normal."></i>
+                        </th>
+                        <th style="width: 8%;">Subtotal</th>
+                        <th style="width: 8%;">Ganancia</th>
+                        <th style="width: 4%;">Acción</th>
                       </tr>
                     </thead>
                     <tbody id="tbodyItems">
                       <!-- Se llena dinámicamente -->
                     </tbody>
-                    <tfoot>
+                    <tfoot class="table-light">
                       <tr>
-                        <td colspan="7" class="text-end fw-bold">TOTAL:</td>
-                        <td class="fw-bold text-success" id="totalVenta">S/ 0.00</td>
-                        <td class="fw-bold text-info" id="totalGanancia">S/ 0.00</td>
+                        <td colspan="7" class="text-end fw-bold fs-5 colspan-dinamico">TOTAL:</td>
+                        <td class="fw-bold text-success fs-5" id="totalVenta">S/ 0.00</td>
+                        <td class="fw-bold text-info fs-5" id="totalGanancia">S/ 0.00</td>
                         <td></td>
                       </tr>
                     </tfoot>
@@ -280,7 +369,129 @@
               <button type="button" class="btn btn-success rounded-pill px-4" id="btnGuardarVenta">
                 <i class="fa-solid fa-save me-2"></i>Guardar Venta
               </button>
-              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cerrar</button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal" onclick="resetearFormularioVenta()">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================
+       ⭐ MODAL AGREGAR CLIENTE (NUEVO)
+       ======================================== -->
+  <div class="modal fade" id="modalAgregarClienteVenta" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content rounded-3 shadow-lg">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title"><i class="fa-solid fa-user-plus me-2"></i>Agregar Nuevo Cliente</h5>
+          <button type="button" class="btn-close btn-close-white" onclick="cerrarModalCliente()"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Alerta de información TokenPeru -->
+          <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <i class="fa-solid fa-circle-info me-2"></i>
+            <strong>Autocompletado:</strong> Ingrese el DNI (8 dígitos) o RUC (11 dígitos) y los datos se completarán automáticamente.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+
+          <!-- Alerta de carga -->
+          <div class="alert alert-primary d-none" id="alertCargandoVenta" role="alert">
+            <div class="d-flex align-items-center">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Cargando...</span>
+              </div>
+              <div>Consultando documento en RENIEC/SUNAT...</div>
+            </div>
+          </div>
+
+          <!-- Alerta de error -->
+          <div class="alert alert-danger d-none" id="alertErrorVenta" role="alert">
+            <i class="fa-solid fa-circle-exclamation me-2"></i>
+            <span id="mensajeErrorVenta"></span>
+          </div>
+
+          <!-- Alerta de éxito -->
+          <div class="alert alert-success d-none" id="alertExitoVenta" role="alert">
+            <i class="fa-solid fa-circle-check me-2"></i>
+            <span id="mensajeExitoVenta"></span>
+          </div>
+
+          <form id="formAgregarClienteVenta">
+            {% csrf_token %}
+            
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Tipo de Entidad <span class="text-danger">*</span></label>
+                <select name="tipoEntidadCliente" id="tipoEntidadClienteVenta" class="form-select rounded-pill" required>
+                  <option value="">Seleccione...</option>
+                  {% for tipo in tipos_entidad %}
+                    <option value="{{ tipo.id_tipo_entidad }}">{{ tipo.tipo_entidad }}</option>
+                  {% empty %}
+                    <option value="1">Persona Natural</option>
+                    <option value="6">Persona Jurídica</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">
+                  Número de Documento <span class="text-danger">*</span>
+                  <span id="badgeTipoDocVenta" class="badge bg-secondary ms-2" style="display: none;"></span>
+                </label>
+                <div class="input-group">
+                  <input type="text" name="numdocCliente" id="numdocClienteVenta" class="form-control rounded-start" maxlength="11" placeholder="DNI (8) o RUC (11)" required>
+                  <button class="btn btn-primary rounded-end" type="button" id="btnConsultarDocVenta" title="Consultar documento">
+                    <i class="fa-solid fa-search"></i>
+                  </button>
+                </div>
+                <small class="text-muted">Presione Enter o el botón de búsqueda</small>
+              </div>
+            </div>
+
+            <!-- Info adicional RUC (oculto inicialmente) -->
+            <div class="row d-none" id="infoRucVenta">
+              <div class="col-md-12 mb-3">
+                <div class="alert alert-light border" role="alert">
+                  <strong>Estado SUNAT:</strong> <span id="estadoSunatVenta" class="badge"></span>
+                  <strong class="ms-3">Condición:</strong> <span id="condicionSunatVenta"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Razón Social / Nombre Completo <span class="text-danger">*</span></label>
+                <input type="text" name="razonsocialCliente" id="razonsocialClienteVenta" class="form-control rounded-pill" maxlength="255" required>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12 mb-3">
+                <label class="form-label fw-semibold">Nombre Comercial</label>
+                <input type="text" name="nombreComercialCliente" id="nombreComercialClienteVenta" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Teléfono</label>
+                <input type="text" name="telefonoCliente" id="telefonoClienteVenta" class="form-control rounded-pill" maxlength="30">
+              </div>
+
+              <div class="col-md-6 mb-3">
+                <label class="form-label fw-semibold">Dirección</label>
+                <input type="text" name="direccionCliente" id="direccionClienteVenta" class="form-control rounded-pill" maxlength="255">
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-success rounded-pill px-4" id="btnGuardarClienteVenta">
+                <i class="fa-solid fa-save me-2"></i>Guardar Cliente
+              </button>
+              <button type="button" class="btn btn-outline-secondary rounded-pill" onclick="cerrarModalCliente()">
+                <i class="fa-solid fa-xmark me-2"></i>Cancelar
+              </button>
             </div>
           </form>
         </div>
@@ -397,36 +608,379 @@
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 
+<!-- 4. SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
 <script>
-// IMPORTANTE: Parsear JSON correctamente
-let productosStockAgrupado = {};
-let repuestosStockAgrupado = {};
+// ========================================
+// ⭐ DATOS PARA AUTOCOMPLETE
+// ========================================
+const clientesData = [
+  {% for c in clientes %}
+    { id: {{ c.idcliente }}, text: "{{ c.razonsocial|escapejs }} - {{ c.numdoc|escapejs }}" },
+  {% endfor %}
+];
 
-try {
-  productosStockAgrupado = JSON.parse('{{ productos_stock|escapejs }}');
-  repuestosStockAgrupado = JSON.parse('{{ repuestos_stock|escapejs }}');
-  console.log("✅ Datos cargados:", productosStockAgrupado, repuestosStockAgrupado);
-} catch(e) {
-  console.error("❌ Error parseando datos:", e);
-}
+const productosStockAgrupado = JSON.parse('{{ productos_stock|escapejs }}');
+const repuestosStockAgrupado = JSON.parse('{{ repuestos_stock|escapejs }}');
 
-let itemCounter = 0;
-
-// Inicializar DataTable
-$(document).ready(function() {
-  if ($('.datatable').length) {
-    $('.datatable').DataTable({
-      language: {
-        url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
-      },
-      pageLength: 10,
-      order: [[0, 'desc']]
-    });
-  }
+console.log("✅ Datos cargados:", {
+  clientes: clientesData.length,
+  productos: Object.keys(productosStockAgrupado).length,
+  repuestos: Object.keys(repuestosStockAgrupado).length
 });
 
 // ========================================
-// CONTROL DE FORMA DE PAGO Y TIPO DE PERIODO
+// ⭐ VARIABLE GLOBAL PARA FORMA DE PAGO ACTUAL
+// ========================================
+let formaPagoActual = '';
+
+// ========================================
+// ⭐ FUNCIÓN AUTOCOMPLETE GENÉRICA
+// ========================================
+function setupAutocomplete(inputId, resultsId, data, hiddenId) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const hidden = document.getElementById(hiddenId);
+  
+  if (!input) return;
+
+  input.addEventListener('input', function() {
+    const value = this.value.toLowerCase();
+    results.innerHTML = '';
+    
+    if (value.length < 1) {
+      results.style.display = 'none';
+      hidden.value = '';
+      return;
+    }
+    
+    const filtered = data.filter(item => 
+      item.text.toLowerCase().includes(value)
+    );
+    
+    if (filtered.length === 0) {
+      results.innerHTML = '<div class="autocomplete-item no-results">No se encontraron resultados</div>';
+      results.style.display = 'block';
+      return;
+    }
+    
+    filtered.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      div.textContent = item.text;
+      div.addEventListener('click', function() {
+        input.value = item.text;
+        hidden.value = item.id;
+        results.style.display = 'none';
+      });
+      results.appendChild(div);
+    });
+    
+    results.style.display = 'block';
+  });
+  
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      const arrow = input.parentElement.querySelector('.autocomplete-arrow');
+      if (arrow && !arrow.contains(e.target)) {
+        results.style.display = 'none';
+      }
+    }
+  });
+
+  // Limpiar al cambiar
+  input.addEventListener('focus', function() {
+    if (this.value && !hidden.value) {
+      this.value = '';
+    }
+  });
+}
+
+// ========================================
+// ⭐ FUNCIÓN PARA ABRIR/CERRAR CON LA FLECHA
+// ========================================
+function toggleAutocomplete(inputId, resultsId) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  
+  // Determinar qué datos usar según el input
+  let data = [];
+  let hiddenId = '';
+  
+  if (inputId === 'cliente_search') {
+    data = clientesData;
+    hiddenId = 'cliente_id';
+  }
+  
+  // Si ya está abierto, cerrar
+  if (results.style.display === 'block') {
+    results.style.display = 'none';
+    return;
+  }
+  
+  // Mostrar todos los elementos
+  results.innerHTML = '';
+  data.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    div.textContent = item.text;
+    div.addEventListener('click', function(e) {
+      e.stopPropagation();
+      input.value = item.text;
+      document.getElementById(hiddenId).value = item.id;
+      results.style.display = 'none';
+    });
+    results.appendChild(div);
+  });
+  
+  results.style.display = 'block';
+  input.focus();
+}
+
+// ========================================
+// ⭐ INICIALIZAR AUTOCOMPLETE
+// ========================================
+document.addEventListener('DOMContentLoaded', function() {
+  setupAutocomplete('cliente_search', 'cliente_results', clientesData, 'cliente_id');
+});
+
+// ========================================
+// ⭐ FUNCIÓN PARA CERRAR MODAL DE CLIENTE
+// ========================================
+function cerrarModalCliente() {
+  const modalCliente = bootstrap.Modal.getInstance(document.getElementById('modalAgregarClienteVenta'));
+  if (modalCliente) {
+    modalCliente.hide();
+  }
+  
+  // Limpiar formulario
+  document.getElementById('formAgregarClienteVenta').reset();
+  limpiarCamposCliente();
+  
+  // Reabrir modal de venta después de un momento
+  setTimeout(() => {
+    const modalVenta = new bootstrap.Modal(document.getElementById('modalNuevaVenta'));
+    modalVenta.show();
+  }, 300);
+}
+
+// ========================================
+// ⭐ FUNCIÓN PARA CONSULTAR DOCUMENTO EN TOKENPERU
+// ========================================
+async function consultarDocumentoTokenPeruVenta(numero) {
+  const alertCargando = $('#alertCargandoVenta');
+  const alertError = $('#alertErrorVenta');
+  const alertExito = $('#alertExitoVenta');
+  
+  // Validar longitud
+  if (numero.length !== 8 && numero.length !== 11) {
+    return;
+  }
+
+  // Mostrar loading
+  alertCargando.removeClass('d-none');
+  alertError.addClass('d-none');
+  alertExito.addClass('d-none');
+  
+  try {
+    const response = await fetch(`/api/autocompletar-cliente/?numero=${numero}`);
+    const data = await response.json();
+    
+    alertCargando.addClass('d-none');
+    
+    if (data.success) {
+      // Autocompletar campos
+      $('#razonsocialClienteVenta').val(data.razonsocial).addClass('campo-autocompletado');
+      $('#direccionClienteVenta').val(data.direccion || '').addClass('campo-autocompletado');
+      $('#nombreComercialClienteVenta').val(data.nombre_comercial || '').addClass('campo-autocompletado');
+      $('#tipoEntidadClienteVenta').val(data.id_tipo_entidad);
+      
+      if (data.tipo === 'RUC') {
+        // Mostrar info SUNAT
+        $('#infoRucVenta').removeClass('d-none');
+        $('#estadoSunatVenta').text(data.estado || 'N/A')
+          .removeClass('bg-success bg-danger')
+          .addClass(data.estado === 'ACTIVO' ? 'bg-success' : 'bg-danger');
+        $('#condicionSunatVenta').text(data.condicion || 'N/A');
+        
+        // Badge RUC
+        $('#badgeTipoDocVenta').text('RUC').removeClass('bg-secondary bg-info').addClass('bg-info').show();
+        
+        // Validar estado
+        if (data.estado !== 'ACTIVO') {
+          alertExito.removeClass('d-none');
+          $('#mensajeExitoVenta').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}<br><small class="text-warning">⚠️ Advertencia: El RUC no está ACTIVO en SUNAT</small>`);
+        } else {
+          alertExito.removeClass('d-none');
+          $('#mensajeExitoVenta').html(`<strong>RUC encontrado:</strong> ${data.razonsocial}`);
+        }
+      } else {
+        // DNI
+        $('#infoRucVenta').addClass('d-none');
+        $('#badgeTipoDocVenta').text('DNI').removeClass('bg-secondary bg-info').addClass('bg-secondary').show();
+        
+        alertExito.removeClass('d-none');
+        $('#mensajeExitoVenta').html(`<strong>DNI encontrado:</strong> ${data.razonsocial}`);
+      }
+      
+      // Remover animación después de 600ms
+      setTimeout(() => {
+        $('.campo-autocompletado').removeClass('campo-autocompletado');
+      }, 600);
+      
+    } else {
+      // Error de API
+      alertError.removeClass('d-none');
+      $('#mensajeErrorVenta').text(data.error || 'No se encontró el documento');
+      limpiarCamposCliente();
+    }
+  } catch (error) {
+    alertCargando.addClass('d-none');
+    alertError.removeClass('d-none');
+    $('#mensajeErrorVenta').text('Error de conexión. Intente nuevamente.');
+    console.error('Error:', error);
+  }
+}
+
+// Función para limpiar campos del cliente
+function limpiarCamposCliente() {
+  $('#razonsocialClienteVenta').val('');
+  $('#nombreComercialClienteVenta').val('');
+  $('#direccionClienteVenta').val('');
+  $('#infoRucVenta').addClass('d-none');
+  $('#badgeTipoDocVenta').hide();
+}
+
+// ========================================
+// ⭐ INICIALIZAR EVENTOS DEL MODAL DE CLIENTE
+// ========================================
+$(document).ready(function() {
+  
+  // Detectar tipo de documento al escribir
+  $('#numdocClienteVenta').on('input', function() {
+    const valor = this.value.replace(/[^0-9]/g, '');
+    this.value = valor; // Solo números
+    
+    const badge = $('#badgeTipoDocVenta');
+    if (valor.length === 8) {
+      badge.text('DNI').removeClass('bg-info').addClass('bg-secondary').show();
+      $('#tipoEntidadClienteVenta').val(1);
+    } else if (valor.length === 11) {
+      badge.text('RUC').removeClass('bg-secondary').addClass('bg-info').show();
+      $('#tipoEntidadClienteVenta').val(6);
+    } else {
+      badge.hide();
+    }
+  });
+  
+  // Consultar al presionar Enter
+  $('#numdocClienteVenta').on('keypress', function(e) {
+    if (e.which === 13) { // Enter
+      e.preventDefault();
+      const numero = $(this).val().trim();
+      if (numero.length === 8 || numero.length === 11) {
+        consultarDocumentoTokenPeruVenta(numero);
+      }
+    }
+  });
+  
+  // Consultar al hacer clic en el botón
+  $('#btnConsultarDocVenta').on('click', function() {
+    const numero = $('#numdocClienteVenta').val().trim();
+    if (numero.length === 8 || numero.length === 11) {
+      consultarDocumentoTokenPeruVenta(numero);
+    } else {
+      Swal.fire({
+        title: 'Documento inválido',
+        text: 'Ingrese un DNI (8 dígitos) o RUC (11 dígitos)',
+        icon: 'warning',
+        confirmButtonText: 'OK'
+      });
+    }
+  });
+  
+  // ⭐ GUARDAR NUEVO CLIENTE
+  $('#btnGuardarClienteVenta').on('click', function() {
+    const form = $('#formAgregarClienteVenta')[0];
+    
+    // Validar formulario
+    if (!form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+    
+    // Mostrar loading
+    Swal.fire({
+      title: 'Guardando cliente...',
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
+      willOpen: () => {
+        Swal.showLoading();
+      }
+    });
+    
+    const formData = new FormData(form);
+    
+    $.ajax({
+      type: "POST",
+      url: "{% url 'agregar_cliente' %}",
+      data: formData,
+      processData: false,
+      contentType: false,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      success: function(response) {
+        Swal.close();
+        
+        if (response.ok) {
+          Swal.fire({
+            title: '¡Cliente guardado!',
+            text: 'El cliente se ha registrado correctamente',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            // ⭐ AGREGAR CLIENTE AL ARRAY Y SELECCIONAR
+            clientesData.push({
+              id: response.idcliente,
+              text: `${response.razonsocial} - ${response.numdoc}`
+            });
+            
+            // Seleccionar automáticamente el nuevo cliente
+            $('#cliente_search').val(`${response.razonsocial} - ${response.numdoc}`);
+            $('#cliente_id').val(response.idcliente);
+            
+            // Cerrar modal de cliente
+            cerrarModalCliente();
+          });
+        } else {
+          Swal.fire({
+            title: 'Error al guardar',
+            text: response.error || 'Ocurrió un error al guardar el cliente',
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        }
+      },
+      error: function(xhr) {
+        Swal.fire({
+          title: 'Error al guardar',
+          text: xhr.responseText || 'Ocurrió un error al guardar el cliente',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    });
+  });
+});
+
+// ========================================
+// ⭐ CONTROL DE FORMA DE PAGO Y TIPO DE PERIODO (MEJORADO)
 // ========================================
 document.addEventListener("DOMContentLoaded", function () {
   const formaPago = document.getElementById("forma_pago");
@@ -437,11 +991,53 @@ document.addEventListener("DOMContentLoaded", function () {
   const tipoPagoSelect = document.getElementById("tipo_pago");
   const importeRecibidoInput = document.getElementById("importe_recibido");
 
-  // Event listener para cambio de forma de pago
+  // ⭐ Event listener para cambio de forma de pago
   formaPago.addEventListener("change", function () {
     const valor = this.value;
-    console.log("🔄 Forma de pago cambió a:", valor);
+    const valorAnterior = formaPagoActual;
     
+    console.log("🔄 Forma de pago cambió de:", valorAnterior, "a:", valor);
+    
+    // ⭐ VERIFICAR SI HAY ITEMS EN LA TABLA
+    const hayItems = $('#tbodyItems tr').length > 0;
+    
+    if (hayItems && valorAnterior && valorAnterior !== valor) {
+      // ⭐ CONFIRMAR LIMPIEZA DE ITEMS
+      Swal.fire({
+        title: '¿Cambiar forma de pago?',
+        html: `
+          <p>Al cambiar de <strong>${valorAnterior === '1' ? 'CONTADO' : 'CRÉDITO'}</strong> a <strong>${valor === '1' ? 'CONTADO' : 'CRÉDITO'}</strong>, se eliminarán todos los productos agregados.</p>
+          <div class="alert alert-warning mt-3">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
+            Los precios y columnas cambian según la forma de pago.
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="fa-solid fa-check me-2"></i>Sí, cambiar',
+        cancelButtonText: '<i class="fa-solid fa-xmark me-2"></i>Cancelar'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          // ⭐ LIMPIAR ITEMS Y CONTINUAR
+          limpiarItemsDetalle();
+          aplicarCambioFormaPago(valor);
+          formaPagoActual = valor;
+        } else {
+          // ⭐ RESTAURAR VALOR ANTERIOR
+          $('#forma_pago').val(valorAnterior);
+        }
+      });
+    } else {
+      // ⭐ NO HAY ITEMS, APLICAR CAMBIO DIRECTAMENTE
+      aplicarCambioFormaPago(valor);
+      formaPagoActual = valor;
+    }
+  });
+  
+  // ⭐ FUNCIÓN PARA APLICAR CAMBIOS DE FORMA DE PAGO
+  function aplicarCambioFormaPago(valor) {
     if (valor === "2") { // CRÉDITO
       console.log("💳 CRÉDITO seleccionado");
       
@@ -456,6 +1052,9 @@ document.addEventListener("DOMContentLoaded", function () {
       importeRecibidoInput.value = "";
       document.getElementById("vuelto").value = "0.00";
       
+      // ⭐ REORGANIZAR COLUMNAS DE LA TABLA
+      reorganizarColumnasTabla('credito');
+      
     } else if (valor === "1") { // CONTADO
       console.log("💵 CONTADO seleccionado");
       
@@ -469,7 +1068,9 @@ document.addEventListener("DOMContentLoaded", function () {
       
       document.getElementById("tiene_cuotas").value = "0";
       document.querySelectorAll(".cuota-hidden").forEach(e => e.remove());
-      document.getElementById("tablaCuotasVenta").innerHTML = "";
+      
+      // ⭐ REORGANIZAR COLUMNAS DE LA TABLA
+      reorganizarColumnasTabla('contado');
       
     } else {
       console.log("⚪ Sin selección");
@@ -480,26 +1081,34 @@ document.addEventListener("DOMContentLoaded", function () {
       btnCuotasContainer.classList.add("d-none");
       
       tipoPagoSelect.required = true;
+      
+      // ⭐ REORGANIZAR COLUMNAS A ESTADO POR DEFECTO (CONTADO)
+      reorganizarColumnasTabla('contado');
     }
-  });
-
-  // Control de tipo de periodo para ventas
-  const tipoPeriodoVenta = document.getElementById("tipo_periodo_venta");
-  const containerDiasVenta = document.getElementById("container_dias_venta");
-  const containerMesesVenta = document.getElementById("container_meses_venta");
-
-  if (tipoPeriodoVenta) {
-    tipoPeriodoVenta.addEventListener("change", function() {
-      if (this.value === "meses") {
-        containerDiasVenta.classList.add("d-none");
-        containerMesesVenta.classList.remove("d-none");
-      } else {
-        containerDiasVenta.classList.remove("d-none");
-        containerMesesVenta.classList.add("d-none");
-      }
-    });
   }
 });
+
+// ========================================
+// ⭐ FUNCIÓN REORGANIZAR COLUMNAS DE LA TABLA
+// ========================================
+function reorganizarColumnasTabla(modo) {
+  if (modo === 'credito') {
+    // ⭐ OCULTAR COLUMNA DESCUENTO, MOSTRAR COLUMNA CRÉDITO
+    $('.columna-descuento').addClass('d-none');
+    $('.columna-credito').removeClass('d-none');
+    
+    // ⭐ AJUSTAR COLSPAN DEL FOOTER
+    $('#theadVentas th[colspan]').attr('colspan', '6');
+    
+  } else { // contado
+    // ⭐ MOSTRAR COLUMNA DESCUENTO, OCULTAR COLUMNA CRÉDITO
+    $('.columna-descuento').removeClass('d-none');
+    $('.columna-credito').addClass('d-none');
+    
+    // ⭐ AJUSTAR COLSPAN DEL FOOTER
+    $('#theadVentas th[colspan]').attr('colspan', '6');
+  }
+}
 
 // Calcular vuelto automáticamente
 $(document).on('input', '#importe_recibido', function() {
@@ -509,11 +1118,922 @@ $(document).on('input', '#importe_recibido', function() {
   $('#vuelto').val(vuelto >= 0 ? vuelto.toFixed(2) : '0.00');
 });
 
-// ⭐ NUEVO: Guardar venta con verificación de caja
+// ========================================
+// ⭐ FUNCIÓN LIMPIAR ITEMS DEL DETALLE
+// ========================================
+function limpiarItemsDetalle() {
+  $('#tbodyItems').html('');
+  itemCounter = 0;
+  $('#items_count').val('0');
+  $('#totalVenta').text('S/ 0.00');
+  $('#totalGanancia').text('S/ 0.00');
+  
+  console.log("🗑️ Items del detalle limpiados");
+}
+
+// ========================================
+// ⭐ FUNCIONES DE DETALLE DE VENTAS (CON AUTOCOMPLETE)
+// ========================================
+let itemCounter = 0;
+
+function agregarItem(tipo) {
+  // ⭐ VALIDAR QUE SE HAYA SELECCIONADO FORMA DE PAGO
+  const formaPago = $('#forma_pago').val();
+  
+  if (!formaPago) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Forma de pago requerida',
+      text: 'Debe seleccionar una forma de pago antes de agregar productos',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
+  itemCounter++;
+  const items = tipo === 'vehiculo' ? productosStockAgrupado : repuestosStockAgrupado;
+  const nombres = Object.keys(items);
+  const badge = tipo === 'vehiculo' ? 'bg-success' : 'bg-primary';
+  const label = tipo === 'vehiculo' ? 'Vehículo' : 'Repuesto';
+  
+  const esContado = formaPago === '1';
+  const esCredito = formaPago === '2';
+  
+  // ⭐ CANTIDAD: No editable para vehículos, editable para repuestos
+  const cantidadHTML = tipo === 'vehiculo' 
+    ? `<input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm text-center" value="1" readonly style="background-color: #e9ecef;">` 
+    : `<input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm cantidad-input text-center" data-item="${itemCounter}" value="1" min="1" required>`;
+  
+  const html = `
+    <tr id="item_${itemCounter}" data-item-num="${itemCounter}">
+      <td>
+        <span class="badge ${badge}">${label}</span>
+        <input type="hidden" name="tipo_item_${itemCounter}" value="${tipo}">
+      </td>
+      <td>
+        <!--AUTOCOMPLETE EN LUGAR DE SELECT -->
+        <div class="autocomplete-wrapper">
+          <input type="text" 
+                 id="nombre_${tipo}_${itemCounter}" 
+                 class="form-control form-control-sm autocomplete-input autocomplete-with-arrow nombre-autocomplete" 
+                 data-item="${itemCounter}" 
+                 data-tipo="${tipo}"
+                 placeholder="Buscar producto..."
+                 autocomplete="off"
+                 required>
+          <button type="button" class="autocomplete-arrow autocomplete-arrow-sm" onclick="toggleAutocompleteProducto('nombre_${tipo}_${itemCounter}', 'results_nombre_${itemCounter}', '${tipo}')">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <input type="hidden" name="nombre_${tipo}_${itemCounter}" id="nombre_hidden_${itemCounter}">
+          <div class="autocomplete-results" id="results_nombre_${itemCounter}"></div>
+        </div>
+      </td>
+      <td>
+        <select name="id_${tipo}_${itemCounter}" id="detalle_${itemCounter}" class="form-select form-select-sm detalle-select" data-item="${itemCounter}" required disabled>
+          <option value="">Primero seleccione producto</option>
+        </select>
+        <small class="text-muted stock-info" id="stock_info_${itemCounter}"></small>
+      </td>
+      <td>
+        ${cantidadHTML}
+      </td>
+      <td class="bg-info bg-opacity-10">
+        <input type="number" name="precio_venta_contado_${itemCounter}" id="precio_venta_contado_${itemCounter}" class="form-control form-control-sm" value="" step="0.01" readonly style="background-color: #e9ecef;">
+        <input type="hidden" name="precio_compra_${itemCounter}" id="precio_compra_${itemCounter}">
+      </td>
+      <td class="bg-warning bg-opacity-25 columna-descuento ${esCredito ? 'd-none' : ''}">
+        <input type="number" name="precio_descuento_${itemCounter}" id="precio_descuento_${itemCounter}" class="form-control form-control-sm precio-descuento-input" data-item="${itemCounter}" step="0.01" placeholder="Opcional">
+        <small class="text-muted sugerencia-descuento" id="sugerencia_descuento_${itemCounter}"></small>
+      </td>
+      <td class="bg-danger bg-opacity-10 columna-credito ${esContado ? 'd-none' : ''}">
+        <input type="number" name="precio_credito_${itemCounter}" id="precio_credito_${itemCounter}" class="form-control form-control-sm precio-credito-input" data-item="${itemCounter}" step="0.01" placeholder="Requerido" ${esCredito ? 'required' : ''}>
+        <small class="text-muted sugerencia-credito" id="sugerencia_credito_${itemCounter}"></small>
+      </td>
+      <td id="subtotal_${itemCounter}" class="fw-bold text-success text-end">S/ 0.00</td>
+      <td id="ganancia_${itemCounter}" class="fw-bold text-info text-end">S/ 0.00</td>
+      <td class="text-center">
+        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarItem(${itemCounter})">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </td>
+    </tr>`;
+  
+  $('#tbodyItems').append(html);
+  $('#items_count').val(itemCounter);
+  
+  // ========================================
+  // ⭐ INICIALIZAR AUTOCOMPLETE PARA NOMBRE DE PRODUCTO
+  // ========================================
+  setupAutocompleteProducto(`nombre_${tipo}_${itemCounter}`, `results_nombre_${itemCounter}`, nombres, `nombre_hidden_${itemCounter}`, itemCounter, tipo, items);
+  
+  // ========================================
+  // ⭐ EVENT: CAMBIO DE DETALLE (SERIE/CÓDIGO)
+  // ========================================
+  $(`.detalle-select[data-item="${itemCounter}"]`).change(function() {
+    const item = $(this).data('item');
+    const selected = $(this).find(':selected');
+    const $stockInfo = $(`#stock_info_${item}`);
+    
+    if (selected.val()) {
+      const precioCompra = parseFloat(selected.data('pc')) || 0;
+      const precioVenta = parseFloat(selected.data('pv')) || 0;
+      const stock = parseInt(selected.data('stock')) || 0;
+      
+      // Asignar precios
+      $(`#precio_compra_${item}`).val(precioCompra.toFixed(2));
+      $(`#precio_venta_contado_${item}`).val(precioVenta.toFixed(2));
+      
+      // ⭐ CALCULAR PRECIO SUGERIDO CON DESCUENTO (5% menos)
+      const precioDescuentoSugerido = precioVenta * 0.95;
+      $(`#sugerencia_descuento_${item}`).html(`<i class="fa-solid fa-lightbulb text-warning"></i> Sugerido: S/ ${precioDescuentoSugerido.toFixed(2)}`);
+      
+      // ⭐ CALCULAR PRECIO SUGERIDO A CRÉDITO (10% más)
+      const precioCreditoSugerido = precioVenta * 1.10;
+      $(`#sugerencia_credito_${item}`).html(`<i class="fa-solid fa-lightbulb text-info"></i> Sugerido: S/ ${precioCreditoSugerido.toFixed(2)}`);
+      
+      // ⭐ MOSTRAR STOCK DISPONIBLE
+      if (stock > 0) {
+        $stockInfo.html(`<i class="fa-solid fa-check-circle text-success"></i> Stock disponible: <strong>${stock}</strong> unidades`);
+      } else {
+        $stockInfo.html(`<i class="fa-solid fa-exclamation-triangle text-danger"></i> <strong>Sin stock</strong>`);
+      }
+      
+      calcularSubtotal(item);
+    } else {
+      $stockInfo.text('');
+    }
+  });
+  
+  // ========================================
+  // ⭐ EVENT: CAMBIO DE CANTIDAD O PRECIO
+  // ========================================
+  $(`.cantidad-input[data-item="${itemCounter}"], .precio-descuento-input[data-item="${itemCounter}"], .precio-credito-input[data-item="${itemCounter}"]`).on('input', function() {
+    const item = $(this).data('item');
+    
+    // ⭐ VALIDAR STOCK EN TIEMPO REAL
+    if ($(this).hasClass('cantidad-input')) {
+      const cantidad = parseInt($(this).val()) || 0;
+      const $detalleInput = $(`#detalle_autocomplete_${item}`);
+      const stock = parseInt($detalleInput.attr('data-stock-disponible')) || 0;
+      const $stockInfo = $(`#stock_info_${item}`);
+
+      console.log(`Item ${item}: Cantidad=${cantidad}, Stock Disponible=${stock}`);
+      
+      if (cantidad > stock) {
+        $stockInfo.html(`<i class="fa-solid fa-times-circle text-danger"></i> <strong>Cantidad excede stock disponible (${stock})</strong>`);
+        $(this).addClass('is-invalid');
+      } else {
+        $stockInfo.html(`<i class="fa-solid fa-check-circle text-success"></i> Stock disponible: <strong>${stock}</strong> unidades`);
+        $(this).removeClass('is-invalid');
+      }
+    }
+    
+    // ⭐ VALIDAR PRECIO DE DESCUENTO < PRECIO NORMAL
+    if ($(this).hasClass('precio-descuento-input')) {
+      const precioNormal = parseFloat($(`#precio_venta_contado_${item}`).val()) || 0;
+      const precioDescuento = parseFloat($(this).val()) || 0;
+      
+      if (precioDescuento > 0 && precioDescuento >= precioNormal) {
+        $(this).addClass('is-invalid');
+        Swal.fire({
+          icon: 'warning',
+          title: 'Precio inválido',
+          text: 'El precio con descuento debe ser menor al precio normal',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        $(this).removeClass('is-invalid');
+      }
+    }
+    
+    // ⭐ VALIDAR PRECIO CRÉDITO > PRECIO NORMAL
+    if ($(this).hasClass('precio-credito-input')) {
+      const precioNormal = parseFloat($(`#precio_venta_contado_${item}`).val()) || 0;
+      const precioCredito = parseFloat($(this).val()) || 0;
+      
+      if (precioCredito > 0 && precioCredito <= precioNormal) {
+        $(this).addClass('is-invalid');
+        Swal.fire({
+          icon: 'warning',
+          title: 'Precio inválido',
+          text: 'El precio a crédito debe ser mayor al precio normal',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true
+        });
+      } else {
+        $(this).removeClass('is-invalid');
+      }
+    }
+    
+    calcularSubtotal(item);
+  });
+}
+
+// ========================================
+// ⭐ FUNCIÓN AUTOCOMPLETE PARA PRODUCTOS EN TABLA
+// ========================================
+function setupAutocompleteProducto(inputId, resultsId, data, hiddenId, itemNum, tipo, itemsObj) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const hidden = document.getElementById(hiddenId);
+  
+  if (!input) return;
+
+  input.addEventListener('input', function() {
+    const value = this.value.toLowerCase();
+    results.innerHTML = '';
+    
+    if (value.length < 1) {
+      results.style.display = 'none';
+      hidden.value = '';
+      return;
+    }
+    
+    const filtered = data.filter(nombre => 
+      nombre.toLowerCase().includes(value)
+    );
+    
+    if (filtered.length === 0) {
+      results.innerHTML = '<div class="autocomplete-item no-results">No se encontraron resultados</div>';
+      results.style.display = 'block';
+      return;
+    }
+    
+    filtered.forEach(nombre => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      
+      // ⭐ MOSTRAR CANTIDAD DE ITEMS CON STOCK
+      const itemsConStock = itemsObj[nombre].filter(el => (el.stock_disponible || 0) > 0);
+      const stockBadge = itemsConStock.length > 0 
+        ? `<span class="badge bg-success ms-2">${itemsConStock.length} disponible(s)</span>` 
+        : `<span class="badge bg-danger ms-2">Sin stock</span>`;
+      
+      div.innerHTML = `${nombre} ${stockBadge}`;
+      
+      div.addEventListener('click', function() {
+        input.value = nombre;
+        hidden.value = nombre;
+        results.style.display = 'none';
+        
+        // ⭐ CARGAR DETALLES AUTOMÁTICAMENTE
+        cargarDetallesProducto(itemNum, tipo, nombre, itemsObj);
+      });
+      results.appendChild(div);
+    });
+    
+    results.style.display = 'block';
+  });
+  
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      const arrow = input.parentElement.querySelector('.autocomplete-arrow');
+      if (arrow && !arrow.contains(e.target)) {
+        results.style.display = 'none';
+      }
+    }
+  });
+
+  // Limpiar al cambiar
+  input.addEventListener('focus', function() {
+    if (this.value && !hidden.value) {
+      this.value = '';
+    }
+  });
+}
+
+// ========================================
+// ⭐ FUNCIÓN TOGGLE AUTOCOMPLETE PRODUCTO
+// ========================================
+function toggleAutocompleteProducto(inputId, resultsId, tipo) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const items = tipo === 'vehiculo' ? productosStockAgrupado : repuestosStockAgrupado;
+  const nombres = Object.keys(items);
+  
+  // Si ya está abierto, cerrar
+  if (results.style.display === 'block') {
+    results.style.display = 'none';
+    return;
+  }
+  
+  // Mostrar todos los elementos
+  results.innerHTML = '';
+  nombres.forEach(nombre => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    
+    // ⭐ MOSTRAR CANTIDAD DE ITEMS CON STOCK
+    const itemsConStock = items[nombre].filter(el => (el.stock_disponible || 0) > 0);
+    const stockBadge = itemsConStock.length > 0 
+      ? `<span class="badge bg-success ms-2">${itemsConStock.length} disponible(s)</span>` 
+      : `<span class="badge bg-danger ms-2">Sin stock</span>`;
+    
+    div.innerHTML = `${nombre} ${stockBadge}`;
+    
+    div.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const itemNum = inputId.split('_').pop();
+      input.value = nombre;
+      document.getElementById(`nombre_hidden_${itemNum}`).value = nombre;
+      results.style.display = 'none';
+      
+      // ⭐ CARGAR DETALLES AUTOMÁTICAMENTE
+      cargarDetallesProducto(itemNum, tipo, nombre, items);
+    });
+    results.appendChild(div);
+  });
+  
+  results.style.display = 'block';
+  input.focus();
+}
+
+// ========================================
+// ⭐ FUNCIÓN CARGAR DETALLES DEL PRODUCTO (CON AUTOCOMPLETE)
+// ========================================
+function cargarDetallesProducto(itemNum, tipo, nombre, itemsObj) {
+  const $detalleContainer = $(`#detalle_${itemNum}`).parent();
+  const $stockInfo = $(`#stock_info_${itemNum}`);
+  
+  // ⭐ LIMPIAR CONTENEDOR Y CREAR AUTOCOMPLETE
+  $detalleContainer.html('');
+  $stockInfo.text('');
+  
+  if (nombre && itemsObj[nombre]) {
+    // ⭐ FILTRAR SOLO ITEMS CON STOCK > 0
+    const itemsConStock = itemsObj[nombre].filter(el => (el.stock_disponible || 0) > 0);
+    
+    if (itemsConStock.length === 0) {
+      //NO HAY STOCK DISPONIBLE
+      $detalleContainer.html(`
+        <select class="form-select form-select-sm" disabled>
+          <option value="">Sin stock disponible</option>
+        </select>
+      `);
+      $stockInfo.html(`<i class="fa-solid fa-exclamation-triangle text-danger"></i> <strong>No hay stock disponible para este producto</strong>`);
+      
+      //MOSTRAR ALERTA
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin stock disponible',
+        text: `El producto "${nombre}" no tiene stock disponible en este almacén`,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 4000,
+        timerProgressBar: true
+      });
+    } else {
+      //CREAR AUTOCOMPLETE PARA DETALLES
+      $detalleContainer.html(`
+        <div class="autocomplete-wrapper">
+          <input type="text" 
+                 id="detalle_autocomplete_${itemNum}" 
+                 class="form-control form-control-sm autocomplete-input autocomplete-with-arrow detalle-autocomplete" 
+                 data-item="${itemNum}"
+                 placeholder="Buscar serie/código..."
+                 autocomplete="off"
+                 required>
+          <button type="button" class="autocomplete-arrow autocomplete-arrow-sm" onclick="toggleAutocompleteDetalle('detalle_autocomplete_${itemNum}', 'results_detalle_${itemNum}', ${itemNum}, '${tipo}', '${nombre}')">
+            <i class="bi bi-chevron-down"></i>
+          </button>
+          <input type="hidden" name="id_${tipo}_${itemNum}" id="detalle_hidden_${itemNum}">
+          <div class="autocomplete-results" id="results_detalle_${itemNum}"></div>
+        </div>
+      `);
+      
+      //INICIALIZAR AUTOCOMPLETE PARA DETALLES
+      setupAutocompleteDetalle(`detalle_autocomplete_${itemNum}`, `results_detalle_${itemNum}`, itemsConStock, `detalle_hidden_${itemNum}`, itemNum, tipo);
+      
+      //MOSTRAR INFO DE ITEMS DISPONIBLES
+      $stockInfo.html(`<i class="fa-solid fa-check-circle text-success"></i> ${itemsConStock.length} item(s) disponible(s) con stock`);
+    }
+  } else {
+    $detalleContainer.html(`
+      <select class="form-select form-select-sm" disabled>
+        <option value="">Primero seleccione producto</option>
+      </select>
+    `);
+  }
+  
+  // Limpiar precios
+  $(`#precio_compra_${itemNum}`).val('');
+  $(`#precio_venta_contado_${itemNum}`).val('');
+  $(`#precio_descuento_${itemNum}`).val('');
+  $(`#precio_credito_${itemNum}`).val('');
+  $(`#sugerencia_descuento_${itemNum}`).html('');
+  $(`#sugerencia_credito_${itemNum}`).html('');
+  calcularSubtotal(itemNum);
+}
+
+
+// FUNCIÓN AUTOCOMPLETE PARA DETALLES (SERIE/CÓDIGO)
+function setupAutocompleteDetalle(inputId, resultsId, itemsConStock, hiddenId, itemNum, tipo) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const hidden = document.getElementById(hiddenId);
+  
+  if (!input) return;
+
+  input.addEventListener('input', function() {
+    const value = this.value.toLowerCase();
+    results.innerHTML = '';
+    
+    if (value.length < 1) {
+      results.style.display = 'none';
+      hidden.value = '';
+      return;
+    }
+    
+    const filtered = itemsConStock.filter(el => {
+      if (tipo === 'vehiculo') {
+        return el.serie_motor.toLowerCase().includes(value) || 
+               el.serie_chasis.toLowerCase().includes(value);
+      } else {
+        return el.codigo_barras.toLowerCase().includes(value);
+      }
+    });
+    
+    if (filtered.length === 0) {
+      results.innerHTML = '<div class="autocomplete-item no-results">No se encontraron resultados</div>';
+      results.style.display = 'block';
+      return;
+    }
+    
+    filtered.forEach(el => {
+      const div = document.createElement('div');
+      div.className = 'autocomplete-item';
+      
+      const id = tipo === 'vehiculo' ? el.id_vehiculo : el.id_repuesto_comprado;
+      const stock = el.stock_disponible || 0;
+      const precioVenta = parseFloat(el.precio_venta) || 0;
+      const precioCompra = parseFloat(el.precio_compra) || 0;
+      
+      //CALCULAR GANANCIA
+      const ganancia = precioVenta - precioCompra;
+      const porcentajeGanancia = precioCompra > 0 ? ((ganancia / precioCompra) * 100) : 0;
+      
+      //BADGE DE GANANCIA
+      let badgeGanancia = '';
+      if (ganancia > 0) {
+        badgeGanancia = `<span class="badge bg-success ms-1" title="Ganancia estimada"><i class="fa-solid fa-chart-line"></i> +S/ ${ganancia.toFixed(2)} (${porcentajeGanancia.toFixed(1)}%)</span>`;
+      } else if (ganancia < 0) {
+        badgeGanancia = `<span class="badge bg-danger ms-1" title="Pérdida"><i class="fa-solid fa-chart-line-down"></i> S/ ${ganancia.toFixed(2)}</span>`;
+      }
+      
+      //BADGE DE STOCK CON ALERTA
+      let badgeStock;
+      if (tipo === 'repuesto' && stock <= 3) {
+        badgeStock = `<span class="badge bg-warning text-dark badge-stock-bajo" title="Stock bajo"><i class="fa-solid fa-triangle-exclamation"></i> Stock: ${stock}</span>`;
+      } else {
+        badgeStock = `<span class="badge bg-info">Stock: ${stock}</span>`;
+      }
+      
+      //FORMATO DEL TEXTO
+      let textoDetalle = '';
+      if (tipo === 'vehiculo') {
+        textoDetalle = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>Motor:</strong> ${el.serie_motor} | <strong>Chasis:</strong> ${el.serie_chasis}
+            </div>
+            <div>
+              ${badgeStock}
+              <span class="badge bg-success">S/ ${precioVenta.toFixed(2)}</span>
+              ${badgeGanancia}
+            </div>
+          </div>
+        `;
+      } else {
+        textoDetalle = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong>Código:</strong> ${el.codigo_barras}
+            </div>
+            <div>
+              ${badgeStock}
+              <span class="badge bg-success">S/ ${precioVenta.toFixed(2)}</span>
+              ${badgeGanancia}
+            </div>
+          </div>
+        `;
+      }
+      
+      div.innerHTML = textoDetalle;
+      
+      div.addEventListener('click', function() {
+        //ESTABLECER TEXTO VISIBLE
+        if (tipo === 'vehiculo') {
+          input.value = `Motor: ${el.serie_motor} | Chasis: ${el.serie_chasis}`;
+        } else {
+          input.value = `Código: ${el.codigo_barras}`;
+        }
+        
+        //ESTABLECER VALOR OCULTO
+        hidden.value = id;
+        results.style.display = 'none';
+
+        //GUARDAR STOCK EN ATRIBUTO DATA
+        input.setAttribute('data-stock-disponible', stock);
+        
+        //ASIGNAR PRECIOS
+        $(`#precio_compra_${itemNum}`).val(precioCompra.toFixed(2));
+        $(`#precio_venta_contado_${itemNum}`).val(precioVenta.toFixed(2));
+        
+        //CALCULAR PRECIO SUGERIDO CON DESCUENTO (5% menos)
+        const precioDescuentoSugerido = precioVenta * 0.95;
+        $(`#sugerencia_descuento_${itemNum}`).html(`<i class="fa-solid fa-lightbulb text-warning"></i> Sugerido: S/ ${precioDescuentoSugerido.toFixed(2)}`);
+        
+        //CALCULAR PRECIO SUGERIDO A CRÉDITO (10% más)
+        const precioCreditoSugerido = precioVenta * 1.10;
+        $(`#sugerencia_credito_${itemNum}`).html(`<i class="fa-solid fa-lightbulb text-info"></i> Sugerido: S/ ${precioCreditoSugerido.toFixed(2)}`);
+        
+        //ACTUALIZAR STOCK INFO CON ALERTA SI ES BAJO
+        const $stockInfo = $(`#stock_info_${itemNum}`);
+        if (tipo === 'repuesto' && stock <= 3) {
+          $stockInfo.html(`<i class="fa-solid fa-triangle-exclamation text-warning pulse-warning"></i> <strong class="text-warning pulse-warning">Stock bajo: ${stock} unidades</strong>`);
+        } else {
+          $stockInfo.html(`<i class="fa-solid fa-check-circle text-success"></i> Stock disponible: <strong>${stock}</strong> unidades`);
+        }
+        
+        calcularSubtotal(itemNum);
+        actualizarGanancia(itemNum);
+      });
+      
+      results.appendChild(div);
+    });
+    
+    results.style.display = 'block';
+  });
+  
+  // Cerrar al hacer clic fuera
+  document.addEventListener('click', function(e) {
+    if (!input.contains(e.target) && !results.contains(e.target)) {
+      const arrow = input.parentElement.querySelector('.autocomplete-arrow');
+      if (arrow && !arrow.contains(e.target)) {
+        results.style.display = 'none';
+      }
+    }
+  });
+
+  // Limpiar al cambiar
+  input.addEventListener('focus', function() {
+    if (this.value && !hidden.value) {
+      this.value = '';
+    }
+  });
+}
+
+// ========================================
+// ⭐ FUNCIÓN TOGGLE AUTOCOMPLETE DETALLE
+// ========================================
+function toggleAutocompleteDetalle(inputId, resultsId, itemNum, tipo, nombre) {
+  const input = document.getElementById(inputId);
+  const results = document.getElementById(resultsId);
+  const items = tipo === 'vehiculo' ? productosStockAgrupado : repuestosStockAgrupado;
+  
+  // Si ya está abierto, cerrar
+  if (results.style.display === 'block') {
+    results.style.display = 'none';
+    return;
+  }
+  
+  // Obtener items con stock
+  const itemsConStock = items[nombre].filter(el => (el.stock_disponible || 0) > 0);
+  
+  // Mostrar todos los elementos
+  results.innerHTML = '';
+  itemsConStock.forEach(el => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    
+    const id = tipo === 'vehiculo' ? el.id_vehiculo : el.id_repuesto_comprado;
+    const stock = el.stock_disponible || 0;
+    const precioVenta = parseFloat(el.precio_venta) || 0;
+    const precioCompra = parseFloat(el.precio_compra) || 0;
+    
+    // ⭐ CALCULAR GANANCIA
+    const ganancia = precioVenta - precioCompra;
+    const porcentajeGanancia = precioCompra > 0 ? ((ganancia / precioCompra) * 100) : 0;
+    
+    // ⭐ BADGE DE GANANCIA
+    let badgeGanancia = '';
+    if (ganancia > 0) {
+      badgeGanancia = `<span class="badge bg-success ms-1" title="Ganancia estimada"><i class="fa-solid fa-chart-line"></i> +S/ ${ganancia.toFixed(2)} (${porcentajeGanancia.toFixed(1)}%)</span>`;
+    } else if (ganancia < 0) {
+      badgeGanancia = `<span class="badge bg-danger ms-1" title="Pérdida"><i class="fa-solid fa-chart-line-down"></i> S/ ${ganancia.toFixed(2)}</span>`;
+    }
+    
+    // ⭐ BADGE DE STOCK CON ALERTA
+    let badgeStock;
+    if (tipo === 'repuesto' && stock <= 3) {
+      badgeStock = `<span class="badge bg-warning text-dark badge-stock-bajo" title="Stock bajo"><i class="fa-solid fa-triangle-exclamation"></i> Stock: ${stock}</span>`;
+    } else {
+      badgeStock = `<span class="badge bg-info">Stock: ${stock}</span>`;
+    }
+    
+    // ⭐ FORMATO DEL TEXTO
+    let textoDetalle = '';
+    if (tipo === 'vehiculo') {
+      textoDetalle = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Motor:</strong> ${el.serie_motor} | <strong>Chasis:</strong> ${el.serie_chasis}
+          </div>
+          <div>
+            ${badgeStock}
+            <span class="badge bg-success">S/ ${precioVenta.toFixed(2)}</span>
+            ${badgeGanancia}
+          </div>
+        </div>
+      `;
+    } else {
+      textoDetalle = `
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Código:</strong> ${el.codigo_barras}
+          </div>
+          <div>
+            ${badgeStock}
+            <span class="badge bg-success">S/ ${precioVenta.toFixed(2)}</span>
+            ${badgeGanancia}
+          </div>
+        </div>
+      `;
+    }
+    
+    div.innerHTML = textoDetalle;
+    
+    div.addEventListener('click', function(e) {
+      e.stopPropagation();
+      
+      // ⭐ ESTABLECER TEXTO VISIBLE
+      if (tipo === 'vehiculo') {
+        input.value = `Motor: ${el.serie_motor} | Chasis: ${el.serie_chasis}`;
+      } else {
+        input.value = `Código: ${el.codigo_barras}`;
+      }
+      
+      // ⭐ ESTABLECER VALOR OCULTO
+      document.getElementById(`detalle_hidden_${itemNum}`).value = id;
+      results.style.display = 'none';
+
+      // ⭐ GUARDAR STOCK EN ATRIBUTO DATA
+      input.setAttribute('data-stock-disponible', stock);
+      
+      // ⭐ ASIGNAR PRECIOS
+      $(`#precio_compra_${itemNum}`).val(precioCompra.toFixed(2));
+      $(`#precio_venta_contado_${itemNum}`).val(precioVenta.toFixed(2));
+      
+      // ⭐ CALCULAR PRECIO SUGERIDO CON DESCUENTO (5% menos)
+      const precioDescuentoSugerido = precioVenta * 0.95;
+      $(`#sugerencia_descuento_${itemNum}`).html(`<i class="fa-solid fa-lightbulb text-warning"></i> Sugerido: S/ ${precioDescuentoSugerido.toFixed(2)}`);
+      
+      // ⭐ CALCULAR PRECIO SUGERIDO A CRÉDITO (10% más)
+      const precioCreditoSugerido = precioVenta * 1.10;
+      $(`#sugerencia_credito_${itemNum}`).html(`<i class="fa-solid fa-lightbulb text-info"></i> Sugerido: S/ ${precioCreditoSugerido.toFixed(2)}`);
+      
+      // ⭐ ACTUALIZAR STOCK INFO CON ALERTA SI ES BAJO
+      const $stockInfo = $(`#stock_info_${itemNum}`);
+      if (tipo === 'repuesto' && stock <= 3) {
+        $stockInfo.html(`<i class="fa-solid fa-triangle-exclamation text-warning pulse-warning"></i> <strong class="text-warning pulse-warning">Stock bajo: ${stock} unidades</strong>`);
+      } else {
+        $stockInfo.html(`<i class="fa-solid fa-check-circle text-success"></i> Stock disponible: <strong>${stock}</strong> unidades`);
+      }
+      
+      calcularSubtotal(itemNum);
+      actualizarGanancia(itemNum);
+    });
+    
+    results.appendChild(div);
+  });
+  
+  results.style.display = 'block';
+  input.focus();
+}
+
+// ========================================
+// ⭐ FUNCIÓN CALCULAR Y MOSTRAR GANANCIA
+// ========================================
+function actualizarGanancia(itemNum) {
+  const precioCompra = parseFloat($(`#precio_compra_${itemNum}`).val()) || 0;
+  const precioVentaContado = parseFloat($(`#precio_venta_contado_${itemNum}`).val()) || 0;
+  const precioDescuento = parseFloat($(`#precio_descuento_${itemNum}`).val()) || 0;
+  const precioCredito = parseFloat($(`#precio_credito_${itemNum}`).val()) || 0;
+  const cantidad = parseInt($(`input[name="cantidad_${itemNum}"]`).val()) || 1;
+  const formaPago = $('#forma_pago').val();
+  
+  // ⭐ DETERMINAR PRECIO FINAL
+  let precioFinal = precioVentaContado;
+  
+  if (formaPago == '1' && precioDescuento > 0) {
+    precioFinal = precioDescuento;
+  } else if (formaPago == '2' && precioCredito > 0) {
+    precioFinal = precioCredito;
+  }
+  
+  // ⭐ Calcular ganancia
+  const gananciaUnitaria = precioFinal - precioCompra;
+  const gananciaTotal = gananciaUnitaria * cantidad;
+  const porcentajeGanancia = precioCompra > 0 ? ((gananciaUnitaria / precioCompra) * 100) : 0;
+  
+  // ⭐ Actualizar celda de ganancia
+  const $gananciaCell = $(`#ganancia_${itemNum}`);
+  
+  if (gananciaUnitaria > 0) {
+    $gananciaCell.removeClass('text-danger').addClass('text-info');
+    $gananciaCell.html(`S/ ${gananciaTotal.toFixed(2)}<br><small class="text-muted">(${porcentajeGanancia.toFixed(1)}%)</small>`);
+  } else if (gananciaUnitaria < 0) {
+    $gananciaCell.removeClass('text-info').addClass('text-danger');
+    $gananciaCell.html(`<i class="fa-solid fa-exclamation-triangle"></i> S/ ${gananciaTotal.toFixed(2)}<br><small class="text-muted">(${porcentajeGanancia.toFixed(1)}%)</small>`);
+  } else {
+    $gananciaCell.removeClass('text-danger text-info').addClass('text-secondary');
+    $gananciaCell.html(`S/ 0.00<br><small class="text-muted">(0%)</small>`);
+  }
+  
+  // ⭐ Actualizar resumen de ganancias
+  actualizarResumenGanancias();
+}
+
+// ========================================
+// ⭐ FUNCIÓN ACTUALIZAR RESUMEN DE GANANCIAS
+// ========================================
+function actualizarResumenGanancias() {
+  let gananciaTotal = 0;
+  let hayPerdidas = false;
+  
+  // ⭐ Sumar todas las ganancias
+  $('#tbodyItems tr').each(function() {
+    const itemId = $(this).attr('id');
+    if (itemId) {
+      const itemNum = itemId.split('_')[1];
+      const precioCompra = parseFloat($(`#precio_compra_${itemNum}`).val()) || 0;
+      const precioVentaContado = parseFloat($(`#precio_venta_contado_${itemNum}`).val()) || 0;
+      const precioDescuento = parseFloat($(`#precio_descuento_${itemNum}`).val()) || 0;
+      const precioCredito = parseFloat($(`#precio_credito_${itemNum}`).val()) || 0;
+      const cantidad = parseInt($(`input[name="cantidad_${itemNum}"]`).val()) || 0;
+      const formaPago = $('#forma_pago').val();
+      
+      let precioFinal = precioVentaContado;
+      if (formaPago == '1' && precioDescuento > 0) {
+        precioFinal = precioDescuento;
+      } else if (formaPago == '2' && precioCredito > 0) {
+        precioFinal = precioCredito;
+      }
+      
+      const gananciaItem = (precioFinal - precioCompra) * cantidad;
+      gananciaTotal += gananciaItem;
+      
+      if (gananciaItem < 0) hayPerdidas = true;
+    }
+  });
+  
+  // ⭐ Actualizar total de ganancia
+  const $totalGananciaCell = $('#totalGanancia');
+  
+  if (gananciaTotal > 0) {
+    $totalGananciaCell.removeClass('text-danger').addClass('text-info');
+    $totalGananciaCell.html(`S/ ${gananciaTotal.toFixed(2)}`);
+  } else if (gananciaTotal < 0) {
+    $totalGananciaCell.removeClass('text-info').addClass('text-danger');
+    let html = `<i class="fa-solid fa-exclamation-triangle"></i> S/ ${gananciaTotal.toFixed(2)}`;
+    if (hayPerdidas) {
+      html += `<br><small class="text-warning">⚠️ Productos con pérdida</small>`;
+    }
+    $totalGananciaCell.html(html);
+  } else {
+    $totalGananciaCell.removeClass('text-danger text-info').addClass('text-secondary');
+    $totalGananciaCell.html(`S/ 0.00`);
+  }
+}
+
+
+// ========================================
+// ⭐ FUNCIÓN CALCULAR SUBTOTAL (MEJORADA CON PRECIO CRÉDITO)
+// ========================================
+function calcularSubtotal(item) {
+  const cantidad = parseInt($(`input[name="cantidad_${item}"]`).val()) || 0;
+  const precioCompra = parseFloat($(`#precio_compra_${item}`).val()) || 0;
+  const precioVentaContado = parseFloat($(`#precio_venta_contado_${item}`).val()) || 0;
+  const precioDescuento = parseFloat($(`#precio_descuento_${item}`).val()) || 0;
+  const precioCredito = parseFloat($(`#precio_credito_${item}`).val()) || 0;
+  
+  const formaPago = $('#forma_pago').val();
+  
+  // ⭐ DETERMINAR PRECIO FINAL
+  let precioFinal = precioVentaContado;
+  
+  if (formaPago == '1' && precioDescuento > 0) {
+    // CONTADO con descuento
+    precioFinal = precioDescuento;
+  } else if (formaPago == '2' && precioCredito > 0) {
+    // CRÉDITO con precio especial
+    precioFinal = precioCredito;
+  }
+  
+  const subtotal = cantidad * precioFinal;
+  const ganancia = (precioFinal - precioCompra) * cantidad;
+  
+  // ⭐ VALIDAR GANANCIA NEGATIVA
+  const $gananciaCell = $(`#ganancia_${item}`);
+  if (ganancia < 0) {
+    $gananciaCell.removeClass('text-info').addClass('text-danger');
+    $gananciaCell.html(`<i class="fa-solid fa-exclamation-triangle"></i> S/ ${ganancia.toFixed(2)}`);
+  } else {
+    $gananciaCell.removeClass('text-danger').addClass('text-info');
+    $gananciaCell.text(`S/ ${ganancia.toFixed(2)}`);
+  }
+  
+  $(`#subtotal_${item}`).text(`S/ ${subtotal.toFixed(2)}`);
+  
+  calcularTotales();
+  actualizarGanancia(item);
+}
+
+// ========================================
+// ⭐ FUNCIÓN CALCULAR TOTALES (ACTUALIZADA)
+// ========================================
+function calcularTotales() {
+  let total = 0;
+  let totalGanancia = 0;
+  
+  $('#tbodyItems tr').each(function() {
+    const itemId = $(this).attr('id');
+    if (itemId) {
+      const itemNum = itemId.split('_')[1];
+      total += parseFloat($(`#subtotal_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
+      totalGanancia += parseFloat($(`#ganancia_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
+    }
+  });
+  
+  $('#totalVenta').text(`S/ ${total.toFixed(2)}`);
+  
+  // ⭐ MOSTRAR GANANCIA NEGATIVA EN ROJO
+  const $totalGananciaCell = $('#totalGanancia');
+  if (totalGanancia < 0) {
+    $totalGananciaCell.removeClass('text-info').addClass('text-danger');
+    $totalGananciaCell.html(`<i class="fa-solid fa-exclamation-triangle"></i> S/ ${totalGanancia.toFixed(2)}`);
+  } else {
+    $totalGananciaCell.removeClass('text-danger').addClass('text-info');
+    $totalGananciaCell.text(`S/ ${totalGanancia.toFixed(2)}`);
+  }
+  
+  // Actualizar vuelto si es contado
+  if ($('#forma_pago').val() === '1' && $('#importe_recibido').val()) {
+    const recibido = parseFloat($('#importe_recibido').val()) || 0;
+    const vuelto = recibido - total;
+    $('#vuelto').val(vuelto >= 0 ? vuelto.toFixed(2) : '0.00');
+  }
+}
+
+// ========================================
+// ⭐ FUNCIÓN ELIMINAR ITEM (ACTUALIZADA)
+// ========================================
+function eliminarItem(item) {
+  Swal.fire({
+    title: '¿Eliminar producto?',
+    text: '¿Está seguro de eliminar este producto del detalle?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: '<i class="fa-solid fa-trash me-2"></i>Sí, eliminar',
+    cancelButtonText: 'Cancelar'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      $(`#item_${item}`).remove();
+      calcularTotales();
+      
+      // Mostrar mensaje de éxito
+      Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: 'Producto eliminado',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+      });
+    }
+  });
+}
+
+// ========================================
+// ⭐ GUARDAR VENTA CON VERIFICACIÓN DE CAJA Y VALIDACIONES COMPLETAS
+// ========================================
 $(document).on('click', '#btnGuardarVenta', function(e) {
   e.preventDefault();
   
-  // ⭐ VERIFICAR CAJA ANTES DE TODO
+  // ⭐ VERIFICAR CAJA
   const tieneCajaAbierta = {{ tiene_caja_abierta|yesno:"true,false" }};
   
   if (!tieneCajaAbierta) {
@@ -529,13 +2049,11 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
       cancelButtonColor: '#6c757d'
     }).then((result) => {
       if (result.isConfirmed) {
-        // Cerrar modal de venta
         const modalVenta = bootstrap.Modal.getInstance(document.getElementById('modalNuevaVenta'));
         if (modalVenta) {
           modalVenta.hide();
         }
         
-        // Abrir modal de gestión de caja
         setTimeout(() => {
           const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
           modalCaja.show();
@@ -545,11 +2063,22 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
     return;
   }
   
-  // Continuar con validaciones normales
   const formaPagoVal = document.getElementById("forma_pago").value;
   const tieneCuotas = document.getElementById("tiene_cuotas").value;
   
-  // Validar cuotas para crédito
+  // ⭐ VALIDAR CLIENTE
+  const clienteId = $('#cliente_id').val();
+  if (!clienteId) {
+    Swal.fire({
+      title: "Cliente requerido",
+      text: "Debe seleccionar un cliente para realizar la venta",
+      icon: "warning",
+      confirmButtonColor: "#f0ad4e"
+    });
+    return;
+  }
+  
+  // ⭐ VALIDAR CUOTAS PARA CRÉDITO
   if (formaPagoVal === "2" && tieneCuotas === "0") {
     Swal.fire({
       title: "Cuotas no configuradas",
@@ -560,7 +2089,7 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
     return;
   }
   
-  // Validar que haya productos
+  // ⭐ VALIDAR QUE HAYA PRODUCTOS
   const itemsCount = parseInt(document.getElementById("items_count").value) || 0;
   if (itemsCount === 0) {
     Swal.fire({
@@ -572,7 +2101,66 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
     return;
   }
 
-  // Validar tipo de pago y montos para contado
+  // ⭐ VALIDAR STOCK Y PRECIOS DE CADA ITEM
+  let hayErrores = false;
+  let mensajesError = [];
+  
+  $('#tbodyItems tr').each(function() {
+    const itemId = $(this).attr('id');
+    if (itemId) {
+      const itemNum = itemId.split('_')[1];
+      
+      // Validar stock
+      const cantidadInput = $(`input[name="cantidad_${itemNum}"]`);
+      if (cantidadInput.hasClass('is-invalid')) {
+        hayErrores = true;
+        mensajesError.push(`• Item ${itemNum}: Cantidad excede stock disponible`);
+      }
+      
+      // Validar precio crédito (si es crédito)
+      if (formaPagoVal === '2') {
+        const precioCredito = parseFloat($(`#precio_credito_${itemNum}`).val()) || 0;
+        const precioNormal = parseFloat($(`#precio_venta_contado_${itemNum}`).val()) || 0;
+        
+        if (precioCredito === 0) {
+          hayErrores = true;
+          mensajesError.push(`• Item ${itemNum}: Debe ingresar el precio a crédito`);
+        } else if (precioCredito <= precioNormal) {
+          hayErrores = true;
+          mensajesError.push(`• Item ${itemNum}: Precio a crédito debe ser mayor al precio normal`);
+        }
+      }
+      
+      // Validar precio descuento (si es contado y tiene descuento)
+      if (formaPagoVal === '1') {
+        const precioDescuento = parseFloat($(`#precio_descuento_${itemNum}`).val()) || 0;
+        const precioNormal = parseFloat($(`#precio_venta_contado_${itemNum}`).val()) || 0;
+        
+        if (precioDescuento > 0 && precioDescuento >= precioNormal) {
+          hayErrores = true;
+          mensajesError.push(`• Item ${itemNum}: Precio con descuento debe ser menor al precio normal`);
+        }
+      }
+      
+      // Validar ganancia negativa
+      const gananciaText = $(`#ganancia_${itemNum}`).text();
+      if (gananciaText.includes('-')) {
+        mensajesError.push(`⚠️ Item ${itemNum}: Tiene ganancia negativa (venta con pérdida)`);
+      }
+    }
+  });
+  
+  if (hayErrores) {
+    Swal.fire({
+      title: "Errores en el detalle",
+      html: `<div class="text-start">${mensajesError.join('<br>')}</div>`,
+      icon: "error",
+      confirmButtonColor: "#dc3545"
+    });
+    return;
+  }
+
+  // ⭐ VALIDAR TIPO DE PAGO Y MONTOS PARA CONTADO
   if (formaPagoVal === '1') {
     if (!document.getElementById('tipo_pago').value) {
       Swal.fire('Error', 'Debe seleccionar un tipo de pago', 'error');
@@ -588,6 +2176,36 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
     }
   }
 
+  // ⭐ MOSTRAR CONFIRMACIÓN SI HAY GANANCIA NEGATIVA
+  if (mensajesError.length > 0) {
+    Swal.fire({
+      title: 'Advertencia: Venta con pérdida',
+      html: `<div class="alert alert-warning">
+               <i class="fa-solid fa-exclamation-triangle me-2"></i>
+               ${mensajesError.join('<br>')}
+             </div>
+             <p class="mt-3">¿Está seguro de continuar con esta venta?</p>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ffc107',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Sí, continuar',
+      cancelButtonText: 'Cancelar'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        procesarVenta();
+      }
+    });
+  } else {
+    procesarVenta();
+    mostrarResumenVenta();
+  }
+});
+
+// ========================================
+// ⭐ FUNCIÓN PROCESAR VENTA
+// ========================================
+function procesarVenta() {
   // Mostrar loading mientras se procesa
   Swal.fire({
     title: 'Procesando venta...',
@@ -611,45 +2229,71 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
     contentType: false,
     success: function (res) {
       if (res.ok) {
-        Swal.fire({
-          title: "¡Venta registrada exitosamente!",
-          html: `<p>${res.message || 'Venta guardada correctamente'}</p>
-                 <p><strong>Comprobante: ${res.numero_comprobante}</strong></p>
-                 <p class="mt-2"><small>Se abrirá el comprobante para imprimir...</small></p>`,
-          icon: "success",
-          confirmButtonColor: "#198754",
-          confirmButtonText: "Aceptar",
-          allowOutsideClick: false
-        }).then((result) => {
-          if (result.isConfirmed) {
-            if (res.idventa) {
-              const urlComprobante = `/ventas/imprimir/${res.idventa}/`;
-              const ventanaComprobante = window.open(urlComprobante, '_blank');
-              
-              if (!ventanaComprobante || ventanaComprobante.closed || typeof ventanaComprobante.closed == 'undefined') {
-                Swal.fire({
-                  title: 'Ventana bloqueada',
-                  html: `El navegador bloqueó la ventana del comprobante.<br>
-                         <a href="${urlComprobante}" target="_blank" class="btn btn-primary mt-2">
-                           <i class="fas fa-print"></i> Abrir comprobante manualmente
-                         </a>`,
-                  icon: 'warning',
-                  confirmButtonText: 'Continuar'
-                }).then(() => {
-                  window.location.href = '/ventas/';
-                });
-              } else {
-                setTimeout(() => {
-                  window.location.href = '/ventas/';
-                }, 1500);
-              }
-            } else {
-              window.location.href = '/ventas/';
+        // ⭐ VERIFICAR SI ES CRÉDITO O CONTADO
+        if (res.es_credito) {
+          // ✅ VENTA A CRÉDITO - SIN MENSAJE DE COMPROBANTE
+          Swal.fire({
+            title: "¡Venta a crédito registrada exitosamente!",
+            html: `<p>${res.message || 'Venta guardada correctamente'}</p>
+                   <p><strong>Comprobante:</strong> ${res.numero_comprobante}</p>
+                   <p><strong>Código Crédito:</strong> ${res.codigo_credito}</p>
+                   <div class="alert alert-info mt-3">
+                     <i class="fa-solid fa-info-circle me-2"></i>
+                     Puede imprimir el cronograma de cuotas desde el módulo de Créditos.
+                   </div>`,
+            icon: "success",
+            confirmButtonColor: "#198754",
+            confirmButtonText: "Aceptar",
+            allowOutsideClick: false
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Redirigir al listado de ventas
+              window.location.href = '/sys/vnt/';
             }
-          }
-        });
+          });
+        } else {
+          // ✅ VENTA AL CONTADO - CON MENSAJE DE COMPROBANTE
+          Swal.fire({
+            title: "¡Venta registrada exitosamente!",
+            html: `<p>${res.message || 'Venta guardada correctamente'}</p>
+                   <p><strong>Comprobante:</strong> ${res.numero_comprobante}</p>
+                   <p class="mt-2"><small>Se abrirá el comprobante para imprimir...</small></p>`,
+            icon: "success",
+            confirmButtonColor: "#198754",
+            confirmButtonText: "Aceptar",
+            allowOutsideClick: false
+          }).then((result) => {
+            if (result.isConfirmed) {
+              // Abrir comprobante en nueva ventana
+              if (res.idventa) {
+                const urlComprobante = `/sys/vnt/print/${res.idventa}/`;
+                const ventanaComprobante = window.open(urlComprobante, '_blank');
+                
+                if (!ventanaComprobante || ventanaComprobante.closed || typeof ventanaComprobante.closed == 'undefined') {
+                  // Ventana bloqueada por el navegador
+                  Swal.fire({
+                    title: 'Ventana bloqueada',
+                    html: `El navegador bloqueó la ventana del comprobante.<br>
+                           <a href="${urlComprobante}" target="_blank" class="btn btn-primary mt-2">
+                             <i class="fas fa-print"></i> Abrir comprobante manualmente
+                           </a>`,
+                    icon: 'warning',
+                    confirmButtonText: 'Continuar'
+                  }).then(() => {
+                    window.location.href = '/sys/vnt/';
+                  });
+                } else {
+                  // Ventana abierta correctamente
+                  setTimeout(() => {
+                    window.location.href = '/sys/vnt/';
+                  }, 1500);
+                }
+              }
+            }
+          });
+        }
       } else {
-        // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
+        // Manejo de errores
         if (res.necesita_aperturar || res.codigo === 'CAJA_REQUERIDA') {
           Swal.fire({
             icon: 'warning',
@@ -662,13 +2306,11 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
             cancelButtonColor: '#6c757d'
           }).then((result) => {
             if (result.isConfirmed) {
-              // Cerrar modal de venta
               const modalVenta = bootstrap.Modal.getInstance(document.getElementById('modalNuevaVenta'));
               if (modalVenta) {
                 modalVenta.hide();
               }
               
-              // Abrir modal de gestión de caja
               setTimeout(() => {
                 const modalCaja = new bootstrap.Modal(document.getElementById('modalGestionCaja'));
                 modalCaja.show();
@@ -701,7 +2343,6 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
         }
       }
       
-      // ⭐ VERIFICAR SI EL ERROR ES POR FALTA DE CAJA
       if (necesitaAperturar) {
         Swal.fire({
           icon: 'warning',
@@ -735,371 +2376,2060 @@ $(document).on('click', '#btnGuardarVenta', function(e) {
       }
     }
   });
-});
+}
 
 // ========================================
-// FUNCIONES DE DETALLE
+// ⭐ FUNCIÓN EDITAR VENTA (ACTUALIZADA)
 // ========================================
-function agregarItem(tipo) {
-  itemCounter++;
-  const items = tipo === 'vehiculo' ? productosStockAgrupado : repuestosStockAgrupado;
-  const nombres = Object.keys(items);
-  const opciones = nombres.map(n => `<option value="${n}">${n}</option>`).join('');
-  const badge = tipo === 'vehiculo' ? 'bg-success' : 'bg-primary';
-  const label = tipo === 'vehiculo' ? 'Vehículo' : 'Repuesto';
+function editarVenta(eid) {
+  console.log('🔍 Editando venta con ID encriptado:', eid);
   
-  const html = `
-    <tr id="item_${itemCounter}">
-      <td>
-        <span class="badge ${badge}">${label}</span>
-        <input type="hidden" name="tipo_item_${itemCounter}" value="${tipo}">
-      </td>
-      <td>
-        <select name="nombre_${tipo}_${itemCounter}" class="form-select form-select-sm nombre-select" data-item="${itemCounter}" data-tipo="${tipo}" required>
-          <option value="">Seleccione</option>
-          ${opciones}
-        </select>
-      </td>
-      <td>
-        <select name="id_${tipo}_${itemCounter}" id="detalle_${itemCounter}" class="form-select form-select-sm detalle-select" data-item="${itemCounter}" required disabled>
-          <option value="">Primero seleccione</option>
-        </select>
-      </td>
-      <td>
-        <input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm cantidad-input" data-item="${itemCounter}" value="1" min="1" required>
-      </td>
-      <td>
-        <input type="number" name="precio_compra_${itemCounter}" id="precio_compra_${itemCounter}" class="form-control form-control-sm" readonly>
-      </td>
-      <td>
-        <input type="number" name="precio_venta_contado_${itemCounter}" id="precio_venta_contado_${itemCounter}" class="form-control form-control-sm precio-input" data-item="${itemCounter}" step="0.01" required>
-      </td>
-      <td>
-        <input type="number" name="precio_venta_credito_${itemCounter}" id="precio_venta_credito_${itemCounter}" class="form-control form-control-sm precio-input" data-item="${itemCounter}" step="0.01">
-      </td>
-      <td id="subtotal_${itemCounter}">S/ 0.00</td>
-      <td id="ganancia_${itemCounter}">S/ 0.00</td>
-      <td>
-        <button type="button" class="btn btn-sm btn-danger" onclick="eliminarItem(${itemCounter})">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </td>
-    </tr>`;
+  Swal.fire({
+    title: 'Cargando datos...',
+    html: 'Por favor espere',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
+    showConfirmButton: false,
+    willOpen: () => {
+      Swal.showLoading();
+    }
+  });
   
-  $('#tbodyItems').append(html);
-  $('#items_count').val(itemCounter);
-  
-  $(`.nombre-select[data-item="${itemCounter}"]`).change(function() {
-    const item = $(this).data('item');
-    const tipoItem = $(this).data('tipo');
-    const nombre = $(this).val();
-    const $detalle = $(`#detalle_${item}`);
-    
-    $detalle.empty().append('<option value="">Seleccione...</option>');
-    
-    if (nombre && items[nombre]) {
-      items[nombre].forEach(el => {
-        const id = tipoItem === 'vehiculo' ? el.id_vehiculo : el.id_repuesto_comprado;
-        const texto = tipoItem === 'vehiculo' 
-          ? `Motor: ${el.serie_motor} | Chasis: ${el.serie_chasis}` 
-          : `Código: ${el.codigo_barras}`;
-        $detalle.append(`<option value="${id}" data-pv="${el.precio_venta}" data-pc="${el.precio_compra}">${texto}</option>`);
+  $.ajax({
+    url: `/sys/vnt/get/${eid}/`,
+    method: 'GET',
+    success: function(data) {
+      console.log('✅ Respuesta recibida:', data);
+      
+      if (data.success) {
+        Swal.close();
+        
+        // ⭐ LIMPIAR FORMULARIO
+        $('#formNuevaVenta')[0].reset();
+        $('#tbodyItems').html('');
+        itemCounter = 0;
+        $('#totalVenta').text('S/ 0.00');
+        $('#totalGanancia').text('S/ 0.00');
+        $('#items_count').val('0');
+        
+        // ⭐ CARGAR DATOS GENERALES
+        $('#cliente_search').val(data.venta.cliente_nombre);
+        $('#cliente_id').val(data.venta.idcliente);
+        $('select[name="tipo_comprobante"]').val(data.venta.idtipocomprobante);
+        $('select[name="serie"]').val(data.venta.idseriecomprobante);
+        $('select[name="tipo_igv"]').val(data.venta.id_tipo_igv);
+        $('input[name="fecha_venta"]').val(data.venta.fecha_venta);
+        
+        // ⭐ IMPORTANTE: Establecer forma de pago
+        const formaPago = data.venta.id_forma_pago;
+        formaPagoActual = formaPago.toString();
+        $('#forma_pago').val(formaPago).trigger('change');
+        
+        // ⭐ ESPERAR A QUE SE APLIQUEN LOS CAMBIOS DE COLUMNAS
+        setTimeout(() => {
+          if (data.venta.id_tipo_pago) {
+            $('#tipo_pago').val(data.venta.id_tipo_pago);
+          }
+          
+          if (data.venta.importe_recibido) {
+            $('#importe_recibido').val(data.venta.importe_recibido);
+            $('#vuelto').val(data.venta.vuelto);
+          }
+          
+          if (data.venta.observaciones) {
+            $('textarea[name="observaciones"]').val(data.venta.observaciones);
+          }
+          
+          // ⭐ CARGAR DETALLES
+          data.detalles.forEach(function(d) {
+            itemCounter++;
+            $('#items_count').val(itemCounter);
+            
+            const tipo = d.tipo;
+            const badge = tipo === 'vehiculo' ? 'bg-success' : 'bg-primary';
+            const label = tipo === 'vehiculo' ? 'Vehículo' : 'Repuesto';
+            const esContado = formaPago == 1;
+            const esCredito = formaPago == 2;
+            
+            // ⭐ CANTIDAD: No editable para vehículos
+            const cantidadHTML = tipo === 'vehiculo' 
+              ? `<input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm text-center" value="${d.cantidad}" readonly style="background-color: #e9ecef;">` 
+              : `<input type="number" name="cantidad_${itemCounter}" class="form-control form-control-sm cantidad-input text-center" data-item="${itemCounter}" value="${d.cantidad}" min="1" required>`;
+            
+            // ⭐ CONSTRUIR NOMBRE Y DETALLE
+            let nombre, detalle, idValue;
+            if (tipo === 'vehiculo') {
+              nombre = d.nombre_producto;
+              detalle = `Motor: ${d.serie_motor}<br>Chasis: ${d.serie_chasis}`;
+              idValue = d.id_vehiculo;
+            } else {
+              nombre = d.nombre_repuesto;
+              detalle = `Código: ${d.codigo_barras}`;
+              idValue = d.id_repuesto_comprado;
+            }
+            
+            const html = `
+              <tr id="item_${itemCounter}">
+                <td>
+                  <span class="badge ${badge}">${label}</span>
+                  <input type="hidden" name="tipo_item_${itemCounter}" value="${tipo}">
+                </td>
+                <td>${nombre}</td>
+                <td>
+                  ${detalle}
+                  <input type="hidden" name="id_${tipo}_${itemCounter}" value="${idValue}">
+                </td>
+                <td>${cantidadHTML}</td>
+                <td class="bg-info bg-opacity-10">
+                  <input type="number" name="precio_venta_contado_${itemCounter}" id="precio_venta_contado_${itemCounter}" class="form-control form-control-sm" value="${d.precio_venta_contado}" step="0.01" readonly style="background-color: #e9ecef;">
+                  <input type="hidden" name="precio_compra_${itemCounter}" id="precio_compra_${itemCounter}" value="${d.precio_compra}">
+                </td>
+                <td class="bg-warning bg-opacity-25 columna-descuento ${esCredito ? 'd-none' : ''}">
+                  <input type="number" name="precio_descuento_${itemCounter}" id="precio_descuento_${itemCounter}" class="form-control form-control-sm precio-descuento-input" data-item="${itemCounter}" step="0.01" placeholder="Opcional">
+                </td>
+                <td class="bg-danger bg-opacity-10 columna-credito ${esContado ? 'd-none' : ''}">
+                  <input type="number" name="precio_credito_${itemCounter}" id="precio_credito_${itemCounter}" class="form-control form-control-sm precio-credito-input" data-item="${itemCounter}" value="${d.precio_venta_credito || ''}" step="0.01" placeholder="Requerido" ${esCredito ? 'required' : ''}>
+                </td>
+                <td id="subtotal_${itemCounter}" class="fw-bold text-success text-end">S/ ${parseFloat(d.subtotal).toFixed(2)}</td>
+                <td id="ganancia_${itemCounter}" class="fw-bold text-info text-end">S/ ${parseFloat(d.ganancia).toFixed(2)}</td>
+                <td class="text-center">
+                  <button type="button" class="btn btn-sm btn-danger" onclick="eliminarItem(${itemCounter})">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </td>
+              </tr>`;
+            
+            $('#tbodyItems').append(html);
+            
+            // ⭐ Event listeners para recalcular
+            $(`.cantidad-input[data-item="${itemCounter}"], .precio-descuento-input[data-item="${itemCounter}"], .precio-credito-input[data-item="${itemCounter}"]`).on('input', function() {
+              calcularSubtotal($(this).data('item'));
+            });
+          });
+          
+          calcularTotales();
+          
+          // ⭐ CAMBIAR ACCIÓN DEL FORMULARIO Y TÍTULO
+          console.log('📝 Configurando formulario para editar. ID encriptado:', eid);
+          $('#formNuevaVenta').attr('action', `/sys/vnt/upd/${eid}/`);
+          $('#tituloModalVenta').html('<i class="fa-solid fa-pen-to-square me-2"></i>Editar Venta');
+          $('#btnGuardarVenta').html('<i class="fa-solid fa-save me-2"></i>Actualizar Venta');
+          
+          // ⭐ Abrir modal
+          const modalVenta = new bootstrap.Modal(document.getElementById('modalNuevaVenta'));
+          modalVenta.show();
+          
+          console.log('✅ Modal abierto correctamente');
+        }, 300);
+        
+      } else if (data.codigo === 'VENTA_CREDITO_NO_EDITABLE') {
+        Swal.fire({
+          icon: 'info',
+          title: 'Venta a Crédito',
+          html: `<p>${data.error}</p>
+                 <div class="alert alert-warning mt-3">
+                   <i class="fa-solid fa-info-circle me-2"></i>
+                   Las ventas a crédito tienen cuotas asociadas y no pueden editarse. 
+                   Si necesita realizar cambios, debe anular esta venta y crear una nueva.
+                 </div>`,
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#0d9488'
+        });
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.error || 'No se pudo cargar la venta',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
+    },
+    error: function(xhr) {
+      console.error('❌ Error al cargar venta:', xhr);
+      
+      let errorMsg = 'No se pudo cargar la venta';
+      if (xhr.responseJSON && xhr.responseJSON.error) {
+        errorMsg = xhr.responseJSON.error;
+      }
+      
+      Swal.fire({
+        title: 'Error',
+        text: errorMsg,
+        icon: 'error',
+        confirmButtonText: 'OK'
       });
-      $detalle.prop('disabled', false);
-    } else {
-      $detalle.prop('disabled', true);
-    }
-    
-    $(`#precio_compra_${item}`).val('');
-    $(`#precio_venta_contado_${item}`).val('');
-    calcularSubtotal(item);
-  });
-  
-  $(`.detalle-select[data-item="${itemCounter}"]`).change(function() {
-    const item = $(this).data('item');
-    const selected = $(this).find(':selected');
-    
-    if (selected.val()) {
-      $(`#precio_compra_${item}`).val(selected.data('pc'));
-      $(`#precio_venta_contado_${item}`).val(selected.data('pv'));
-      calcularSubtotal(item);
     }
   });
-  
-  $(`.cantidad-input[data-item="${itemCounter}"], .precio-input[data-item="${itemCounter}"]`).on('input', function() {
-    calcularSubtotal($(this).data('item'));
-  });
-}
-
-function calcularSubtotal(item) {
-  const cantidad = parseFloat($(`input[name="cantidad_${item}"]`).val()) || 0;
-  const precioCompra = parseFloat($(`#precio_compra_${item}`).val()) || 0;
-  const precioVentaContado = parseFloat($(`#precio_venta_contado_${item}`).val()) || 0;
-  const precioVentaCredito = parseFloat($(`#precio_venta_credito_${item}`).val()) || 0;
-  
-  const formaPago = $('#forma_pago').val();
-  const precioFinal = (formaPago == '2' && precioVentaCredito > 0) ? precioVentaCredito : precioVentaContado;
-  
-  const subtotal = cantidad * precioFinal;
-  const ganancia = (precioFinal - precioCompra) * cantidad;
-  
-  $(`#subtotal_${item}`).text(`S/ ${subtotal.toFixed(2)}`);
-  $(`#ganancia_${item}`).text(`S/ ${ganancia.toFixed(2)}`);
-  
-  calcularTotales();
-}
-
-function calcularTotales() {
-  let total = 0;
-  let totalGanancia = 0;
-  
-  $('#tbodyItems tr').each(function() {
-    const itemId = $(this).attr('id');
-    if (itemId) {
-      const itemNum = itemId.split('_')[1];
-      total += parseFloat($(`#subtotal_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
-      totalGanancia += parseFloat($(`#ganancia_${itemNum}`).text().replace(/[^\d.]/g, '')) || 0;
-    }
-  });
-  
-  $('#totalVenta').text(`S/ ${total.toFixed(2)}`);
-  $('#totalGanancia').text(`S/ ${totalGanancia.toFixed(2)}`);
-  
-  if ($('#forma_pago').val() === '1' && $('#importe_recibido').val()) {
-    const recibido = parseFloat($('#importe_recibido').val()) || 0;
-    const vuelto = recibido - total;
-    $('#vuelto').val(vuelto >= 0 ? vuelto.toFixed(2) : '0.00');
-  }
-}
-
-function eliminarItem(item) {
-  $(`#item_${item}`).remove();
-  calcularTotales();
 }
 
 // ========================================
-// FUNCIÓN GENERAR CUOTAS
+// ⭐ FUNCIÓN ELIMINAR VENTA CON AUDITORÍA
 // ========================================
-function generarCuotas() {
-  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val()) || 0;
-  const tasaInteres = parseFloat($('#tasa_interes_venta').val()) || 0;
-  const montoAdelanto = parseFloat($('#monto_adelanto_venta').val()) || 0;
-  const tipoPeriodo = document.getElementById("tipo_periodo_venta").value;
-  const totalVenta = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+function eliminarVenta(eid, numComprobante) {
+  // ⭐ VERIFICAR PERMISOS (solo admin)
+  const esAdmin = {{ es_admin|yesno:"true,false" }};
   
-  if (cantidadCuotas <= 0) {
-    Swal.fire('Error', 'Debe ingresar una cantidad de cuotas válida', 'error');
+  if (!esAdmin) {
+    Swal.fire({
+      title: 'Sin permisos',
+      html: `
+        <p>Solo los administradores pueden eliminar ventas.</p>
+        <div class="alert alert-warning mt-3">
+          <i class="fa-solid fa-shield-halved me-2"></i>
+          Contacte con un administrador si necesita eliminar esta venta.
+        </div>
+      `,
+      icon: 'warning',
+      confirmButtonText: 'Entendido',
+      confirmButtonColor: '#ffc107'
+    });
     return;
   }
   
-  if (totalVenta <= 0) {
-    Swal.fire('Error', 'Debe agregar productos al detalle de la venta', 'error');
+  Swal.fire({
+    title: '¿Eliminar venta?',
+    html: `
+      <p>¿Está seguro de eliminar la venta <strong>${numComprobante}</strong>?</p>
+      <div class="alert alert-danger mt-3">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+        <strong>Advertencia:</strong> Esta acción cambiará el estado de la venta y quedará registrada en auditoría.
+      </div>
+      <div class="form-group mt-3 text-start">
+        <label class="form-label fw-bold">Motivo de eliminación: <span class="text-danger">*</span></label>
+        <textarea id="motivoEliminacion" class="form-control" rows="3" placeholder="Escriba el motivo (mínimo 10 caracteres)"></textarea>
+      </div>
+    `,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: '<i class="fa-solid fa-trash me-2"></i>Sí, eliminar',
+    cancelButtonText: '<i class="fa-solid fa-xmark me-2"></i>Cancelar',
+    preConfirm: () => {
+      const motivo = document.getElementById('motivoEliminacion').value.trim();
+      if (!motivo || motivo.length < 10) {
+        Swal.showValidationMessage('Debe ingresar un motivo de al menos 10 caracteres');
+        return false;
+      }
+      return { motivo: motivo };
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Mostrar loading
+      Swal.fire({
+        title: 'Eliminando venta...',
+        html: 'Por favor espere',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        willOpen: () => {
+          Swal.showLoading();
+        }
+      });
+      
+      // Enviar petición AJAX para eliminar
+      $.ajax({
+        url: `/sys/vnt/del/${eid}/`,
+        method: 'POST',
+        data: {
+          'csrfmiddlewaretoken': '{{ csrf_token }}',
+          'motivo': result.value.motivo
+        },
+        success: function(response) {
+          Swal.fire({
+            title: '¡Eliminada!',
+            html: `
+              <p>La venta ha sido eliminada correctamente</p>
+              <small class="text-muted">La acción ha sido registrada en auditoría</small>
+            `,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            window.location.reload();
+          });
+        },
+        error: function(xhr) {
+          let errorMsg = 'No se pudo eliminar la venta';
+          
+          if (xhr.responseJSON) {
+            errorMsg = xhr.responseJSON.error || errorMsg;
+            
+            // ⭐ MANEJAR ERROR DE PERMISOS
+            if (xhr.responseJSON.codigo === 'SIN_PERMISOS') {
+              Swal.fire({
+                title: 'Sin permisos',
+                text: errorMsg,
+                icon: 'warning',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#ffc107'
+              });
+              return;
+            }
+          }
+          
+          Swal.fire({
+            title: 'Error',
+            text: errorMsg,
+            icon: 'error',
+            confirmButtonText: 'OK'
+          });
+        }
+      });
+    }
+  });
+}
+
+// ========================================
+// ⭐ FUNCIÓN RESETEAR FORMULARIO DE VENTA
+// ========================================
+function resetearFormularioVenta() {
+  $('#formNuevaVenta').attr('action', "{% url 'nuevaVenta' %}");
+  $('#tituloModalVenta').html('<i class="fa-solid fa-cart-shopping me-2"></i>Nueva Venta');
+  $('#btnGuardarVenta').html('<i class="fa-solid fa-save me-2"></i>Guardar Venta');
+  $('#formNuevaVenta')[0].reset();
+  limpiarItemsDetalle();
+  $('.cuota-hidden').remove();
+  $('#tiene_cuotas').val('0');
+  formaPagoActual = '';
+  
+  // Resetear columnas a estado inicial (mostrar descuento)
+  $('.columna-descuento').removeClass('d-none');
+  $('.columna-credito').addClass('d-none');
+}
+
+
+// ========================================
+// ⭐ GESTIÓN DE CUOTAS - MEJORADO
+// ========================================
+
+// ⭐ Control de tipo de periodo
+document.addEventListener('DOMContentLoaded', function() {
+  const tipoPeriodoVenta = document.getElementById('tipo_periodo_venta');
+  
+  if (tipoPeriodoVenta) {
+    tipoPeriodoVenta.addEventListener('change', function() {
+      const containerDias = document.getElementById('container_dias_venta');
+      const containerMeses = document.getElementById('container_meses_venta');
+      
+      if (this.value === 'meses') {
+        containerDias.classList.add('d-none');
+        containerMeses.classList.remove('d-none');
+      } else {
+        containerDias.classList.remove('d-none');
+        containerMeses.classList.add('d-none');
+      }
+    });
+  }
+});
+
+// ========================================
+// ⭐ FUNCIÓN GENERAR CUOTAS (MEJORADA)
+// ========================================
+function generarCuotas() {
+  // ⭐ OBTENER VALORES
+  const totalVenta = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val()) || 0;
+  const tasaInteres = parseFloat($('#tasa_interes_venta').val()) || 0;
+  const montoAdelanto = parseFloat($('#monto_adelanto_venta').val()) || 0;
+  const tipoPeriodo = $('#tipo_periodo_venta').val();
+  
+  // ⭐ VALIDACIONES
+  if (totalVenta === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Total requerido',
+      text: 'Debe agregar productos antes de configurar las cuotas',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
+  if (cantidadCuotas < 1 || cantidadCuotas > 36) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Cantidad inválida',
+      text: 'La cantidad de cuotas debe estar entre 1 y 36',
+      confirmButtonColor: '#ffc107'
+    });
     return;
   }
   
   if (montoAdelanto >= totalVenta) {
-    Swal.fire('Error', 'El monto de adelanto no puede ser mayor o igual al total de la venta', 'error');
+    Swal.fire({
+      icon: 'warning',
+      title: 'Adelanto inválido',
+      text: 'El monto del adelanto debe ser menor al total de la venta',
+      confirmButtonColor: '#ffc107'
+    });
     return;
   }
   
+  // ⭐ CALCULAR MONTO A FINANCIAR
   const montoFinanciar = totalVenta - montoAdelanto;
-  const montoCuota = montoFinanciar / cantidadCuotas;
   
-  $('#tablaCuotasVenta').empty();
-  $('.cuota-hidden').remove();
+  // ⭐ CALCULAR MONTO POR CUOTA (sin interés)
+  const montoCuotaBase = Math.floor((montoFinanciar / cantidadCuotas) * 100) / 100;
   
-  if (tipoPeriodo === "meses") {
-    // LÓGICA PARA MESES
-    const mes = parseInt(document.getElementById("credito_mes_venta").value);
-    const diaMes = parseInt(document.getElementById("credito_dia_mes_venta").value) || 15;
+  // ⭐ CALCULAR INTERÉS POR CUOTA
+  const tasaDecimal = tasaInteres / 100;
+  const interesCuota = Math.floor((montoCuotaBase * tasaDecimal) * 100) / 100;
+  
+  // ⭐ TOTAL POR CUOTA (capital + interés)
+  const totalCuota = montoCuotaBase + interesCuota;
+  
+  // ⭐ CALCULAR DIFERENCIA POR REDONDEO
+  const sumaCuotasBase = montoCuotaBase * cantidadCuotas;
+  const diferencia = Math.round((montoFinanciar - sumaCuotasBase) * 100) / 100;
+  
+  // ⭐ GENERAR FECHAS
+  const fechas = [];
+  let fechaActual = new Date();
+  
+  if (tipoPeriodo === 'meses') {
+    const mes = parseInt($('#credito_mes_venta').val()) || 1;
+    const dia = parseInt($('#credito_dia_mes_venta').val()) || 15;
+    const anio = fechaActual.getFullYear();
     
-    if (diaMes < 1 || diaMes > 31) {
-      Swal.fire('Error', 'El día debe estar entre 1 y 31', 'error');
-      return;
-    }
-
-    const hoy = new Date();
-    let anioInicio = hoy.getFullYear();
-    const mesActual = hoy.getMonth() + 1;
-    const diaActual = hoy.getDate();
+    // Primera cuota
+    fechaActual = new Date(anio, mes - 1, dia);
     
-    if (mes < mesActual || (mes === mesActual && diaMes <= diaActual)) {
-      anioInicio++;
-    }
-
-    for (let i = 0; i < cantidadCuotas; i++) {
-      let mesActualCuota = mes + i;
-      let anioCuota = anioInicio;
-      
-      while (mesActualCuota > 12) {
-        mesActualCuota -= 12;
-        anioCuota++;
-      }
-      
-      const fechaVencimiento = `${anioCuota}-${String(mesActualCuota).padStart(2, '0')}-${String(diaMes).padStart(2, '0')}`;
-      const interes = (montoCuota * tasaInteres) / 100;
-      const totalCuota = montoCuota + interes;
-
-      const html = `
-        <tr>
-          <td>${i + 1}</td>
-          <td>
-            <input type="date" name="fecha_vencimiento_${i + 1}" class="form-control form-control-sm" value="${fechaVencimiento}" required>
-          </td>
-          <td>
-            <input type="number" name="monto_${i + 1}" class="form-control form-control-sm" value="${montoCuota.toFixed(2)}" step="0.01" readonly>
-          </td>
-          <td>
-            <input type="number" name="interes_${i + 1}" class="form-control form-control-sm" value="${interes.toFixed(2)}" step="0.01" readonly>
-            <input type="hidden" name="tasa_${i + 1}" value="${tasaInteres}">
-          </td>
-          <td>
-            <input type="number" name="total_${i + 1}" class="form-control form-control-sm fw-bold" value="${totalCuota.toFixed(2)}" step="0.01" readonly>
-          </td>
-        </tr>`;
-      
-      $('#tablaCuotasVenta').append(html);
-      $('#formNuevaVenta').append(`<input type="hidden" class="cuota-hidden" name="numero_cuota_${i + 1}" value="${i + 1}">`);
+    // Si la fecha ya pasó, usar el próximo mes
+    if (fechaActual < new Date()) {
+      fechaActual.setMonth(fechaActual.getMonth() + 1);
     }
   } else {
-    // LÓGICA PARA DÍAS
-    const diasCuotas = parseInt($('#dias_cuotas_venta').val()) || 30;
-    const fechaActual = new Date();
+    // Por días
+    const dias = parseInt($('#dias_cuotas_venta').val()) || 30;
+    fechaActual.setDate(fechaActual.getDate() + dias);
+  }
+  
+  // ⭐ GENERAR TABLA DE CUOTAS
+  let tablaCuotas = '';
+  let totalFinanciado = 0;
+  let totalIntereses = 0;
+  
+  // ⭐ LIMPIAR CUOTAS ANTERIORES
+  $('.cuota-hidden').remove();
+  
+  for (let i = 1; i <= cantidadCuotas; i++) {
+    const fechaVencimiento = new Date(fechaActual);
+    const fechaFormateada = formatearFecha(fechaVencimiento);
     
-    for (let i = 1; i <= cantidadCuotas; i++) {
-      const interes = (montoCuota * tasaInteres) / 100;
-      const totalCuota = montoCuota + interes;
-      
-      const fechaVencimiento = new Date(fechaActual);
-      fechaVencimiento.setDate(fechaVencimiento.getDate() + (diasCuotas * i));
-      const fechaFormat = fechaVencimiento.toISOString().split('T')[0];
-      
-      const html = `
-        <tr>
-          <td>${i}</td>
-          <td>
-            <input type="date" name="fecha_vencimiento_${i}" class="form-control form-control-sm" value="${fechaFormat}" required>
-          </td>
-          <td>
-            <input type="number" name="monto_${i}" class="form-control form-control-sm" value="${montoCuota.toFixed(2)}" step="0.01" readonly>
-          </td>
-          <td>
-            <input type="number" name="interes_${i}" class="form-control form-control-sm" value="${interes.toFixed(2)}" step="0.01" readonly>
-            <input type="hidden" name="tasa_${i}" value="${tasaInteres}">
-          </td>
-          <td>
-            <input type="number" name="total_${i}" class="form-control form-control-sm fw-bold" value="${totalCuota.toFixed(2)}" step="0.01" readonly>
-          </td>
-        </tr>`;
-      
-      $('#tablaCuotasVenta').append(html);
-      $('#formNuevaVenta').append(`<input type="hidden" class="cuota-hidden" name="numero_cuota_${i}" value="${i}">`);
+    // ⭐ AJUSTAR LA ÚLTIMA CUOTA PARA COMPENSAR DIFERENCIA
+    let montoCuotaActual = montoCuotaBase;
+    if (i === cantidadCuotas && diferencia !== 0) {
+      montoCuotaActual = montoCuotaBase + diferencia;
+    }
+    
+    const totalCuotaActual = montoCuotaActual + interesCuota;
+    
+    totalFinanciado += montoCuotaActual;
+    totalIntereses += interesCuota;
+    
+    // ⭐ AGREGAR FILA A LA TABLA
+    tablaCuotas += `
+      <tr>
+        <td class="text-center"><strong>Cuota ${i}</strong></td>
+        <td class="text-center">
+          <input type="date" 
+                 class="form-control form-control-sm fecha-cuota-editable" 
+                 value="${fechaVencimiento.toISOString().split('T')[0]}" 
+                 data-cuota="${i}">
+        </td>
+        <td class="text-end">S/ ${montoCuotaActual.toFixed(2)}</td>
+        <td class="text-end ${tasaInteres > 0 ? 'text-danger' : ''}">S/ ${interesCuota.toFixed(2)}</td>
+        <td class="text-end fw-bold text-success">S/ ${totalCuotaActual.toFixed(2)}</td>
+      </tr>
+    `;
+    
+    // ⭐ AGREGAR INPUTS OCULTOS PARA ENVIAR AL BACKEND
+    $('#formNuevaVenta').append(`
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_numero" value="${i}">
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_fecha" id="cuota_fecha_${i}" value="${fechaVencimiento.toISOString().split('T')[0]}">
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_monto" value="${montoCuotaActual.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_interes" value="${interesCuota.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_total" value="${totalCuotaActual.toFixed(2)}">
+      <input type="hidden" class="cuota-hidden" name="cuota_${i}_tasa" value="${tasaInteres}">
+    `);
+    
+    // ⭐ CALCULAR SIGUIENTE FECHA
+    if (tipoPeriodo === 'meses') {
+      fechaActual.setMonth(fechaActual.getMonth() + 1);
+    } else {
+      const dias = parseInt($('#dias_cuotas_venta').val()) || 30;
+      fechaActual.setDate(fechaActual.getDate() + dias);
     }
   }
   
-  Swal.fire({
-    icon: "success",
-    title: "Cuotas generadas",
-    text: `Se generaron ${cantidadCuotas} cuotas correctamente`,
-    timer: 1500,
-    showConfirmButton: false
+  // ⭐ AGREGAR TOTALES AL FINAL DE LA TABLA
+  const totalConIntereses = totalFinanciado + totalIntereses;
+  
+  tablaCuotas += `
+    <tr class="table-light border-top border-2">
+      <td colspan="2" class="text-end fw-bold">TOTALES:</td>
+      <td class="text-end fw-bold">S/ ${totalFinanciado.toFixed(2)}</td>
+      <td class="text-end fw-bold ${tasaInteres > 0 ? 'text-danger' : ''}">S/ ${totalIntereses.toFixed(2)}</td>
+      <td class="text-end fw-bold text-success">S/ ${totalConIntereses.toFixed(2)}</td>
+    </tr>
+  `;
+  
+  // ⭐ MOSTRAR EN LA TABLA
+  $('#tablaCuotasVenta').html(tablaCuotas);
+  
+  // ⭐ AGREGAR DATOS GENERALES
+  $('#formNuevaVenta').append(`
+    <input type="hidden" class="cuota-hidden" name="cantidad_cuotas" value="${cantidadCuotas}">
+    <input type="hidden" class="cuota-hidden" name="tasa_interes" value="${tasaInteres}">
+    <input type="hidden" class="cuota-hidden" name="monto_adelanto" value="${montoAdelanto.toFixed(2)}">
+    <input type="hidden" class="cuota-hidden" name="tipo_periodo" value="${tipoPeriodo}">
+  `);
+  
+  // ⭐ MOSTRAR RESUMEN VISUAL
+  const diferenciaInteres = totalConIntereses - montoFinanciar;
+  mostrarResumenCuotas(totalVenta, montoAdelanto, montoFinanciar, totalConIntereses, diferenciaInteres, cantidadCuotas);
+  
+  // ⭐ EVENT LISTENER PARA CAMBIOS DE FECHA
+  $('.fecha-cuota-editable').on('change', function() {
+    const numeroCuota = $(this).data('cuota');
+    const nuevaFecha = $(this).val();
+    $(`input[name="cuota_${numeroCuota}_fecha"]`).val(nuevaFecha);
+    
+    Swal.fire({
+      icon: 'success',
+      title: 'Fecha actualizada',
+      text: `Cuota ${numeroCuota} reprogramada`,
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 2000,
+      timerProgressBar: true
+    });
   });
 }
 
-function guardarYCerrarCuotasVenta() {
-  const tbody = document.getElementById("tablaCuotasVenta");
-  if (tbody.children.length === 0) {
-    Swal.fire("Atención", "Debes generar las cuotas primero", "warning");
-    return;
-  }
-
-  document.getElementById("tiene_cuotas").value = "1";
+// ========================================
+// ⭐ FUNCIÓN MOSTRAR RESUMEN DE CUOTAS
+// ========================================
+function mostrarResumenCuotas(totalVenta, adelanto, montoFinanciar, totalConIntereses, intereses, numCuotas) {
+  // ⭐ CREAR O ACTUALIZAR RESUMEN
+  let $resumen = $('#resumenCuotas');
   
-  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val());
-  if (!$('#formNuevaVenta').find('[name="cantidad_cuotas"]').length) {
-    $('#formNuevaVenta').append(`
-      <input type="hidden" class="cuota-hidden" name="cantidad_cuotas" value="${cantidadCuotas}">
+  if ($resumen.length === 0) {
+    // Crear resumen si no existe
+    $('#tablaCuotasVenta').parent().before(`
+      <div id="resumenCuotas" class="alert alert-info mb-3">
+        <div class="row">
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-shopping-cart me-2"></i>Total Venta:</strong><br>
+            <span class="fs-5 text-primary" id="resumen_total_venta">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-hand-holding-dollar me-2"></i>Adelanto:</strong><br>
+            <span class="fs-5 text-success" id="resumen_adelanto">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-calendar-days me-2"></i>A Financiar (${numCuotas} cuotas):</strong><br>
+            <span class="fs-5 text-warning" id="resumen_financiar">S/ 0.00</span>
+          </div>
+          <div class="col-md-3">
+            <strong><i class="fa-solid fa-percent me-2"></i>Total + Intereses:</strong><br>
+            <span class="fs-5 text-danger" id="resumen_con_intereses">S/ 0.00</span>
+            <br><small class="text-muted" id="resumen_diferencia">(+S/ 0.00 en intereses)</small>
+          </div>
+        </div>
+      </div>
     `);
+    $resumen = $('#resumenCuotas');
   }
   
-  Swal.fire({
-    icon: "success",
-    title: "Cuotas configuradas",
-    text: "Las cuotas han sido guardadas correctamente",
-    timer: 1500,
-    showConfirmButton: false
-  });
-
-  cerrarModalCuotasVenta();
+  // ⭐ ACTUALIZAR VALORES
+  $('#resumen_total_venta').text(`S/ ${totalVenta.toFixed(2)}`);
+  $('#resumen_adelanto').text(`S/ ${adelanto.toFixed(2)}`);
+  $('#resumen_financiar').text(`S/ ${montoFinanciar.toFixed(2)}`);
+  $('#resumen_con_intereses').text(`S/ ${totalConIntereses.toFixed(2)}`);
+  $('#resumen_diferencia').text(`(+S/ ${intereses.toFixed(2)} en intereses)`);
+  
+  // ⭐ ACTUALIZAR NÚMERO DE CUOTAS EN EL TEXTO
+  $resumen.find('strong:contains("A Financiar")').html(`<i class="fa-solid fa-calendar-days me-2"></i>A Financiar (${numCuotas} cuotas):`);
 }
 
+// ========================================
+// ⭐ FUNCIÓN FORMATEAR FECHA
+// ========================================
+function formatearFecha(fecha) {
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const anio = fecha.getFullYear();
+  return `${dia}/${mes}/${anio}`;
+}
+
+// ========================================
+// ⭐ FUNCIÓN CERRAR MODAL CUOTAS
+// ========================================
 function cerrarModalCuotasVenta() {
   const modalCuotas = bootstrap.Modal.getInstance(document.getElementById('modalCuotasVenta'));
   if (modalCuotas) {
     modalCuotas.hide();
   }
   
-  const modalVenta = document.getElementById('modalNuevaVenta');
-  if (!modalVenta.classList.contains('show')) {
-    const modalInstance = new bootstrap.Modal(modalVenta);
-    modalInstance.show();
+  // Limpiar cuotas si no se guardaron
+  if ($('#tiene_cuotas').val() === '0') {
+    $('.cuota-hidden').remove();
+    $('#tablaCuotasVenta').html('');
+    $('#resumenCuotas').remove();
   }
+  
+  // Reabrir modal de venta
+  setTimeout(() => {
+    const modalVenta = new bootstrap.Modal(document.getElementById('modalNuevaVenta'));
+    modalVenta.show();
+  }, 300);
 }
 
-function confirmarAnular(id, enlace) {
-  const urlAnular = $(enlace).attr('href');
+// ========================================
+// ⭐ FUNCIÓN GUARDAR Y CERRAR CUOTAS
+// ========================================
+function guardarYCerrarCuotasVenta() {
+  const cantidadCuotas = parseInt($('#cantidad_cuotas_venta').val()) || 0;
+  
+  // ⭐ VALIDAR QUE SE HAYAN GENERADO CUOTAS
+  if (cantidadCuotas === 0 || $('#tablaCuotasVenta tr').length === 0) {
+    Swal.fire({
+      icon: 'warning',
+      title: 'Cuotas no generadas',
+      text: 'Debe generar las cuotas antes de guardar',
+      confirmButtonColor: '#ffc107'
+    });
+    return;
+  }
+  
+  // ⭐ VALIDAR TOTALES
+  const totalVenta = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+  const montoAdelanto = parseFloat($('#monto_adelanto_venta').val()) || 0;
+  const montoFinanciar = totalVenta - montoAdelanto;
+  
+  // Sumar total de cuotas
+  let sumaCuotas = 0;
+  for (let i = 1; i <= cantidadCuotas; i++) {
+    const montoCuota = parseFloat($(`input[name="cuota_${i}_monto"]`).val()) || 0;
+    sumaCuotas += montoCuota;
+  }
+  
+  // ⭐ VALIDAR QUE LA SUMA COINCIDA (tolerancia de 1 centavo)
+  const diferencia = Math.abs(sumaCuotas - montoFinanciar);
+  if (diferencia > 0.01) {
+    Swal.fire({
+      icon: 'error',
+      title: 'Error en cuotas',
+      html: `<p>La suma de las cuotas (S/ ${sumaCuotas.toFixed(2)}) no coincide con el monto a financiar (S/ ${montoFinanciar.toFixed(2)})</p>
+             <p class="text-danger">Diferencia: S/ ${diferencia.toFixed(2)}</p>`,
+      confirmButtonColor: '#dc3545'
+    });
+    return;
+  }
+  
+  // ⭐ MARCAR COMO CONFIGURADO
+  $('#tiene_cuotas').val('1');
+  
+  // ⭐ CERRAR MODAL
+  const modalCuotas = bootstrap.Modal.getInstance(document.getElementById('modalCuotasVenta'));
+  if (modalCuotas) {
+    modalCuotas.hide();
+  }
+  
+  // ⭐ MOSTRAR CONFIRMACIÓN
   Swal.fire({
-    title: '¿Seguro que quieres anular esta venta?',
-    text: 'Esta acción no se puede deshacer',
-    icon: 'warning',
+    icon: 'success',
+    title: '¡Cuotas configuradas!',
+    html: `<p><strong>${cantidadCuotas}</strong> cuotas guardadas correctamente</p>
+           <p class="text-muted">Total a financiar: S/ ${montoFinanciar.toFixed(2)}</p>`,
+    timer: 2000,
+    showConfirmButton: false,
+    toast: true,
+    position: 'top-end',
+    timerProgressBar: true
+  });
+  
+  // ⭐ REABRIR MODAL DE VENTA
+  setTimeout(() => {
+    const modalVenta = new bootstrap.Modal(document.getElementById('modalNuevaVenta'));
+    modalVenta.show();
+  }, 300);
+}
+
+// ========================================
+// ⭐ RESTAURAR AL CERRAR EL MODAL
+// ========================================
+$('#modalNuevaVenta').on('hidden.bs.modal', function() {
+  resetearFormularioVenta();
+});
+
+// ========================================
+// INICIALIZAR DATATABLE
+// ========================================
+$(document).ready(function() {
+  if ($('.datatable').length) {
+    $('.datatable').DataTable({
+      language: {
+        url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json"
+      },
+      pageLength: 10,
+      order: [[0, 'desc']],
+      columnDefs: [
+        { 
+          targets: [9], // Columna de acciones
+          orderable: false,
+          searchable: false
+        }
+      ]
+    });
+  }
+});
+
+// ========================================
+// ⭐ INICIALIZAR TOOLTIPS DE BOOTSTRAP
+// ========================================
+$(document).ready(function() {
+  // Inicializar tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+  var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+  });
+});
+
+
+function mostrarResumenVenta() {
+  const totalVenta = parseFloat($('#totalVenta').text().replace(/[^\d.]/g, '')) || 0;
+  const totalGanancia = parseFloat($('#totalGanancia').text().replace(/[^\d.]/g, '')) || 0;
+  const cliente = $('#cliente_search').val();
+  const itemsCount = $('#tbodyItems tr').length;
+  const formaPago = $('#forma_pago option:selected').text();
+  
+  // Calcular porcentaje de ganancia
+  const porcentajeGanancia = totalVenta > 0 ? ((totalGanancia / totalVenta) * 100) : 0;
+  
+  // Determinar color de ganancia
+  let colorGanancia = 'text-success';
+  let iconoGanancia = 'fa-arrow-trend-up';
+  if (totalGanancia < 0) {
+    colorGanancia = 'text-danger';
+    iconoGanancia = 'fa-arrow-trend-down';
+  } else if (totalGanancia === 0) {
+    colorGanancia = 'text-secondary';
+    iconoGanancia = 'fa-minus';
+  }
+  
+  Swal.fire({
+    title: '📋 Resumen de la Venta',
+    html: `
+      <div class="text-start">
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="fa-solid fa-user me-2"></i>Cliente</h6>
+            <p class="mb-0 fw-bold">${cliente}</p>
+          </div>
+        </div>
+        
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="fa-solid fa-list me-2"></i>Productos</h6>
+            <p class="mb-0"><strong>${itemsCount}</strong> producto(s) agregado(s)</p>
+          </div>
+        </div>
+        
+        <div class="card mb-3">
+          <div class="card-body">
+            <h6 class="card-title text-primary"><i class="fa-solid fa-credit-card me-2"></i>Forma de Pago</h6>
+            <p class="mb-0 fw-bold">${formaPago}</p>
+          </div>
+        </div>
+        
+        <div class="card mb-3 border-success">
+          <div class="card-body bg-success bg-opacity-10">
+            <h6 class="card-title text-success"><i class="fa-solid fa-dollar-sign me-2"></i>Total Venta</h6>
+            <p class="mb-0 fs-4 fw-bold text-success">S/ ${totalVenta.toFixed(2)}</p>
+          </div>
+        </div>
+        
+        <div class="card border-info">
+          <div class="card-body bg-info bg-opacity-10">
+            <h6 class="card-title ${colorGanancia}"><i class="fa-solid ${iconoGanancia} me-2"></i>Ganancia Estimada</h6>
+            <p class="mb-0 fs-4 fw-bold ${colorGanancia}">S/ ${totalGanancia.toFixed(2)} <small>(${porcentajeGanancia.toFixed(1)}%)</small></p>
+          </div>
+        </div>
+      </div>
+    `,
+    icon: 'question',
     showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Sí, anular',
-    cancelButtonText: 'Cancelar'
+    confirmButtonColor: '#28a745',
+    cancelButtonColor: '#6c757d',
+    confirmButtonText: '<i class="fa-solid fa-check me-2"></i>Confirmar y Guardar',
+    cancelButtonText: '<i class="fa-solid fa-xmark me-2"></i>Revisar',
+    width: '600px'
   }).then((result) => {
     if (result.isConfirmed) {
-      window.location.href = urlAnular;
+      procesarVenta();
     }
   });
-  return false;
 }
+
+
+// ========================================
+// ⭐ FILTRADO DE SERIES POR TIPO DE COMPROBANTE
+// ========================================
+$(document).ready(function() {
+  
+  // ⭐ EVENT: Cambio de tipo de comprobante
+  $('#tipo_comprobante').on('change', function() {
+    const idtipocomprobante = $(this).val();
+    const $serieSelect = $('#serie_comprobante');
+    const $infoProximoNumero = $('#info_proximo_numero');
+    const $nroComprobante = $('#nro_comprobante');
+    
+    // Limpiar select de series
+    $serieSelect.html('<option value="">Cargando series...</option>');
+    $serieSelect.prop('disabled', true);
+    $infoProximoNumero.html('');
+    $nroComprobante.val('Seleccione serie');
+    
+    if (!idtipocomprobante) {
+      $serieSelect.html('<option value="">Primero seleccione tipo de comprobante</option>');
+      return;
+    }
+    
+    // ⭐ PETICIÓN AJAX
+    $.ajax({
+      url: '/sys/vnt/series/',
+      method: 'GET',
+      data: { idtipocomprobante: idtipocomprobante },
+      success: function(response) {
+        if (response.ok && response.series.length > 0) {
+          // ⭐ LLENAR SELECT CON SERIES
+          let options = '<option value="">Seleccione una serie</option>';
+          
+          response.series.forEach(function(serie) {
+            const textoOpcion = `${serie.serie} (Próximo: ${serie.proximo_numero})`;
+            options += `<option value="${serie.idseriecomprobante}" 
+                                data-serie="${serie.serie}" 
+                                data-numero-actual="${serie.numero_actual}" 
+                                data-proximo="${serie.proximo_numero}">
+                          ${textoOpcion}
+                        </option>`;
+          });
+          
+          $serieSelect.html(options);
+          $serieSelect.prop('disabled', false);
+          
+          // ⭐ SELECCIONAR AUTOMÁTICAMENTE LA PRIMERA SERIE SI SOLO HAY UNA
+          if (response.series.length === 1) {
+            $serieSelect.val(response.series[0].idseriecomprobante).trigger('change');
+          }
+          
+        } else {
+          // ⭐ NO HAY SERIES DISPONIBLES
+          $serieSelect.html('<option value="">No hay series disponibles para este tipo de comprobante</option>');
+          $nroComprobante.val('Sin series disponibles');
+          
+          Swal.fire({
+            icon: 'warning',
+            title: 'Sin series disponibles',
+            html: `
+              <p>No se encontraron series activas para este tipo de comprobante.</p>
+              <div class="alert alert-info mt-3">
+                <i class="fa-solid fa-lightbulb me-2"></i>
+                Debe crear al menos una serie en el módulo de <strong>Series de Comprobante</strong>.
+              </div>
+            `,
+            confirmButtonText: 'Entendido',
+            confirmButtonColor: '#ffc107'
+          });
+        }
+      },
+      error: function(xhr) {
+        console.error('Error al obtener series:', xhr);
+        
+        let errorMsg = 'Error al cargar las series';
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errorMsg = xhr.responseJSON.error;
+        }
+        
+        $serieSelect.html('<option value="">Error al cargar series</option>');
+        $nroComprobante.val('Error al cargar');
+        
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: errorMsg,
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#dc3545'
+        });
+      }
+    });
+  });
+  
+  // ⭐ EVENT: Cambio de serie (mostrar próximo número)
+  $('#serie_comprobante').on('change', function() {
+    const $selected = $(this).find('option:selected');
+    const $infoProximoNumero = $('#info_proximo_numero');
+    const $nroComprobante = $('#nro_comprobante');
+    const $badgeEstado = $('#badge_estado_comprobante');
+    
+    if ($selected.val()) {
+      const proximoNumero = $selected.data('proximo');
+      const numeroActual = $selected.data('numero-actual');
+      
+      
+      // ⭐ ACTUALIZAR CAMPO DE NÚMERO DE COMPROBANTE
+      $nroComprobante.val(proximoNumero);
+
+      // ⭐ MOSTRAR BADGE
+      $badgeEstado.fadeIn();
+      
+      // ⭐ MOSTRAR INFORMACIÓN ADICIONAL
+      $infoProximoNumero.html(`
+        <i class="fa-solid fa-circle-info text-info"></i> 
+        Próximo comprobante: <strong class="text-primary">${proximoNumero}</strong> 
+        <span class="text-muted">(Actual: ${numeroActual})</span>
+      `);
+      
+      // ⭐ ANIMACIÓN VISUAL
+      $nroComprobante.addClass('campo-actualizado');
+      setTimeout(() => {
+        $nroComprobante.removeClass('campo-actualizado');
+      }, 600);
+      
+    } else {
+      $nroComprobante.val('Seleccione serie');
+      $infoProximoNumero.html('');
+      $badgeEstado.fadeOut();
+    }
+  });
+  
+  // ⭐ TRIGGER INICIAL
+  const tipoComprobanteInicial = $('#tipo_comprobante').val();
+  if (tipoComprobanteInicial) {
+    $('#tipo_comprobante').trigger('change');
+  }
+  
+});
+
 </script>
 
 <style>
-  .form-control-sm, .form-select-sm {
-    font-size: 0.875rem;
+/* ========================================
+   ⭐ VARIABLES CSS (NUEVO)
+   ======================================== */
+:root {
+  --border-radius-sm: 0.375rem;
+  --border-radius-md: 0.5rem;
+  --border-radius-lg: 10px;
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.2);
+  --transition-fast: all 0.2s ease;
+  --transition-normal: all 0.3s ease;
+}
+
+/* ========================================
+   ⭐ ESTILOS GENERALES
+   ======================================== */
+.form-control-sm, .form-select-sm {
+  font-size: 0.875rem;
+}
+
+.table td {
+  vertical-align: middle;
+}
+
+.modal-xl {
+  max-width: 95%;
+}
+
+.card {
+  border-radius: var(--border-radius-lg);
+  transition: var(--transition-normal);
+}
+
+.card:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0 !important;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.card-header h6 {
+  margin: 0;
+  font-weight: 600;
+  color: #495057;
+}
+
+.card-header i {
+  color: #6c757d;
+}
+
+.card-header:hover {
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  transition: var(--transition-normal);
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+/* Scroll para tablas largas */
+.table-responsive {
+  max-height: 900px;
+  overflow-y: auto;
+}
+
+/* Estilos para inputs readonly */
+input[readonly] {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+/* Cantidad readonly para vehículos */
+input[readonly].text-center {
+  font-weight: 600;
+  color: #495057;
+}
+
+/* ========================================
+   ⭐ AUTOCOMPLETE MODERNO
+   ======================================== */
+.autocomplete-wrapper {
+  position: relative;
+}
+
+.autocomplete-input {
+  width: 100%;
+}
+
+/* Input con flecha */
+.autocomplete-with-arrow {
+  padding-right: 40px;
+}
+
+/* Botón flecha */
+.autocomplete-arrow {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 5px 8px;
+  color: #6c757d;
+  transition: var(--transition-fast);
+  z-index: 10;
+}
+
+.autocomplete-arrow:hover {
+  color: #495057;
+}
+
+.autocomplete-arrow i {
+  font-size: 14px;
+}
+
+/* Botón flecha pequeño */
+.autocomplete-arrow-sm {
+  right: 5px;
+  padding: 3px 6px;
+}
+
+.autocomplete-arrow-sm i {
+  font-size: 12px;
+}
+
+.autocomplete-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  max-height: 250px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ced4da;
+  border-top: none;
+  border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
+  box-shadow: var(--shadow-md);
+  display: none;
+}
+
+.autocomplete-item {
+  padding: 10px 15px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: var(--transition-fast);
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background-color: #e9f5ff;
+}
+
+.autocomplete-item.no-results {
+  color: #6c757d;
+  cursor: default;
+  font-style: italic;
+}
+
+.autocomplete-item.no-results:hover {
+  background-color: white;
+}
+
+.autocomplete-item .badge {
+  font-size: 0.65rem;
+  padding: 0.2em 0.5em;
+  vertical-align: middle;
+}
+
+.autocomplete-item .d-flex {
+  width: 100%;
+  font-size: 0.85rem;
+}
+
+.autocomplete-item .d-flex > div:first-child {
+  flex: 1;
+}
+
+.autocomplete-item .d-flex > div:last-child {
+  white-space: nowrap;
+}
+
+.autocomplete-item strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+/* Scrollbar del autocomplete */
+.autocomplete-results::-webkit-scrollbar {
+  width: 8px;
+}
+
+.autocomplete-results::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.autocomplete-results::-webkit-scrollbar-thumb {
+  background: #adb5bd;
+  border-radius: 4px;
+}
+
+.autocomplete-results::-webkit-scrollbar-thumb:hover {
+  background: #6c757d;
+}
+
+/* Autocomplete en tablas */
+.nombre-autocomplete,
+.detalle-autocomplete {
+  padding-right: 35px;
+  font-size: 0.875rem;
+}
+
+.table td .autocomplete-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.table td .autocomplete-results {
+  max-height: 200px;
+  font-size: 0.85rem;
+  z-index: 1050;
+  min-width: 400px;
+}
+
+.table td .autocomplete-item {
+  padding: 8px 12px;
+}
+
+/* ========================================
+   ⭐ BOTÓN AGREGAR CLIENTE
+   ======================================== */
+.input-group .autocomplete-wrapper {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.input-group-cliente {
+  gap: 10px;
+}
+
+.btn-add-cliente {
+  border-radius: var(--border-radius-sm) !important;
+  padding: 0.375rem 0.75rem;
+  min-width: 42px;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-fast);
+}
+
+.btn-add-cliente:hover {
+  background-color: #157347;
+  border-color: #146c43;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-add-cliente:active {
+  transform: translateY(0);
+}
+
+.input-group-cliente .autocomplete-input {
+  border-radius: var(--border-radius-sm) !important;
+}
+
+/* ========================================
+   ⭐ ANIMACIÓN PARA CAMPOS AUTOCOMPLETADOS
+   ======================================== */
+.campo-autocompletado {
+  animation: highlightField 0.6s ease;
+}
+
+@keyframes highlightField {
+  0%, 100% { 
+    background-color: transparent; 
   }
-  
-  .table td {
-    vertical-align: middle;
+  50% { 
+    background-color: #d1f2eb;
+    border-color: #28a745;
   }
-  
+}
+
+/* ========================================
+   ⭐ TABLA DE DETALLES MEJORADA
+   ======================================== */
+.table thead th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  text-align: center;
+  vertical-align: middle;
+  border-bottom: 2px solid #dee2e6;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.table thead th i {
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+.table tbody tr {
+  transition: var(--transition-fast);
+}
+
+.table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.table tfoot tr {
+  border-top: 3px solid #dee2e6;
+  background-color: #f8f9fa;
+}
+
+.table tfoot td {
+  font-weight: 600;
+  padding: 1rem;
+}
+
+#totalVenta, #totalGanancia {
+  font-size: 1.25rem;
+}
+
+/* Stock info y sugerencias */
+.stock-info,
+.sugerencia-descuento,
+.sugerencia-credito {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+
+.stock-info {
+  font-size: 0.75rem;
+}
+
+.sugerencia-descuento,
+.sugerencia-credito {
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.stock-info i,
+.sugerencia-descuento i,
+.sugerencia-credito i {
+  margin-right: 4px;
+}
+
+.sugerencia-descuento i,
+.sugerencia-credito i {
+  margin-right: 3px;
+}
+
+/* Inputs inválidos */
+.is-invalid {
+  border-color: #dc3545 !important;
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* ========================================
+   ⭐ COLUMNAS DINÁMICAS
+   ======================================== */
+.columna-descuento,
+.columna-credito {
+  transition: var(--transition-normal);
+}
+
+.columna-descuento.d-none,
+.columna-credito.d-none {
+  display: none !important;
+}
+
+/* ========================================
+   ⭐ COLUMNAS DESTACADAS
+   ======================================== */
+.bg-warning.bg-opacity-25 {
+  background-color: rgba(255, 193, 7, 0.15) !important;
+}
+
+.bg-warning.bg-opacity-10 {
+  background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+/* ========================================
+   ⭐ INPUTS ESPECIALES (DESCUENTO Y CRÉDITO)
+   ======================================== */
+.precio-descuento-input {
+  border: 2px solid #ffc107;
+  background-color: #fffbf0;
+}
+
+.precio-descuento-input:focus {
+  border-color: #ffb300;
+  box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.25);
+}
+
+.precio-descuento-input::placeholder {
+  color: #856404;
+  font-size: 0.8rem;
+}
+
+.precio-credito-input {
+  border: 2px solid #dc3545;
+  background-color: #fff5f5;
+}
+
+.precio-credito-input:focus {
+  border-color: #bb2d3b;
+  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+.precio-credito-input::placeholder {
+  color: #842029;
+  font-size: 0.8rem;
+}
+
+/* ========================================
+   ⭐ BOTONES DE ACCIONES EN LA TABLA
+   ======================================== */
+.btn-group {
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--border-radius-sm);
+}
+
+.btn-group .btn {
+  border-radius: 0;
+  transition: var(--transition-fast);
+}
+
+.btn-group .btn:first-child {
+  border-top-left-radius: var(--border-radius-sm);
+  border-bottom-left-radius: var(--border-radius-sm);
+}
+
+.btn-group .btn:last-child {
+  border-top-right-radius: var(--border-radius-sm);
+  border-bottom-right-radius: var(--border-radius-sm);
+}
+
+.btn-group .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1;
+}
+
+.btn-group .btn-info {
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+  color: white;
+}
+
+.btn-group .btn-info:hover {
+  background-color: #138496;
+  border-color: #117a8b;
+}
+
+.btn-group .btn-primary:hover {
+  background-color: #0b5ed7;
+  border-color: #0a58ca;
+}
+
+.btn-group .btn-danger:hover {
+  background-color: #bb2d3b;
+  border-color: #b02a37;
+}
+
+.btn-group .btn-secondary:hover {
+  background-color: #5c636a;
+  border-color: #565e64;
+}
+
+/* ========================================
+   ⭐ FORMULARIO DE NUEVA VENTA
+   ======================================== */
+.form-label.fw-semibold {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.form-label .text-danger {
+  font-weight: 700;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* ========================================
+   ⭐ MODALES MEJORADOS
+   ======================================== */
+.modal-content {
+  border: none;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  border-bottom: 2px solid #dee2e6;
+  padding: 1.25rem 1.5rem;
+}
+
+.modal-header.bg-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+.modal-header.bg-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #ffcd39 100%) !important;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  border-top: 2px solid #dee2e6;
+  padding: 1rem 1.5rem;
+}
+
+.modal-footer .btn {
+  min-width: 120px;
+  font-weight: 500;
+}
+
+.modal-footer .btn i {
+  margin-right: 0.5rem;
+}
+
+.modal.show .modal-dialog {
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ========================================
+   ⭐ ALERTAS MEJORADAS
+   ======================================== */
+.alert {
+  border-radius: var(--border-radius-md);
+  border: none;
+  box-shadow: var(--shadow-sm);
+  animation: slideDown 0.3s ease;
+}
+
+.alert i {
+  font-size: 1.1rem;
+}
+
+.alert-info {
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  color: #0c5460;
+  border-left: 4px solid #17a2b8;
+}
+
+.alert-danger {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c2c7 100%);
+  color: #721c24;
+  border-left: 4px solid #dc3545;
+}
+
+.alert-success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  color: #155724;
+  border-left: 4px solid #28a745;
+}
+
+.alert-warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+  color: #856404;
+  border-left: 4px solid #ffc107;
+}
+
+.alert-primary {
+  background: linear-gradient(135deg, #cfe2ff 0%, #b6d4fe 100%);
+  color: #084298;
+  border-left: 4px solid #0d6efd;
+}
+
+/* ========================================
+   ⭐ BADGES MEJORADOS (CONSOLIDADO)
+   ======================================== */
+.badge {
+  font-size: 0.8rem;
+  padding: 0.35em 0.65em;
+  font-weight: 500;
+  border-radius: var(--border-radius-sm);
+}
+
+.badge.bg-primary {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;
+}
+
+.badge.bg-success {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+}
+
+.badge.bg-warning {
+  background: linear-gradient(135deg, #ffc107 0%, #ffb300 100%) !important;
+}
+
+.badge.bg-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%) !important;
+}
+
+.badge.bg-info {
+  background: linear-gradient(135deg, #0dcaf0 0%, #17a2b8 100%) !important;
+}
+
+.badge.bg-secondary {
+  background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%) !important;
+}
+
+/* ========================================
+   ⭐ BOTONES REDONDEADOS MEJORADOS
+   ======================================== */
+.btn.rounded-pill {
+  border-radius: 50rem !important;
+  padding: 0.5rem 1.5rem;
+  font-weight: 500;
+  transition: var(--transition-normal);
+}
+
+.btn.rounded-pill:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn.rounded-pill:active {
+  transform: translateY(0);
+}
+
+/* ========================================
+   ⭐ DATATABLES MEJORADO
+   ======================================== */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+  margin-bottom: 15px;
+}
+
+.dataTables_wrapper .dataTables_info,
+.dataTables_wrapper .dataTables_paginate {
+  margin-top: 15px;
+}
+
+.dataTables_length select {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid #ced4da;
+}
+
+.dataTables_filter input {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid #ced4da;
+  margin-left: 10px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  border-radius: 5px;
+  margin: 0 2px;
+  padding: 5px 10px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%) !important;
+  border-color: #0d6efd !important;
+  color: white !important;
+}
+
+/* ========================================
+   ⭐ SPINNER LOADING
+   ======================================== */
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+
+/* ========================================
+   ⭐ BREADCRUMB MEJORADO
+   ======================================== */
+.breadcrumb {
+  background-color: transparent;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: #6c757d;
+}
+
+.breadcrumb-item a {
+  color: #0d6efd;
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.breadcrumb-item a:hover {
+  color: #0a58ca;
+  text-decoration: underline;
+}
+
+/* ========================================
+   ⭐ PAGETITLE MEJORADO
+   ======================================== */
+.pagetitle h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0d6efd;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.pagetitle h1 i {
+  font-size: 1.5rem;
+  vertical-align: middle;
+}
+
+/* ========================================
+   ⭐ SWAL2 PERSONALIZADO
+   ======================================== */
+.swal2-popup {
+  border-radius: 1rem;
+  box-shadow: var(--shadow-lg);
+}
+
+.swal2-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.swal2-html-container {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* ========================================
+   ⭐ RESPONSIVE
+   ======================================== */
+@media (max-width: 768px) {
   .modal-xl {
-    max-width: 95%;
+    max-width: 100%;
+    margin: 0.5rem;
   }
   
-  .card {
-    border-radius: 10px;
+  .table {
+    font-size: 0.8rem;
   }
   
-  .card-header {
-    border-radius: 10px 10px 0 0 !important;
+  .btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
   }
   
   .badge {
-    padding: 0.4em 0.8em;
+    font-size: 0.7rem;
+    padding: 0.25em 0.5em;
   }
   
-  /* Scroll para tablas largas */
-  .table-responsive {
-    max-height: 900px;
-    overflow-y: auto;
+  .card-body {
+    padding: 1rem;
   }
   
-  /* Estilos para inputs readonly */
-  input[readonly] {
-    background-color: #e9ecef;
+  .table td .autocomplete-results {
+    min-width: 300px;
   }
+  
+  .autocomplete-item .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  
+  .autocomplete-item .d-flex > div:last-child {
+    margin-top: 5px;
+  }
+}
+
+/* ========================================
+   ⭐ ANIMACIONES
+   ======================================== */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   ⭐ MODAL DE CUOTAS MEJORADO
+   ======================================== */
+#resumenCuotas {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-left: 5px solid #2196f3;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+#resumenCuotas strong {
+  color: #1565c0;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+#resumenCuotas .fs-5 {
+  font-weight: 700;
+  display: block;
+}
+
+#resumenCuotas .row > div {
+  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+}
+
+#resumenCuotas .row > div:last-child {
+  border-right: none;
+}
+
+/* Inputs de fecha editables en la tabla */
+.fecha-cuota-editable {
+  border: 2px solid #0dcaf0;
+  background-color: #e0f7ff;
+  font-weight: 600;
+  text-align: center;
+}
+
+.fecha-cuota-editable:focus {
+  border-color: #0a9fc7;
+  box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+}
+
+/* Tabla de cuotas mejorada */
+#tablaCuotasVenta tr {
+  transition: background-color 0.2s ease;
+}
+
+#tablaCuotasVenta tr:hover {
+  background-color: #f0f8ff;
+}
+
+#tablaCuotasVenta td {
+  vertical-align: middle;
+  padding: 0.75rem;
+}
+
+#tablaCuotasVenta .table-light {
+  background-color: #e3f2fd !important;
+  font-size: 1.1rem;
+}
+
+/* Iconos en el resumen */
+#resumenCuotas i {
+  color: #1976d2;
+}
+
+/* Animación al generar cuotas */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#resumenCuotas {
+  animation: fadeInUp 0.5s ease;
+}
+
+#tablaCuotasVenta tr {
+  animation: fadeInUp 0.3s ease;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  #resumenCuotas .row > div {
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    margin-bottom: 1rem;
+  }
+  
+  #resumenCuotas .row > div:last-child {
+    border-bottom: none;
+  }
+}
+
+.bg-success-gradient {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+  padding: 0.25em 0.5em;
+  font-weight: 600;
+}
+
+.bg-danger-gradient {
+  background: linear-gradient(135deg, #dc3545 0%, #e85d68 100%);
+  color: white;
+  font-size: 0.75rem;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  padding: 0.25em 0.5em;
+  font-weight: 600;
+}
+
+/* ========================================
+   ⭐ ANIMACIÓN DE STOCK BAJO
+   ======================================== */
+.pulse-warning {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Badge de stock bajo en autocomplete */
+.badge-stock-bajo {
+  animation: pulse-badge 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-badge {
+  0%, 100% { 
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 193, 7, 0);
+  }
+  50% { 
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+  }
+}
+
+/* ========================================
+   ⭐ MEJORAS VISUALES DE BADGES
+   ======================================== */
+.autocomplete-item .badge {
+  margin-left: 0.25rem;
+  font-weight: 600;
+  font-size: 0.7rem;
+}
+
+.autocomplete-item .badge i {
+  font-size: 0.65rem;
+  margin-right: 2px;
+}
+
+.autocomplete-item:has(.badge-stock-bajo):hover {
+  background-color: #fff3cd;
+  border-left: 3px solid #ffc107;
+}
+
+/* Columna de ganancia */
+#totalGanancia small {
+  font-size: 0.7rem;
+  display: block;
+  margin-top: 2px;
+}
+
+.table tbody td small {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+
+/* ========================================
+   ⭐ ESTILOS PARA INFO DE SERIES
+   ======================================== */
+#info_proximo_numero {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+#info_proximo_numero i {
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+#info_proximo_numero strong {
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+#info_proximo_numero .text-muted {
+  font-size: 0.8rem;
+}
+
+/* Select de series con loading */
+#serie_comprobante:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Animación al cargar series */
+#serie_comprobante option {
+  padding: 0.5rem;
+}
+
+/* Highlight para serie seleccionada */
+#serie_comprobante option:checked {
+  background-color: #0d6efd;
+  color: white;
+}
+
+/* ========================================
+   ⭐ CAMPO NÚMERO DE COMPROBANTE
+   ======================================== */
+#nro_comprobante {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border: 2px solid #2196f3;
+  color: #0d47a1;
+  font-weight: 700;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 1px;
+  cursor: default;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.2);
+}
+
+#nro_comprobante:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 0.25rem rgba(33, 150, 243, 0.25);
+}
+
+/* Animación al actualizar */
+.campo-actualizado {
+  animation: pulseComprobante 0.6s ease;
+}
+
+@keyframes pulseComprobante {
+  0%, 100% { 
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    transform: scale(1);
+  }
+  50% { 
+    background: linear-gradient(135deg, #a5d6a7 0%, #81c784 100%);
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.4);
+  }
+}
+
+/* Estados especiales */
+#nro_comprobante[value="Seleccione serie"],
+#nro_comprobante[value="Sin series disponibles"],
+#nro_comprobante[value="Error al cargar"] {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  color: #757575;
+  font-style: italic;
+  border-color: #bdbdbd;
+}
+
+#nro_comprobante[value="Sin series disponibles"],
+#nro_comprobante[value="Error al cargar"] {
+  background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+  color: #c62828;
+  border-color: #e57373;
+}
+
+/* ========================================
+   ⭐ FIN DE ESTILOS
+   ======================================== */
 </style>
+
+
+
 {% endblock %}

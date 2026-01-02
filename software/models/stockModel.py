@@ -2,11 +2,13 @@ from django.db import models
 from software.models.almacenesModel import Almacenes
 from software.models.VehiculosModel import Vehiculo
 from software.models.RespuestoCompModel import RepuestoComp
+from software.models.compradetalleModel import CompraDetalle
 
 
 class Stock(models.Model):
     id_stock = models.AutoField(primary_key=True)
     id_almacen = models.ForeignKey(Almacenes, on_delete=models.CASCADE, db_column='id_almacen', related_name='stocks')
+    idcompradetalle = models.ForeignKey(CompraDetalle, on_delete=models.CASCADE, db_column='idcompradetalle', related_name='stocks', null=True, blank=True)
     # Producto puede ser vehículo o repuesto
     id_vehiculo = models.ForeignKey(Vehiculo, on_delete=models.CASCADE, db_column='id_vehiculo', related_name='stocks', null=True, blank=True)
     id_repuesto_comprado = models.ForeignKey(RepuestoComp, on_delete=models.CASCADE, db_column='id_repuesto_comprado', related_name='stocks', null=True, blank=True)
@@ -15,9 +17,9 @@ class Stock(models.Model):
     estado = models.IntegerField(default=1, db_column='estado')
     
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stock'
-        unique_together = [['id_almacen', 'id_vehiculo'], ['id_almacen', 'id_repuesto_comprado']]
+        
     
     def __str__(self):
         if self.id_vehiculo:
