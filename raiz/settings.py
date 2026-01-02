@@ -89,10 +89,10 @@ WSGI_APPLICATION = 'raiz.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'facsiswave',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'localhost',  # O la dirección IP de tu servidor MySQL
+        'NAME': 'facsiswave-db',
+        'USER': 'jeiser',
+        'PASSWORD': 'jeiser0123456',
+        'HOST': 'facsiswave-db.ck3sgmue2jkv.us-east-1.rds.amazonaws.com',  # O la dirección IP de tu servidor MySQL
         'PORT': '3306',       # El puerto por defecto de MySQL es 3306
     }
 }
