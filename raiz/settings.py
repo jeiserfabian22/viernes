@@ -28,11 +28,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-1yqp4mb^j0uqm-uf6zgr+^axhif(n-^x%kk2y$folet5#i##!a'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = [
     '3.222.245.142', 
     'localhost',
+    '127.0.0.1',
 ]
 
 
@@ -132,9 +133,7 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = '/static/'
-
-STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-
+STATIC_ROOT = '/var/www/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -142,8 +141,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configuración de la ruta media
-MEDIA_URL = '/media/'  # URL que se usará para acceder a los archivos media
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')  # Ruta en el sistema de archivos
+MEDIA_URL = '/media/'
+MEDIA_ROOT = '/var/www/media/'
 
 # Configuración de correo Gmail
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
