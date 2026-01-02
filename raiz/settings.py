@@ -31,11 +31,8 @@ SECRET_KEY = 'django-insecure-1yqp4mb^j0uqm-uf6zgr+^axhif(n-^x%kk2y$folet5#i##!a
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    '127.0.0.1', 
+    '3.222.245.142', 
     'localhost',
-    # Esto permite cualquier subdominio generado por ngrok en el dominio .ngrok-free.dev
-    'misistemaventas.ngrok.app', 
-    '*' # Permite todas las peticiones si DEBUG=True (útil para desarrollo)
 ]
 
 
@@ -135,6 +132,8 @@ USE_TZ = False
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
